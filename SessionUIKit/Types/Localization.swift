@@ -183,7 +183,21 @@ public extension String {
     func localizedFormatted(baseFont: UIFont) -> ThemedAttributedString {
         return LocalizationHelper(template: self).localizedFormatted(baseFont: baseFont)
     }
-    
+
+    func localizedFormatted(
+        _ font: UIFont = .systemFont(ofSize: 14),
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) -> ThemedAttributedString {
+        return LocalizationHelper(template: self).localizedFormatted(
+            font,
+            attributes: attributes,
+            mentionColor: mentionColor,
+            currentUserMentionImage: currentUserMentionImage
+        )
+    }
+
     func localizedFormatted(in view: FontAccessible) -> ThemedAttributedString {
         return LocalizationHelper(template: self).localizedFormatted(in: view)
     }

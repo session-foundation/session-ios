@@ -89,7 +89,7 @@ for harness setup and the run commands.
   extract/reuse it rather than copy-pasting. Pull shared logic into the appropriate
   lower-level module rather than repeating it across call sites.
 - **File header** (top of every new Swift file):
-  `// Copyright © <year> Rangeproof Pty Ltd. All rights reserved.`
+  `// Copyright © <year> Session Technology Foundation. All rights reserved.`
 - **C++** is formatted with `.clang-format` (WebKit base, 120-column, no tabs).
 - A `.swiftlint.yml` exists but SwiftLint is **not actually run** on this project — don't
   rely on it as a lint gate or spend effort satisfying it.
@@ -135,3 +135,11 @@ for harness setup and the run commands.
 - **libSession changes:** if you modify anything requiring a libSession source rebuild,
   switch to the `Session_CompileLibSession` scheme — the default scheme uses the prebuilt
   SPM binary and won't pick up local C/C++ edits.
+- **libSession re-pin ⇒ clean before you trust the build.** When you re-point the
+  `Session_CompileLibSession` source at a different libSession commit, cmake rebuilds the C/C++
+  and its headers, but Xcode's incremental Swift step does **not** reliably re-typecheck the
+  Swift that `import SessionUtil` against the changed headers — so the build can report a **false
+  green**, linking the new library against stale Swift (tell-tale: it "compiles" even though the
+  Swift still references C symbols the new pin renamed/removed). Force a real recompile first:
+  delete `build/derivedData/Build/Intermediates.noindex` and `.../ModuleCache.noindex` (or do a
+  full clean). Only then do the real breakages surface.

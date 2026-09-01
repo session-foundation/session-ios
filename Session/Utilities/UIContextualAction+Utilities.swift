@@ -260,14 +260,20 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler in
                             if
-                                dependencies[feature: .sessionProEnabled],
                                 !isCurrentlyPinned,
-                                !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
+                                /// **The gate reads ACCESS**; the prompt it raises below reads DISPLAY, and that split is enforced
+                                /// inside `showSessionProCTAIfNeeded` rather than here - so this one read doing both jobs is
+                                /// safe only because `.morePinnedConvos` is not on that function's exempt list
+                                !dependencies[singleton: .sessionProManager].currentUserHasProAccess,
                                 currentPinnedConversationCount >= SessionPro.PinnedConversationLimit
                             {
                                 dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                     .morePinnedConvos(
-                                        isGrandfathered: (currentPinnedConversationCount >= SessionPro.PinnedConversationLimit),
+                                        /// **Note:** Strictly greater than - *over* the limit, not merely at it. This
+                                        /// was previously `>=`, ie. the same expression as the guard above, so it was
+                                        /// always `true` here and a user at exactly the limit got the over-the-limit
+                                        /// copy. `ThreadSettingsViewModel` and both other platforms use `>`
+                                        isOverTheLimit: (currentPinnedConversationCount > SessionPro.PinnedConversationLimit),
                                         renew: (dependencies[singleton: .sessionProManager]
                                             .currentUserCurrentProState
                                             .status == .expired)
@@ -285,6 +291,9 @@ public extension UIContextualAction {
                                     }
                                 )
                                 
+                                /// The action was refused, so tell the table so - without this the row is left swiped
+                                /// open behind the modal, waiting on a handler which never gets called
+                                completionHandler(false)
                                 return
                             }
                             

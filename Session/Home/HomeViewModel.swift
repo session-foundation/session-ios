@@ -51,6 +51,7 @@ public class HomeViewModel: NavigatableStateHolder {
     /// This value is the current state of the view
     @MainActor @Published private(set) var state: State
     private var observationTask: Task<Void, Never>?
+    private var proCTARetryTask: Task<Void, Never>?
     
     // MARK: - Initialization
     @MainActor init(using dependencies: Dependencies) {
@@ -76,6 +77,7 @@ public class HomeViewModel: NavigatableStateHolder {
     
     deinit {
         observationTask?.cancel()
+        proCTARetryTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -291,14 +293,37 @@ public class HomeViewModel: NavigatableStateHolder {
                     .databaseLifecycle(.resumed)
                 )
             ),
-            requiresMessageRequestCountUpdate: changes.containsAny(
-                .messageRequestUnreadMessageReceived,
-                .messageRequestAccepted,
-                .messageRequestDeleted,
-                .messageRequestMessageRead
+            /// **Note:** Also on the initial query, for the same reason as the pinned count below - the value is seeded
+            /// at zero and only this flag fills it, so a fresh process showed no unread message requests until one of
+            /// the events below happened to arrive. Unlike the pinned count this one gates nothing, so it was a wrong
+            /// badge rather than a crossed limit, but it was wrong on every launch.
+            requiresMessageRequestCountUpdate: (
+                isInitialQuery ||
+                changes.containsAny(
+                    .messageRequestUnreadMessageReceived,
+                    .messageRequestAccepted,
+                    .messageRequestDeleted,
+                    .messageRequestMessageRead
+                )
             ),
-            requiresPinnedConversationCountUpdate: changes.contains(
-                .anyConversationPinnedPriorityChanged
+            /// **Note:** Also on the initial query, not only on a change. The count is seeded at zero and the query
+            /// behind this flag is the only thing that fills it, so without this a fresh process believes nothing is
+            /// pinned until the user pins or unpins something - and the pin limit, which reads this count, lets them
+            /// past it. Pins made before the launch are invisible to it.
+            ///
+            /// `conversationCreated` for the case the initial query cannot cover: a conversation arriving from config
+            /// already pinned. `SessionThread.upsert` creates it with the priority it read from `libSession`, so the
+            /// value never *changes* and no `anyConversationPinnedPriorityChanged` is emitted - and on a fresh install
+            /// the threads land after the initial query, so both of the other conditions miss them.
+            ///
+            /// Kept behind the flag rather than queried unconditionally: the point of the flag is to avoid the count
+            /// on every pass, and this only adds the passes which could have altered it.
+            requiresPinnedConversationCountUpdate: (
+                isInitialQuery ||
+                changes.containsAny(
+                    .anyConversationPinnedPriorityChanged,
+                    .conversationCreated
+                )
             )
         )
         
@@ -563,10 +588,66 @@ public class HomeViewModel: NavigatableStateHolder {
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
     }
     
+    /// Re-run the CTA check when a `get_pro_status` first confirms the state
+    ///
+    /// `sessionProExpiringCTAInfo()` declines on an unconfirmed status, and the fetch that would confirm it hangs off
+    /// `didBecomeActive` rather than off this screen appearing - so the two are unordered and this check can sample
+    /// before the answer exists. Without a retry that is permanent for the launch: the check runs once per appearance
+    /// and a lapse that the fetch would have revealed is simply never shown.
+    ///
+    /// **Note:** Waits for the transition into `.success` rather than polling, and only ever re-runs once. The fetch is
+    /// allowed not to happen - the startup gate declines inside its own interval - so this must not assume one is
+    /// coming, which is why it holds no timeout and simply stays parked until the screen goes away.
+    @MainActor private func retryProCTAOnConfirmedStatus() {
+        proCTARetryTask?.cancel()
+        proCTARetryTask = Task { [weak self, dependencies] in
+            for await state in dependencies[singleton: .sessionProManager].state {
+                guard !Task.isCancelled else { return }
+                guard state.loadingState == .success else { continue }
+
+                await self?.showSessionProCTAIfNeeded()
+                return
+            }
+        }
+    }
+
+    /// Whether the Pro settings screen is the front-most screen.
+    ///
+    /// That screen already states the plan and offers the same action, so a CTA raised over it talks over a better
+    /// answer. Session Desktop declines for the same reason (`aProSettingsScreenIsOpen` in `SessionCTA.tsx`).
+    ///
+    /// `frontMostViewController` descends presented controllers AND navigation stacks, so this sees the screen while
+    /// it is pushed inside the settings stack rather than only when it is presented.
+    @MainActor private var aProSettingsScreenIsOpen: Bool {
+        dependencies[singleton: .appContext].frontMostViewController
+            is SessionListHostingViewController<SessionProSettingsViewModel>
+    }
+
     @MainActor func showSessionProCTAIfNeeded() async {
+        /// Declining here rather than after the info is fetched is what makes it a DEFERRAL rather than a loss: the
+        /// `hasShownProExpiring/ExpiredCTA` latch is written when the modal is presented, so reaching the presentation
+        /// while this screen is open would consume a once-per-cycle warning the user never saw.
+        ///
+        /// Reachable only because the check is no longer tied to this screen appearing - `retryProCTAOnConfirmedStatus`
+        /// fires on a status confirmation, and the fetch that confirms it is the one the Pro settings screen makes on
+        /// open. Before that retry existed the check only ran on appearance, so being in settings was impossible by
+        /// construction and no guard was needed.
+        ///
+        /// Nothing re-arms afterwards, and nothing needs to: leaving the screen puts Home back on screen, and this runs
+        /// on that appearance.
+        guard !aProSettingsScreenIsOpen else { return }
+
         guard let info = await dependencies[singleton: .sessionProManager].sessionProExpiringCTAInfo() else {
+            /// Nothing to show *yet* is not the same as nothing to show. Park until a status fetch confirms the state,
+            /// then look once more - see `retryProCTAOnConfirmedStatus`
+            if await dependencies[singleton: .sessionProManager].currentUserCurrentProState.loadingState != .success {
+                retryProCTAOnConfirmedStatus()
+            }
+
             return
         }
+
+        proCTARetryTask?.cancel()
         
         try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
         
@@ -678,17 +759,8 @@ public class HomeViewModel: NavigatableStateHolder {
         ])
         
         let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: surveyUrl.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                surveyUrl,
                 hasCloseButton: true,
                 onConfirm: { modal in
                     UIApplication.shared.open(surveyUrl, options: [:], completionHandler: nil)

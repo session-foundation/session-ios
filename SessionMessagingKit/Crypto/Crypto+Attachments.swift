@@ -26,7 +26,6 @@ public extension Crypto {
 }
 
 public extension Crypto.Generator {
-    private static var hmac256KeyLength: Int { 32 }
     private static var hmac256OutputLength: Int { 32 }
     private static var aesCBCIvLength: Int { 16 }
     private static var aesKeySize: Int { 32 }
@@ -77,136 +76,6 @@ public extension Crypto.Generator {
             return (Data(cEncryptedData), Data(cEncryptionKey))
         }
     }
-    
-    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
-    static func legacyExpectedEncryptedAttachmentSize(
-        plaintextSize: Int
-    ) -> Crypto.Generator<Int> {
-        return Crypto.Generator(
-            id: "legacyExpectedEncryptedAttachmentSize",
-            args: [plaintextSize]
-        ) { dependencies in
-            return max(541, Int(floor(pow(1.05, ceil(log(Double(plaintextSize)) / log(1.05))))))
-        }
-    }
-    
-    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
-    static func legacyEncryptedAttachment(
-        plaintext: Data
-    ) -> Crypto.Generator<(ciphertext: Data, encryptionKey: Data, digest: Data)> {
-        return Crypto.Generator(
-            id: "legacyEncryptedAttachment",
-            args: [plaintext]
-        ) { dependencies in
-            // Due to paddedSize, we need to divide by two.
-            guard
-                plaintext.count < (UInt.max / 2),
-                var iv: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(aesCBCIvLength)),
-                var encryptionKey: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(aesKeySize)),
-                var hmacKey: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(hmac256KeyLength))
-            else { throw AttachmentError.legacyEncryptionFailed }
-
-            // The concatenated key for storage
-            var outKey: Data = Data()
-            outKey.append(Data(encryptionKey))
-            outKey.append(Data(hmacKey))
-
-            // Apply any padding
-            let desiredSize: Int = max(541, min(Int(Network.maxFileSize), Int(floor(pow(1.05, ceil(log(Double(plaintext.count)) / log(1.05)))))))
-            var paddedAttachmentData: [UInt8] = Array(plaintext)
-            if desiredSize > plaintext.count {
-                paddedAttachmentData.append(contentsOf: [UInt8](repeating: 0, count: desiredSize - plaintext.count))
-            }
-            
-            var numBytesEncrypted: size_t = 0
-            var bufferData: [UInt8] = Array(Data(count: paddedAttachmentData.count + kCCBlockSizeAES128))
-            let cryptStatus: CCCryptorStatus = CCCrypt(
-                CCOperation(kCCEncrypt),
-                CCAlgorithm(kCCAlgorithmAES128),
-                CCOptions(kCCOptionPKCS7Padding),
-                &encryptionKey, encryptionKey.count,
-                &iv,
-                &paddedAttachmentData, paddedAttachmentData.count,
-                &bufferData, bufferData.count,
-                &numBytesEncrypted
-            )
-
-            guard
-                cryptStatus == kCCSuccess,
-                bufferData.count >= numBytesEncrypted
-            else { throw AttachmentError.legacyEncryptionFailed }
-            
-            let ciphertext: [UInt8] = Array(bufferData[0..<numBytesEncrypted])
-            var encryptedPaddedData: [UInt8] = (iv + ciphertext)
-
-            // compute hmac of: iv || encrypted data
-            guard
-                encryptedPaddedData.count < (UInt.max / 2),
-                hmacKey.count < (UInt.max / 2)
-            else { throw AttachmentError.legacyEncryptionFailed }
-            
-            var hmacDataBuffer: [UInt8] = Array(Data(count: Int(CC_SHA256_DIGEST_LENGTH)))
-            CCHmac(
-                CCHmacAlgorithm(kCCHmacAlgSHA256),
-                &hmacKey,
-                hmacKey.count,
-                &encryptedPaddedData,
-                encryptedPaddedData.count,
-                &hmacDataBuffer
-            )
-            let hmac: [UInt8] = Array(hmacDataBuffer[0..<hmac256OutputLength])
-            encryptedPaddedData.append(contentsOf: hmac)
-
-            // compute digest of: iv || encrypted data || hmac
-            guard encryptedPaddedData.count < UInt32.max else {
-                throw AttachmentError.legacyEncryptionFailed
-            }
-            
-            var digest: [UInt8] = Array(Data(count: Int(CC_SHA256_DIGEST_LENGTH)))
-            CC_SHA256(&encryptedPaddedData, UInt32(encryptedPaddedData.count), &digest)
-            
-            return (Data(encryptedPaddedData), outKey, Data(digest))
-        }
-    }
-    
-    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
-    static func legacyEncryptedDisplayPictureSize(
-        plaintextSize: Int
-    ) -> Crypto.Generator<Int> {
-        return Crypto.Generator(
-            id: "legacyEncryptedDisplayPictureSize",
-            args: [plaintextSize]
-        ) { dependencies in
-            return (plaintextSize + DisplayPictureManager.nonceLength + DisplayPictureManager.tagLength)
-        }
-    }
-    
-    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
-    static func legacyEncryptedDisplayPicture(
-        data: Data,
-        key: Data
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "legacyEncryptedDisplayPicture",
-            args: [data, key]
-        ) { dependencies in
-            // The key structure is: nonce || ciphertext || authTag
-            guard
-                key.count == DisplayPictureManager.encryptionKeySize,
-                let nonceData: Data = dependencies[singleton: .crypto]
-                    .generate(.randomBytes(DisplayPictureManager.nonceLength)),
-                let nonce: AES.GCM.Nonce = try? AES.GCM.Nonce(data: nonceData),
-                let sealedData: AES.GCM.SealedBox = try? AES.GCM.seal(
-                    data,
-                    using: SymmetricKey(data: key),
-                    nonce: nonce
-                ),
-                let encryptedContent: Data = sealedData.combined
-            else { throw CryptoError.failedToGenerateOutput }
-
-            return encryptedContent
-        }
-    }
 }
 
 // MARK: - Decryption
@@ -241,7 +110,9 @@ public extension Crypto.Generator {
                 throw CryptoError.decryptionFailed
             }
             
-            return Data(cDecryptedData)
+            /// Padding is stripped during decryption, so the buffer sized from `decrypted_max_size` is
+            /// generally longer than the result
+            return Data(cDecryptedData[0..<cDecryptedSize])
         }
     }
     

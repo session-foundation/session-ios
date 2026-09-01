@@ -84,17 +84,23 @@ public struct ListItemLogoWithPro: View {
         public let glowingBackgroundStyle: GlowingBackgroundStyle
         public let state: State
         public let description: ThemedAttributedString?
-        
+
+        /// Identifies the description for a caller which needs to address it, since this component is shared by
+        /// screens whose hero copy answers different questions
+        public let descriptionAccessibility: Accessibility?
+
         public init(
             themeStyle: ThemeStyle,
             glowingBackgroundStyle: GlowingBackgroundStyle,
             state: State,
-            description: ThemedAttributedString? = nil
+            description: ThemedAttributedString? = nil,
+            descriptionAccessibility: Accessibility? = nil
         ) {
             self.themeStyle = themeStyle
             self.glowingBackgroundStyle = glowingBackgroundStyle
             self.state = state
             self.description = description
+            self.descriptionAccessibility = descriptionAccessibility
         }
     }
     
@@ -134,6 +140,8 @@ public struct ListItemLogoWithPro: View {
                 .padding(.top, Values.mediumSpacing)
                 .environment(\.layoutDirection, .leftToRight)
                 
+                /// **Note:** The loading and error banners deliberately share a single accessibility identifier -
+                /// they're the same slot, and their messages already distinguish the states
                 if case .error(let message) = info.state {
                     HStack(spacing: Values.verySmallSpacing) {
                         Text(message)
@@ -142,8 +150,12 @@ public struct ListItemLogoWithPro: View {
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .warning)
                     .padding(.top, Values.mediumSpacing)
+                    .accessibilityElement(children: .combine)
+                    .accessibility(
+                        Accessibility(identifier: SessionProUI.AccessibilityIdentifier.statusBanner)
+                    )
                 }
-                
+
                 if case .loading(let message) = info.state {
                     HStack(spacing: Values.verySmallSpacing) {
                         Text(message)
@@ -152,12 +164,24 @@ public struct ListItemLogoWithPro: View {
                             .controlSize(.regular)
                             .scaleEffect(0.8)
                             .frame(width: 16, height: 16)
+                            /// Hidden from accessibility so the combined banner reports the *message* - a
+                            /// `ProgressView` contributes its progress as a value, which otherwise wins and the
+                            /// banner reads as "1" to both VoiceOver and any test asserting on the state
+                            .accessibilityHidden(true)
                     }
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .padding(.top, Values.mediumSpacing)
+                    .accessibilityElement(children: .combine)
+                    .accessibility(
+                        Accessibility(identifier: SessionProUI.AccessibilityIdentifier.statusBanner)
+                    )
                 }
                 
+                /// **Note:** No `accessibilityElement(children: .combine)` here, unlike the banners above: those are
+                /// an `HStack` of genuinely separate views, whereas `AttributedText` resolves its runs through
+                /// `ThemedText`, which concatenates them into a single `Text`. So this is already one element whose
+                /// label is the whole string, and combining would only flatten something that is not split
                 if let description = info.description {
                     AttributedText(description)
                         .font(.Body.baseRegular)
@@ -165,6 +189,7 @@ public struct ListItemLogoWithPro: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, Values.mediumSpacing)
                         .padding(.bottom, Values.largeSpacing)
+                        .accessibility(info.descriptionAccessibility)
                 }
             }
             .padding(.vertical, info.glowingBackgroundStyle.verticalPaddings)

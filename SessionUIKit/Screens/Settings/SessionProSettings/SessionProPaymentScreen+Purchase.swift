@@ -53,6 +53,7 @@ struct  SessionProPlanPurchaseContent: View {
                         Text(actionButtonTitle)
                             .font(.Body.largeRegular)
                             .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
                     }
                 }
                 .framing(
@@ -76,7 +77,6 @@ struct  SessionProPlanPurchaseContent: View {
             AttributedText(
                 "noteTosPrivacyPolicy"
                     .put(key: "action_type", value: actionType)
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                     .localizedFormatted(Fonts.Body.smallRegular)
             )
@@ -86,15 +86,18 @@ struct  SessionProPlanPurchaseContent: View {
             .padding(.horizontal, Values.smallSpacing)
             .fixedSize(horizontal: false, vertical: true)
             .onTapGesture { openTosPrivacyAction() }
+            /// This screen's identity, which has to sit on a leaf: an identifier on the enclosing stack
+            /// propagates to every descendant and erases theirs. Unlike the other screens there is no
+            /// title to carry it — this is a plan picker — and the terms line is the one element that is
+            /// always present here and nowhere else in the flow.
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenChoosePlan))
 
             if currentPlan == nil {
                 AttributedText(
                     "proTosDescription"
                         .put(key: "action_type", value: actionType)
                         .put(key: "activation_type", value: activationType)
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "entity", value: Constants.entity_rangeproof)
-                        .put(key: "app_name", value: Constants.app_name)
+                        .put(key: "entity", value: Constants.entity_stf)
                         .localizedFormatted(Fonts.Body.smallRegular)
                 )
                 .font(.Body.smallRegular)

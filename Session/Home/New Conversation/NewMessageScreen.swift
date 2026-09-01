@@ -167,7 +167,9 @@ struct EnterAccountIdScreen: View {
                     .padding(.horizontal, Values.smallSpacing)
                     .padding(.top, Values.smallSpacing)
                     .onTapGesture {
-                        if let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us/articles/4439132747033-How-do-Session-ID-usernames-work-") {
+                        /// The same destination Android and Desktop send this button to
+                        /// (`NewMessageViewModel.kt:53`, `HelpDeskButton.tsx:22`)
+                        if let url: URL = URL(string: "https://getsession.org/account-ids") {
                             UIApplication.shared.open(url)
                         }
                     }

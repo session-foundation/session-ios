@@ -15,8 +15,8 @@ internal extension LibSession {
         Profile.Columns.displayPictureEncryptionKey,
         Profile.Columns.profileLastUpdated,
         Profile.Columns.proFeatures,
-        Profile.Columns.proExpiryUnixTimestampMs,
-        Profile.Columns.proGenIndexHashHex
+        Profile.Columns.proExpiryUnixTimestampSeconds,
+        Profile.Columns.proRevocationTagHex
     ]
     
     static let syncedSettings: [String] = [
@@ -71,8 +71,8 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdate(
                     Profile.ProState(
                         profileFeatures: profileFeatures,
-                        expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
-                        genIndexHashHex: proConfig.proProof.genIndexHash.toHexString()
+                        expiryUnixTimestampSeconds: proConfig.proProof.expiryUnixTimestampSeconds,
+                        revocationTagHex: proConfig.proProof.revocationTag.toHexString()
                     )
                 )
             }(),
@@ -240,12 +240,26 @@ public extension LibSession.Cache {
         return SessionPro.ProConfig(cProConfig)
     }
     
-    var proAccessExpiryTimestampMs: UInt64 {
+    var proAccessExpiryTimestampSeconds: UInt64 {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
-        
-        return user_profile_get_pro_access_expiry_ms(conf)
+
+        /// Whole unix seconds on the libsession side and in our domain — direct read, no conversion.
+        return UInt64(max(0, user_profile_get_pro_access_expiry(conf)))
     }
-    
+
+    /// Whether the account's Pro subscription is auto-renewing, as last reported by `get_pro_status` and
+    /// mirrored into config alongside the access expiry `E`.
+    ///
+    /// **Note:** libsession stores this presence-only (config key `A`: `1` when auto-renewing, erased
+    /// otherwise), so `false` means "not auto-renewing **or** never fetched" — it cannot distinguish the two.
+    /// Anything user-facing must therefore be gated on a confirmed fetch as well (see
+    /// `SessionProManager.sessionProExpiringCTAInfo`), not on this value alone.
+    var proAutoRenewing: Bool {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return false }
+
+        return (user_profile_get_pro_auto_renewing(conf) != 0)
+    }
+
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
     /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
     func updateProfile(
@@ -324,10 +338,88 @@ public extension LibSession.Cache {
         user_profile_remove_pro_config(conf)
     }
     
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
-        
-        user_profile_set_pro_access_expiry_ms(conf, proAccessExpiryTimestampMs)
+
+        /// Whole unix seconds on both sides — hand libsession the value directly.
+        user_profile_set_pro_access_expiry(conf, Int64(proAccessExpiryTimestampSeconds))
+    }
+
+    /// Record whether the Pro subscription is auto-renewing (`false` clears it, which is also how it is
+    /// cleared when the subscription lapses). Backend-derived, so libsession stores it without bumping the
+    /// profile's `t`/`T` timestamps — same treatment as `E`/`I`/`R`.
+    func updateProAutoRenewing(_ proAutoRenewing: Bool) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_pro_auto_renewing(conf, (proAutoRenewing ? 1 : 0))
+    }
+
+    /// The account's grace period in seconds (`get_pro_status.grace_period_duration` — the **root** field), or
+    /// `0` if none.
+    ///
+    /// **This is what makes the coverage end derivable.** `E` is the date the account expires, the honest thing
+    /// to show a user; `G` is how much longer the backend keeps serving past it, so coverage ends at `E + G` and
+    /// the grace window is `[E, E + G)`. `0` whenever the subscription isn't auto-renewing, so `E + 0 == E` and
+    /// no caller needs to branch on the provider or the renewal state.
+    ///
+    /// The root field, not `latest_payment.grace_period_duration`. Both exist and they are different
+    /// quantities: the payment-level one is the raw store value and is *not* gated on `auto_renewing`, so a
+    /// cancelled subscriber retains a multi-week value there. Reading it would put coverage weeks late.
+    var proGracePeriodSeconds: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return UInt64(max(0, user_profile_get_pro_grace_period(conf)))
+    }
+
+    /// Record the account's grace period. Write it **from the same `get_pro_status` response as `E`** —
+    /// `E + G` is only meaningful for a pair that arrived together. libsession enforces the other half
+    /// (clearing `E` erases `G`), so a stranded `G` can't pair with a later, unrelated `E`.
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_pro_grace_period(conf, Int64(proGracePeriodSeconds))
+    }
+
+    /// The unix timestamp (seconds) at which the user requested a refund, config-synced across devices, or
+    /// `0` if none (libsession also returns `0` for a value more than a week old — the staleness gate lives
+    /// there, not here). Replaces the old per-payment `refund_requested_ts` backend field.
+    var refundRequestedTimestampSeconds: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return UInt64(max(0, user_profile_get_refund_requested(conf)))
+    }
+
+    /// Record (or clear, with `0`) that the user requested a refund; propagates to their other devices.
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_refund_requested(conf, Int64(refundRequestedTimestampSeconds))
+    }
+
+    /// The unix timestamp (seconds) at which a Pro purchase was initiated (the "purchase in flight" marker),
+    /// config-synced so other devices poll the entitlement through, or `0` if none (libsession applies the
+    /// same one-week staleness gate).
+    var proPrepaidTimestampSeconds: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return UInt64(max(0, user_profile_get_pro_prepaid(conf)))
+    }
+
+    /// Mark (or clear, with `0`) that a Pro purchase is in flight. A no-op in libsession if already Pro, and
+    /// cleared automatically once the entitlement lands.
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+
+        user_profile_set_pro_prepaid(conf, Int64(proPrepaidTimestampSeconds))
+    }
+
+    /// When to (re)request a Pro proof given `now` (unix seconds): the returned unix timestamp is a renewal
+    /// target — renew now if it is `<= now`, otherwise schedule for then — or `0` for "no renewal needed".
+    /// libsession owns this decision now (replaces the old `autoRenewing`-gated client logic).
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+
+        return user_profile_get_pro_renewal_target(conf, nowUnixTimestampSeconds)
     }
 }
 

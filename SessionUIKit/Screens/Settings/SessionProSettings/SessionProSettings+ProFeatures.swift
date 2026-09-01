@@ -7,8 +7,12 @@ import Lucide
 // MARK: - Pro Features Info
 
 public struct ProFeaturesInfo {
+    // TODO: `ProState` duplicates `BackendUserProStatus`'s account-status axis (never/expired/active).
+    // SessionUIKit re-declares it here because it can't depend on SessionNetworkingKit's
+    // `BackendUserProStatus`; unify to a single source of truth if the layering allows (e.g. UI
+    // referencing the networking enum) so the same state isn't modelled in two places.
     public enum ProState {
-        case neverBeenPro
+        case never
         case expired
         case active
     }
@@ -77,7 +81,6 @@ public struct ProFeaturesInfo {
                 ),
                 title: "proBadges".localized(),
                 description: "proBadgesDescription"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(Fonts.Body.smallRegular),
                 inlineImageInfo: {
                     let themeBackgroundColor: ThemeValue = {
@@ -116,7 +119,6 @@ public struct ProFeaturesInfo {
             ),
             title: "plusLoadsMore".localized(),
             description: "plusLoadsMoreDescription"
-                .put(key: "pro", value: Constants.pro)
                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                 .localizedFormatted(Fonts.Body.smallRegular)
         )

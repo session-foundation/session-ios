@@ -60,8 +60,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                             Text(
                                 "proDiscountTooltip"
                                     .put(key: "percent", value: discountPercent)
-                                    .put(key: "app_pro", value: Constants.app_pro)
-                                    .put(key: "pro", value: Constants.pro)
                                     .localized()
                             )
                             .font(.Body.smallRegular)
@@ -188,7 +186,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         isAutoRenewing: isAutoRenewing,
                         sessionProPlans: viewModel.dataModel.plans,
                         actionButtonTitle: "updateAccess"
-                            .put(key: "pro", value: Constants.pro)
                             .localized(),
                         actionType: "proUpdatingAction".localized(),
                         activationType: "",
@@ -207,7 +204,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
                     )
                 
-                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some, _):
                     RequestRefundSuccessContent(
                         returnAction: {
                             host.controller?.navigationController?.popViewController(animated: true)
@@ -217,7 +214,7 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                 
-                case .refund(originatingPlatform: .iOS, false, .none):
+                case .refund(originatingPlatform: .iOS, false, .none, _):
                     RequestRefundOriginatingPlatformContent(
                         requestRefundAction: {
                             Task { @MainActor [weak viewModel] in
@@ -231,18 +228,46 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                         }
                     )
                     
-                case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
+                case .refund(let originatingPlatform, let isNonOriginatingAccount, _, let isWithinQuickRefundWindow):
                     RequestRefundNonOriginatorContent(
                         originatingPlatform: originatingPlatform,
                         isNonOriginatingAccount: isNonOriginatingAccount,
-                        requestedAt: requestedAt,
+                        isWithinQuickRefundWindow: isWithinQuickRefundWindow,
                         openPlatformStoreWebsiteAction: {
-                            switch originatingPlatform {
-                                case .iOS:
-                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).refundPlatformUrl)
-                                case .android:
-                                    openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).refundSupportUrl)
-                            }
+                            /// The destination follows the quick-refund window, not the originating platform: inside it
+                            /// the copy tells the user to use the store's own refund workflow, and outside it the copy
+                            /// directs them to Session Support. The platform only selects whose URLs these are.
+                            let urls: StringProvider.ClientPlatform = SNUIKit
+                                .proClientPlatformStringProvider(for: originatingPlatform)
+
+                            /// Two Session-owned links, chosen on the window alone - not the provider's own
+                            /// `refund_platform_url`/`refund_support_url`. Being ours, the destinations can be
+                            /// repointed without a client release, and all three clients agree on them.
+                            ///
+                            /// The window is what decides who can act: while it is open the store takes the
+                            /// request, and once it closes only Session can, which is what the copy promises.
+                            /// Gated on the originating platform as well as the window: the quick-refund
+                            /// link is Google Play's and redirects into the Play store, so it is only a
+                            /// usable route for a plan bought there. An App Store plan reports its window
+                            /// open for the whole subscription, so gating on the window alone would send
+                            /// an Apple subscriber to the wrong store's refund flow.
+                            /// The store route's url is libsession's, via the per-provider table it owns.
+                            /// Note the slot: for Google Play its `refund_support_url` IS the Session
+                            /// short link that redirects into the Play store, so the value wanted for the
+                            /// window-OPEN route sits under libsession's "support" name. The closed route
+                            /// uses `proSupport`, which is libsession's `url_pro_support`.
+                            ///
+                            /// No originating-platform check is needed on top of the window: `urls` is
+                            /// already the ORIGINATING platform's table, so an Apple plan yields Apple's
+                            /// own refund page here rather than the Play-store link. Gating on the
+                            /// platform as well would replace that correct page with Session's form —
+                            /// and Apple's two refund urls are the same page anyway, so the window is the
+                            /// only thing that can distinguish anything.
+                            openUrl(
+                                isWithinQuickRefundWindow ?
+                                    urls.refundSupportUrl :
+                                    SNUIKit.urlStringProvider().proSupport
+                            )
                         }
                     )
                 
@@ -282,10 +307,10 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         do {
             let result = try await viewModel.purchase(planInfo: updatedPlan)
             switch result {
-                case .success(let expirationTimestampMs):
+                case .success(let expirationTimestampSeconds):
                     let updatedPlanExpiredDate: Date? = {
-                        guard let expirationTimestampMs else { return updatedPlanExpiredOn }
-                        return Date(timeIntervalSince1970: Double(expirationTimestampMs / 1000))
+                        guard let expirationTimestampSeconds else { return updatedPlanExpiredOn }
+                        return Date(timeIntervalSince1970: Double(expirationTimestampSeconds))
                     }()
                     onPaymentSuccess(expiredOn: updatedPlanExpiredDate)
                 case .pending:
@@ -349,7 +374,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                 let confirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "updateAccess"
-                            .put(key: "pro", value: Constants.pro)
                             .localized(),
                         body: .attributedText(
                             isAutoRenewing ?
@@ -358,12 +382,10 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                                     .put(key: "selected_plan_length", value: updatedPlan.durationString)
                                     .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
                                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                    .put(key: "pro", value: Constants.pro)
                                     .localizedFormatted(Fonts.Body.largeRegular) :
                                 "proUpdateAccessExpireDescription"
                                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                                     .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                    .put(key: "pro", value: Constants.pro)
                                     .localizedFormatted(Fonts.Body.largeRegular),
                             scrollMode: .never
                         ),
@@ -444,7 +466,6 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
                 body: .attributedText(
                     "paymentProError"
                         .put(key: "action_type", value: action)
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
                     scrollMode: .automatic
                 ),
@@ -488,18 +509,8 @@ public struct SessionProPaymentScreen<ViewModel: SessionProPaymentScreenContent.
         guard let url: URL = URL(string: urlString) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
-                    scrollMode: .automatic
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                url,
                 onConfirm:  { [weak viewModel] _ in
                     viewModel?.openURL(url)
                 },

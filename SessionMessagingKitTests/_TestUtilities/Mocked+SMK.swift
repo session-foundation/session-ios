@@ -3,10 +3,34 @@
 import Foundation
 import SessionUtil
 import SessionUIKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import TestUtilities
 
 @testable import SessionMessagingKit
+
+/// Without this, an unstubbed read of `MockLibSessionCache.proConfig` hits `Mocked`'s `fatalError`. It sits on
+/// the pre-existing `handleUserProfileUpdate` path, so every spec merging a userProfile config hit it and both
+/// suites reported `0 failed` while exiting 65.
+///
+/// `Optional: Mocked where Wrapped: Mocked` makes `.mock` non-nil, so an unstubbed read reports a Pro config
+/// holding an empty proof rather than none; a spec wanting the absent case must stub `nil` explicitly.
+extension SessionPro.ProConfig: Mocked {
+    /// Deliberately distinctive so it cannot collide with a real value during argument matching.
+    public static var any: SessionPro.ProConfig {
+        SessionPro.ProConfig(
+            rotatingPrivateKey: [.any],
+            proProof: Network.SessionPro.ProProof(revocationTag: [.any])
+        )
+    }
+
+    public static var mock: SessionPro.ProConfig {
+        SessionPro.ProConfig(
+            rotatingPrivateKey: [],
+            proProof: Network.SessionPro.ProProof()
+        )
+    }
+}
 
 extension Message.Destination: @retroactive Mocked {
     public static var any: Message.Destination = .contact(publicKey: String.any)

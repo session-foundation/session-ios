@@ -16,23 +16,22 @@ struct RequestRefundOriginatingPlatformContent: View {
             ) {
                 Text(
                     "proRefunding"
-                        .put(key: "pro", value: Constants.pro)
                         .localized()
                 )
                 .font(.Headings.H7)
                 .foregroundColor(themeColor: .textPrimary)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenRefundPlan))
                 
                 AttributedText(
                     "proRefundingDescription"
-                        .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
                         .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
-                        .put(key: "app_name", value: Constants.app_name)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.bottom, Values.mediumSmallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 
                 Text("important".localized())
                     .font(.Headings.H7)
@@ -40,7 +39,6 @@ struct RequestRefundOriginatingPlatformContent: View {
                 
                 AttributedText(
                     "proImportantDescription"
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
@@ -70,6 +68,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }
@@ -91,17 +90,17 @@ struct RequestRefundSuccessContent: View {
                 Text("nextSteps".localized())
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenRefundInProgress))
                 
                 Text(
                     "proRefundNextSteps"
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
-                        .put(key: "pro", value: Constants.pro)
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 )
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.bottom, Values.mediumSmallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 
                 Text("helpSupport".localized())
                     .font(.Headings.H7)
@@ -110,7 +109,6 @@ struct RequestRefundSuccessContent: View {
                 AttributedText(
                     "proRefundSupport"
                         .put(key: "platform", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).platform)
-                        .put(key: "app_name", value: Constants.app_name)
                         .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
@@ -143,6 +141,7 @@ struct RequestRefundSuccessContent: View {
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }
@@ -154,30 +153,28 @@ struct RequestRefundSuccessContent: View {
 struct RequestRefundNonOriginatorContent: View {
     let originatingPlatform: SessionProUI.ClientPlatform
     let isNonOriginatingAccount: Bool?
-    let requestedAt: Date?
-    var isLessThan48Hours: Bool { (requestedAt?.timeIntervalSinceNow ?? 0) <= 48 * 60 * 60 }
+    /// Whether the store's own quick-refund window is still open, which decides both the copy below and which URL the
+    /// button opens. Resolved by the caller from `platform_refund_expiry_ts` against network time — see
+    /// `SessionPro.State.isWithinQuickRefundWindow(atTimestampSeconds:)` — because the window is the store's to define
+    /// and this view has neither the payment item nor a trustworthy clock.
+    let isWithinQuickRefundWindow: Bool
     let openPlatformStoreWebsiteAction: () -> Void
     var description: ThemedAttributedString {
-        switch (originatingPlatform, isNonOriginatingAccount, isLessThan48Hours) {
+        switch (originatingPlatform, isNonOriginatingAccount, isWithinQuickRefundWindow) {
             case (.iOS, true, _):
                 return "refundNonOriginatorApple"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "pro", value: Constants.pro)
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
             
             case (_, _, true):
                 return "proPlanPlatformRefund"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
                     .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
             
             case (_, _, false):
                 return "proPlanPlatformRefundLong"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
         }
     }
@@ -194,19 +191,22 @@ struct RequestRefundNonOriginatorContent: View {
                 ) {
                     Text(
                         "proRefunding"
-                            .put(key: "pro", value: Constants.pro)
                             .localized()
                     )
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenRefundPlanNonOriginating))
                     
                     AttributedText(description)
                         .font(.Body.baseRegular)
                         .foregroundColor(themeColor: .textPrimary)
                         .multilineTextAlignment(.leading)
+                        .accessibility(
+                            Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription)
+                        )
                 }
                 
-                if isLessThan48Hours || isNonOriginatingAccount == true {
+                if isWithinQuickRefundWindow || isNonOriginatingAccount == true {
                     Text("refundRequestOptions".localized())
                         .font(.Body.baseRegular)
                         .foregroundColor(themeColor: .textSecondary)
@@ -217,10 +217,8 @@ struct RequestRefundNonOriginatorContent: View {
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .localized(),
                             description: "proRefundAccountDevice"
-                                .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "device_type", value: originatingPlatform.device)
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                                .put(key: "app_pro", value: Constants.app_pro)
                                 .localizedFormatted(),
                             variant: .device
                         )
@@ -234,7 +232,6 @@ struct RequestRefundNonOriginatorContent: View {
                             description: "requestRefundPlatformWebsite"
                                 .put(key: "platform_account", value: originatingPlatform.platformAccount)
                                 .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular),
                             variant: .website
                         )
@@ -250,7 +247,6 @@ struct RequestRefundNonOriginatorContent: View {
                         
                         AttributedText(
                             "proImportantDescription"
-                                .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular)
                         )
                         .font(.Body.baseRegular)
@@ -270,7 +266,7 @@ struct RequestRefundNonOriginatorContent: View {
                 openPlatformStoreWebsiteAction()
             } label: {
                 Text(
-                    isLessThan48Hours ?
+                    isWithinQuickRefundWindow ?
                         "openPlatformStoreWebsite"
                             .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
                             .localized() :
@@ -290,6 +286,7 @@ struct RequestRefundNonOriginatorContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }

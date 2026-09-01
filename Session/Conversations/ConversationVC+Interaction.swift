@@ -338,7 +338,6 @@ extension ConversationVC:
                     title: "giphyWarning".localized(),
                     body: .text(
                         "giphyWarningDescription"
-                            .put(key: "app_name", value: Constants.app_name)
                             .localized()
                     ),
                     confirmTitle: "theContinue".localized()
@@ -446,7 +445,6 @@ extension ConversationVC:
                             )
                             try convertedAttachment.ensureExpectedEncryptedSize(
                                 logCat: .media,
-                                domain: .attachment,
                                 maxFileSize: Network.maxFileSize,
                                 using: dependencies
                             )
@@ -468,7 +466,6 @@ extension ConversationVC:
                 do {
                     try pendingAttachment.ensureExpectedEncryptedSize(
                         logCat: .media,
-                        domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
                     )
@@ -576,7 +573,7 @@ extension ConversationVC:
     
     @MainActor func handleCharacterLimitLabelTapped() {
         let manager: SessionProManagerType = viewModel.dependencies[singleton: .sessionProManager]
-        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+        let ctaOutcome: ProCTAOutcome = manager.showSessionProCTAIfNeeded(
             .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
             onConfirm: { [weak self, manager] in
                 manager.showSessionProBottomSheetIfNeeded(
@@ -596,7 +593,7 @@ extension ConversationVC:
             }
         )
         
-        guard !didShowCTAModal else { return }
+        guard ctaOutcome != .shown else { return }
         
         let numberOfCharactersLeft: Int = viewModel.dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -716,7 +713,7 @@ extension ConversationVC:
     
     @MainActor func showModalForMessagesExceedingCharacterLimit() {
         let manager: SessionProManagerType = viewModel.dependencies[singleton: .sessionProManager]
-        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+        let ctaOutcome: ProCTAOutcome = manager.showSessionProCTAIfNeeded(
             .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
             onConfirm: { [weak self, manager] in
                 manager.showSessionProBottomSheetIfNeeded(
@@ -736,7 +733,7 @@ extension ConversationVC:
             }
         )
         
-        guard !didShowCTAModal else { return }
+        guard ctaOutcome != .shown else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -768,7 +765,6 @@ extension ConversationVC:
             try attachments.forEach { attachment in
                 try attachment.ensureExpectedEncryptedSize(
                     logCat: .media,
-                    domain: .attachment,
                     maxFileSize: Network.maxFileSize,
                     using: viewModel.dependencies
                 )
@@ -976,7 +972,6 @@ extension ConversationVC:
                 title: "linkPreviewsEnable".localized(),
                 body: .text(
                     "linkPreviewsFirstDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 ),
                 confirmTitle: "enable".localized(),
@@ -1601,17 +1596,8 @@ extension ConversationVC:
         
         let modal: ConfirmationModal = ConfirmationModal(
             targetView: self.view,
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                url,
                 hasCloseButton: true,
                 onConfirm:  { modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)

@@ -71,6 +71,18 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     public var body: some View {
         ZStack {
             listContent
+                /// **Note:** `safeAreaInset` rather than an overlay so the list is actually inset by the footer -
+                /// with an overlay the last row sits underneath it and can't be scrolled clear
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if viewModel.footerStyle == .sticky {
+                        stickyFooter
+                    }
+                }
+                /// **Note:** This has to be applied to the *composed* view rather than inside the footer - a child
+                /// can't draw outside a parent whose frame already stops at the safe area, so ignoring it within the
+                /// overlay left the gradient sitting on top of the inset rather than running past it. An empty edge
+                /// set is a no-op, which keeps the inline-footer screens exactly as they were.
+                .ignoresSafeArea(edges: (viewModel.footerStyle == .sticky ? .bottom : []))
                     
             // Hidden NavigationLink for publisher-driven navigation
             NavigationLink(
@@ -101,6 +113,41 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 )
             }
         }
+    }
+    
+    /// The pinned footer, mirroring what the UIKit `SessionTableViewController` built out of a `GradientView` and a
+    /// `SessionButton` overlaid on the table rather than rows within it
+    ///
+    /// **Note:** The whole footer ignores the bottom safe area so the gradient reaches the physical bottom of the
+    /// screen, and the safe area inset is then added back as padding under the footer content - which is what the
+    /// UIKit version got by pinning the fade to the view and the button to the safe area layout guide. Reading the
+    /// inset from the window (rather than a `GeometryReader`) keeps it correct here, since a reader nested inside a
+    /// view that ignores the safe area reports an inset of zero.
+    private var stickyFooter: some View {
+        viewModel.footerView
+            .padding(.bottom, (Values.smallSpacing + (SNUIKit.mainWindow?.safeAreaInsets.bottom ?? 0)))
+            .frame(maxWidth: .infinity)
+            /// **Note:** The footer is sized to the *gradient* rather than to its content so `safeAreaInset` reserves
+            /// the whole faded region - sizing it to the button alone leaves the last row sitting inside the fade
+            .frame(
+                height: Values.footerGradientHeight(window: SNUIKit.mainWindow),
+                alignment: .bottom
+            )
+            .background(alignment: .bottom) {
+                ThemeLinearGradient(
+                    themeColors: [
+                        .value(.backgroundPrimary, alpha: 0),
+                        .backgroundPrimary,
+                        .backgroundPrimary,
+                        .backgroundPrimary,
+                        .backgroundPrimary
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: Values.footerGradientHeight(window: SNUIKit.mainWindow))
+                .allowsHitTesting(false)
+            }
     }
     
     private var listContent: some View {
@@ -158,6 +205,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             }
                         }
                         .frame(minHeight: section.model.style.height)
+                        .accessibility(section.model.accessibility)
                         .listRowInsets(.init(top: 0, leading: section.model.style.edgePadding, bottom: 0, trailing: section.model.style.edgePadding))
                         .listRowBackground(Color.clear)
                     }
@@ -235,11 +283,10 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                             .foregroundColor(themeColor: .backgroundSecondary)
                                     )
                                 case .button(let title, let enabled):
-                                    ListItemButton(title: title, enabled: enabled)
-                                        .accessibility(element.accessibility)
-                                        .onTapGesture {
-                                            onTapAction()
-                                        }
+                                    ListItemButton(title: title, enabled: enabled) {
+                                        onTapAction()
+                                    }
+                                    .accessibility(element.accessibility)
                                 case .profilePicture(let info):
                                     ListItemProfilePicture(
                                         content: $profilePictureContent,
@@ -275,13 +322,17 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 .padding(0)
             }
             
-            ZStack {
-                viewModel.footerView
+            /// **Note:** Gated on the screen actually having a footer - an `EmptyView` still occupies a row, which
+            /// is bottom padding the list didn't ask for (most screens don't override `footerView`)
+            if viewModel.footerStyle == .inline && ViewModel.FooterView.self != EmptyView.self {
+                ZStack {
+                    viewModel.footerView
+                }
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden)
+                .listRowBackground(Color.clear)
             }
-            .frame(maxWidth: .infinity)
-            .listRowSeparator(.hidden)
-            .listSectionSeparator(.hidden)
-            .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .modifier(HideScrollIndicators())

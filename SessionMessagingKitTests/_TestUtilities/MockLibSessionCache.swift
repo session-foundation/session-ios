@@ -24,8 +24,10 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
     var isEmpty: Bool { handler.mock() }
     var allDumpSessionIds: Set<SessionId> { handler.mock() }
     var proConfig: SessionPro.ProConfig? { handler.mock() }
-    var proAccessExpiryTimestampMs: UInt64 { handler.mock() }
-    
+    var proAccessExpiryTimestampSeconds: UInt64 { handler.mock() }
+    var proAutoRenewing: Bool { handler.mock() }
+    var proGracePeriodSeconds: UInt64 { handler.mock() }
+
     // MARK: - State Management
     
     func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {
@@ -200,10 +202,33 @@ class MockLibSessionCache: LibSessionCacheType, Mockable {
         handler.mockNoReturn()
     }
     
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
-        handler.mockNoReturn(args: [proAccessExpiryTimestampMs])
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {
+        handler.mockNoReturn(args: [proAccessExpiryTimestampSeconds])
     }
-    
+
+    func updateProAutoRenewing(_ proAutoRenewing: Bool) {
+        handler.mockNoReturn(args: [proAutoRenewing])
+    }
+
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {
+        handler.mockNoReturn(args: [proGracePeriodSeconds])
+    }
+
+    var refundRequestedTimestampSeconds: UInt64 { handler.mock() }
+    var proPrepaidTimestampSeconds: UInt64 { handler.mock() }
+
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {
+        handler.mockNoReturn(args: [refundRequestedTimestampSeconds])
+    }
+
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64) {
+        handler.mockNoReturn(args: [proPrepaidTimestampSeconds])
+    }
+
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64 {
+        handler.mock(args: [nowUnixTimestampSeconds])
+    }
+
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -470,6 +495,17 @@ extension MockLibSessionCache {
         try await self
             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
             .thenReturn(false)
+
+        /// The Pro read-set, defaulted to "this user has never been Pro".
+        ///
+        /// `SessionProManager` initialisation reads all of them in a single `mutate(cache:)`, so any spec that stands up
+        /// a libSession cache and lets the manager initialise needs the whole set stubbed — one at a time is not enough.
+        try await self.when { $0.proConfig }.thenReturn(nil)
+        try await self.when { $0.proAccessExpiryTimestampSeconds }.thenReturn(0)
+        try await self.when { $0.proAutoRenewing }.thenReturn(false)
+        try await self.when { $0.proGracePeriodSeconds }.thenReturn(0)
+        try await self.when { $0.proPrepaidTimestampSeconds }.thenReturn(0)
+        try await self.when { $0.refundRequestedTimestampSeconds }.thenReturn(0)
         try await self
             .when { $0.pinnedPriority(threadId: .any, threadVariant: .any, openGroupUrlInfo: .any) }
             .thenReturn(LibSession.defaultNewThreadPriority)
@@ -489,8 +525,8 @@ extension MockLibSessionCache {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 )
             )
         try await self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)

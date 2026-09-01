@@ -23,7 +23,11 @@ private extension Log.Category {
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let backgroundFetchId: String = "com.loki-project.loki-messenger.background-fetch" // stringlint:ignore
     fileprivate static let maxRootViewControllerInitialQueryDuration: Int = 10
-    
+
+    /// Kept well inside the time the OS allows a `BGAppRefreshTask`, so a fetch which can't get started still leaves enough of its
+    /// budget to be worth waiting for the next one
+    fileprivate static let maxBackgroundPollPrerequisiteDuration: Int = 10
+
     /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
     let dependencies: Dependencies = Dependencies.createEmpty()
     @MainActor var hasInitialRootViewController: Bool = false
@@ -198,6 +202,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
     
+    /// Wait for the state a background poll actually needs - a usable database and a loaded `libSession` cache.
+    ///
+    /// This deliberately does **not** wait on `appReadiness`: that is only set once the home screen has rendered its conversation list
+    /// (so the app can swap away from the `LoadingVC` with data already in place), which requires a scene. A launch iOS started purely
+    /// to run this task has none, so waiting on it means the poll never runs at all and the fetch is spent doing nothing.
+    ///
+    /// - Returns: whether the prerequisites became available before `timeout`.
+    fileprivate static func awaitBackgroundPollPrerequisites(
+        timeout: DispatchTimeInterval = .seconds(AppDelegate.maxBackgroundPollPrerequisiteDuration),
+        using dependencies: Dependencies
+    ) async -> Bool {
+        return await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                _ = await dependencies[singleton: .storage].state.first(where: { $0 == .readyForUse })
+                await dependencies.untilInitialised(cache: .libSession)
+                return true
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return false
+            }
+
+            let result: Bool = (await group.next() ?? false)
+            group.cancelAll()
+            return result
+        }
+    }
+
     private func handleBackgroundRefresh(task: BGAppRefreshTask) {
         /// Immediately reschedule the next refresh so we don't miss future opportunities even if this one gets cancelled or fails
         scheduleBackgroundRefresh()
@@ -205,8 +237,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let fetchTask: Task<Void, Never> = Task(priority: .userInitiated) { [dependencies] in
             Log.appResumedExecution()
             Log.info(.backgroundPoller, "Starting background fetch.")
-            await dependencies[singleton: .appReadiness].isReady()
-            
+
             guard
                 !Task.isCancelled,
                 dependencies[singleton: .appContext].isInBackground
@@ -214,11 +245,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 task.setTaskCompleted(success: false)
                 return
             }
-            
+
             /// Resume database and network access
+            ///
+            /// **Note:** This has to happen before waiting on the prerequisites below because a suspended database only reaches
+            /// `readyForUse` once it has been resumed
             await dependencies[singleton: .storage].resumeDatabaseAccess()
             await dependencies[singleton: .network].resumeNetworkAccess(autoReconnect: false)
-            
+
+            guard await AppDelegate.awaitBackgroundPollPrerequisites(using: dependencies) else {
+                Log.warn(.backgroundPoller, "Aborting background fetch as the database and libSession state didn't become available in time.")
+                task.setTaskCompleted(success: false)
+                return
+            }
+
             /// Perform the polling
             let poller: BackgroundPoller = BackgroundPoller()
             let hadValidMessages: Bool = await poller.poll(using: dependencies)
@@ -378,11 +418,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         })
         
         switch error {
-            // Don't offer the 'Restore' option if it was a 'startupFailed' error as a restore is unlikely to
-            // resolve it (most likely the database is locked or the key was somehow lost - safer to get them
-            // to restart and manually reinstall/restore)
+            // Every branch offers 'Clear Data', which is added unconditionally above - what differs is whether
+            // 'Clear Data & Restore' is offered in addition. Withheld here because a restore replays migrations
+            // against a fresh database, which does not address a database that is locked or that failed to start
+            // for a reason we could not identify
+            //
+            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: the data is unreachable, so
+            // restoring is the only thing that recovers the account, and it must keep falling through below
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED): break
-                
+
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
                 alert.addAction(UIAlertAction(title: "clearDeviceRestore".localized(), style: .destructive) { [weak self, dependencies] _ in
@@ -445,7 +489,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             default: break
         }
         
-        alert.addAction(UIAlertAction(title: "quit".put(key: "app_name", value: Constants.app_name).localized(), style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
             Log.flush()
             exit(0)
         })

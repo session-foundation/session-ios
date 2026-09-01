@@ -205,13 +205,13 @@ public extension ProfilePictureView {
     /// This will made a decision based on the current state of the profile data, it's up to the parent screen to observer changes and trigger
     /// a UI refresh to update this state
     static func canProfileAnimate(_ profile: Profile?, using dependencies: Dependencies) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] else { return true }
-
         switch profile {
             case .none: return false
             
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
-                return dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
+                /// **A capability gate, so it reads ACCESS** - it answers "may this avatar animate", not "should we sell
+                /// Pro". The upsell for this feature lives elsewhere and reads DISPLAY
+                return dependencies[singleton: .sessionProManager].currentUserHasProAccess
                 
             case .some(let profile):
                 return dependencies[singleton: .sessionProManager]

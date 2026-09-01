@@ -112,18 +112,8 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
         guard let url: URL = URL(string: urlString) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
-                    scrollMode: .automatic
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
+            info: .openUrl(
+                url,
                 onConfirm:  { _ in viewModel.openURL(url) },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
@@ -154,9 +144,6 @@ extension SessionNetworkScreen {
                 
                 AttributedText(
                     "sessionNetworkDescription"
-                        .put(key: "network_name", value: Constants.network_name)
-                        .put(key: "token_name_long", value: Constants.token_name_long)
-                        .put(key: "app_name", value: Constants.app_name)
                         .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                         .localizedFormatted(Fonts.Body.largeRegular)
                 )
@@ -257,7 +244,6 @@ extension SessionNetworkScreen {
                         ) {
                             Text(
                                 "sessionNetworkCurrentPrice"
-                                    .put(key: "token_name_short", value: Constants.token_name_short)
                                     .localized()
                             )
                             .font(.Body.custom(Values.smallFontSize))
@@ -313,7 +299,6 @@ extension SessionNetworkScreen {
                         ) {
                             AttributedText(
                                 "sessionNetworkNodesSwarm"
-                                    .put(key: "app_name", value: Constants.app_name)
                                     .localizedFormatted(Fonts.Body.largeBold)
                             )
                             .font(Font.Body.largeBold)
@@ -357,7 +342,6 @@ extension SessionNetworkScreen {
                         ) {
                             AttributedText(
                                 "sessionNetworkNodesSecuring"
-                                    .put(key: "app_name", value: Constants.app_name)
                                     .localizedFormatted(Fonts.Body.largeBold)
                             )
                             .font(Font.Body.largeBold)
@@ -502,9 +486,6 @@ extension SessionNetworkScreen {
                 
                 Text(
                     "sessionNetworkTokenDescription"
-                        .put(key: "token_name_long", value: Constants.token_name_long)
-                        .put(key: "token_name_short", value: Constants.token_name_short)
-                        .put(key: "staking_reward_pool", value: Constants.staking_reward_pool)
                         .localized()
                 )
                 .font(.Body.largeRegular)

@@ -29,7 +29,7 @@ public extension Network.PushNotification {
         /// single bad group to prevent the user (and other groups) from receiving push notifications
         if response.subResponses.first?.success != true {
             throw NetworkError.explicit(
-                "Failed to subscribe the user swarm for push notifications (error: \(response.subResponses.first?.error ?? -1))."
+                "Failed to subscribe the user swarm for push notifications (error: \(response.subResponses.first?.error ?? -1))." // stringlint:ignore
             )
         }
     }

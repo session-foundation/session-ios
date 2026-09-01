@@ -31,17 +31,8 @@ public extension Network {
             return dependencies[feature: .customFileServer].pubkey
         }
         
-        internal static func x25519PublicKey(using dependencies: Dependencies) throws -> String {
-            let edPublicKey: String = edPublicKey(using: dependencies)
-            let x25519Pubkey: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(
-                .x25519(ed25519Pubkey: Array(Data(hex: edPublicKey)))
-            )
-            
-            return x25519Pubkey.toHexString()
-        }
-        
         internal static func x25519PublicKey(for url: URL, using dependencies: Dependencies) throws -> String {
-            let edPublicKey: String = (url.fragmentParameters[.publicKey] ?? defaultEdPublicKey)
+            let edPublicKey: String = (url.fragmentParameters[.publicKey] ?? edPublicKey(using: dependencies))
             
             guard Hex.isValid(edPublicKey) && edPublicKey.count == 64 else {
                 throw CryptoError.invalidPublicKey

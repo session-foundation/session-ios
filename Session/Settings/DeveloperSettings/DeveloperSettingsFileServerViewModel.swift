@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import UIKit
+import SwiftUI
 import Combine
 import GRDB
 import DifferenceKit
@@ -11,11 +12,11 @@ import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsFileServerViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     private var shareDownloadedFileUrl: String?
     private var shareDownloadedFileMimetype: String?
@@ -40,34 +41,37 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
                 let oldState: State = self.internalState
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: oldState))
             }
     }
     
     // MARK: - Config
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case general
         
-        var title: String? {
+        public var title: String? {
             switch self {
                 case .general: return nil
             }
         }
         
-        var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .general: return .padding
             }
         }
+        
+        public var divider: Bool { return true }
+        public var footer: String? { return nil }
+        public var extraVerticalPadding: CGFloat { return 0 }
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Hashable, Differentiable, CaseIterable {
+    public enum ListItem: Hashable, Differentiable, CaseIterable {
         case shortenFileTTL
-        case useStreamEncryptionForAttachments
         case shareDownloadedFile
         case customFileServerUrl
         case customFileServerPubkey
@@ -79,22 +83,20 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         public var differenceIdentifier: String {
             switch self {
                 case .shortenFileTTL: return "shortenFileTTL"
-                case .useStreamEncryptionForAttachments: return "useStreamEncryptionForAttachments"
                 case .shareDownloadedFile: return "shareDownloadedFile"
                 case .customFileServerUrl: return "customFileServerUrl"
                 case .customFileServerPubkey: return "customFileServerPubkey"
             }
         }
         
-        public func isContentEqual(to source: TableItem) -> Bool {
+        public func isContentEqual(to source: ListItem) -> Bool {
             self.differenceIdentifier == source.differenceIdentifier
         }
         
-        public static var allCases: [TableItem] {
-            var result: [TableItem] = []
-            switch TableItem.shortenFileTTL {
+        public static var allCases: [ListItem] {
+            var result: [ListItem] = []
+            switch ListItem.shortenFileTTL {
                 case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
-                case .useStreamEncryptionForAttachments: result.append(.useStreamEncryptionForAttachments); fallthrough
                 case .shareDownloadedFile: result.append(.shareDownloadedFile); fallthrough
                 case .customFileServerUrl: result.append(.customFileServerUrl); fallthrough
                 case .customFileServerPubkey: result.append(.customFileServerPubkey)
@@ -109,17 +111,14 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     public struct State: Equatable, ObservableKeyProvider {
         struct Info: Equatable, Hashable {
             let shortenFileTTL: Bool
-            let useStreamEncryptionForAttachments: Bool
             let customFileServer: Network.FileServer.Custom
             
             public func with(
                 shortenFileTTL: Bool? = nil,
-                useStreamEncryptionForAttachments: Bool? = nil,
                 customFileServer: Network.FileServer.Custom? = nil
             ) -> Info {
                 return Info(
                     shortenFileTTL: (shortenFileTTL ?? self.shortenFileTTL),
-                    useStreamEncryptionForAttachments: (useStreamEncryptionForAttachments ?? self.useStreamEncryptionForAttachments),
                     customFileServer: (customFileServer ?? self.customFileServer)
                 )
             }
@@ -139,14 +138,12 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         public let observedKeys: Set<ObservableKey> = [
             .updateScreen(DeveloperSettingsFileServerViewModel.self),
             .feature(.shortenFileTTL),
-            .feature(.useStreamEncryptionForAttachments),
             .feature(.customFileServer)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
             let initialInfo: Info = Info(
                 shortenFileTTL: dependencies[feature: .shortenFileTTL],
-                useStreamEncryptionForAttachments: dependencies[feature: .useStreamEncryptionForAttachments],
                 customFileServer: dependencies[feature: .customFileServer]
             )
             
@@ -159,32 +156,40 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     
     let title: String = "Developer File Server Settings"
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = $internalState
-        .map { [weak self] state -> SessionButton.Info? in
-            return SessionButton.Info(
-                style: .bordered,
-                title: "set".localized(),
-                isEnabled: {
-                    guard state.initialState != state.pendingState else { return false }
-                    
-                    return (
-                        state.pendingState.customFileServer.isEmpty ||
-                        state.pendingState.customFileServer.isValid
-                    )
-                }(),
-                accessibility: Accessibility(
-                    identifier: "Set button",
-                    label: "Set button"
-                ),
-                minWidth: 110,
-                onTap: { [weak self] in
-                    Task { [weak self] in
-                        await self?.saveChanges()
-                    }
+    /// **Note:** This is re-evaluated whenever `internalState` publishes (the screen holds the view model as a
+    /// `@StateObject`), so the button's enabled state tracks the pending changes without needing its own binding
+    public var footerStyle: SessionListScreenContent.FooterStyle { .sticky }
+    
+    @MainActor public var footerView: some View {
+        let buttonViewModel: SessionButtonViewModel = SessionButtonViewModel(
+            title: "set".localized(),
+            style: .bordered,
+            accessibility: Accessibility(
+                identifier: "Set button",
+                label: "Set button"
+            ),
+            action: { [weak self] _ in
+                Task { [weak self] in
+                    await self?.saveChanges()
                 }
+            }
+        )
+        buttonViewModel.minWidth = 110
+        buttonViewModel.isEnabled = {
+            guard internalState.initialState != internalState.pendingState else { return false }
+            
+            return (
+                internalState.pendingState.customFileServer.isEmpty ||
+                internalState.pendingState.customFileServer.isValid
             )
-        }
-        .eraseToAnyPublisher()
+        }()
+        
+        /// **Note:** `SessionButton_SwiftUI`'s label asks for `maxWidth: .infinity`, so it has to be told to size to
+        /// its content or it spans the whole screen. `minWidth` then matches what the UIKit footer button was given
+        /// via `SessionButton.Info` (the horizontal padding comes from the button's own `horizontalPadding`)
+        return SessionButton_SwiftUI(buttonViewModel)
+            .fixedSize(horizontal: true, vertical: false)
+    }
     
     @Sendable private static func queryState(
         previousState: State,
@@ -206,13 +211,19 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .shortenFileTTL,
-                    title: "Shorten File TTL",
-                    subtitle: "Set the TTL for files in the cache to 1 minute",
-                    trailingAccessory: .toggle(
-                        state.pendingState.shortenFileTTL,
-                        oldValue: previousState.pendingState.shortenFileTTL
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Shorten File TTL", font: .Body.largeBold),
+                            description: .htmlTagged(
+                                "Set the TTL for files in the cache to 1 minute"
+                            ),
+                            trailingAccessory: .toggle(
+                                state.pendingState.shortenFileTTL,
+                                oldValue: previousState.pendingState.shortenFileTTL
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
@@ -223,60 +234,51 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                         )
                     }
                 ),
-                SessionCell.Info(
-                    id: .useStreamEncryptionForAttachments,
-                    title: "Use Stream Encryption for Attachments",
-                    subtitle: """
-                    Controls whether attachments and display pictures should use the new stream encryption when uploading
-                    
-                    <warn>Warning: Old clients won't be able to decrypt attachments sent while this is enabled</warn>
-                    """,
-                    trailingAccessory: .toggle(
-                        state.pendingState.useStreamEncryptionForAttachments,
-                        oldValue: previousState.pendingState.useStreamEncryptionForAttachments
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.notifyAsync(
-                            key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
-                            value: state.pendingState.with(
-                                useStreamEncryptionForAttachments: !state.pendingState.useStreamEncryptionForAttachments
-                            )
-                        )
-                    }
-                ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .shareDownloadedFile,
-                    title: "Share Downloaded File",
-                    subtitle: """
-                    Share the downloaded file of a given URL if it exists via the native share sheet
-                    """,
-                    trailingAccessory: .icon(.share),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Share Downloaded File", font: .Body.largeBold),
+                            description: .htmlTagged(
+                                "Share the downloaded file of a given URL if it exists via the native share sheet"
+                            ),
+                            trailingAccessory: .icon(.share)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.showShareFileModal()
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .customFileServerUrl,
-                    title: "Custom File Server URL",
-                    subtitle: """
-                    The URL to use instead of the default File Server for uploading files
-                    
-                    <b>Current:</b> <span>\(state.pendingState.customFileServer.url.isEmpty ? "Default" : state.pendingState.customFileServer.url)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom File Server URL", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The URL to use instead of the default File Server for uploading files
+                            
+                            <b>Current:</b> <span>\(state.pendingState.customFileServer.url.isEmpty ? "Default" : state.pendingState.customFileServer.url)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.showServerUrlModal(pendingState: state.pendingState)
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .customFileServerPubkey,
-                    title: "Custom File Server Public Key",
-                    subtitle: """
-                    The public key to use for the above custom File Server (if empty then the pubkey for the default file server will be used)
-                    
-                    <b>Current:</b> <span>\(state.pendingState.customFileServer.pubkey.isEmpty ? "Default" : state.pendingState.customFileServer.pubkey)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom File Server Public Key", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The public key to use for the above custom File Server (if empty then the pubkey for the default file server will be used)
+                            
+                            <b>Current:</b> <span>\(state.pendingState.customFileServer.pubkey.isEmpty ? "Default" : state.pendingState.customFileServer.pubkey)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.showServerPubkeyModal(pendingState: state.pendingState)
                     }
@@ -572,8 +574,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
-            .shortenFileTTL,
-            .useStreamEncryptionForAttachments
+            .shortenFileTTL
         ]
         
         features.forEach { feature in
@@ -594,13 +595,6 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         
         if internalState.initialState.shortenFileTTL != internalState.pendingState.shortenFileTTL {
             dependencies.set(feature: .shortenFileTTL, to: internalState.pendingState.shortenFileTTL)
-        }
-        
-        if internalState.initialState.useStreamEncryptionForAttachments != internalState.pendingState.useStreamEncryptionForAttachments {
-            dependencies.set(
-                feature: .useStreamEncryptionForAttachments,
-                to: internalState.pendingState.useStreamEncryptionForAttachments
-            )
         }
         
         if internalState.initialState.customFileServer != internalState.pendingState.customFileServer {

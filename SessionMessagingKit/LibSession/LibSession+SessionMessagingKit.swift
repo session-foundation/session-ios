@@ -873,7 +873,7 @@ public extension LibSession {
                         result[variant] = [
                             .profile(userSessionId.hexString): profile,
                             .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests),
-                            .proAccessExpiryUpdated: proAccessExpiryTimestampMs
+                            .proAccessExpiryUpdated: proAccessExpiryTimestampSeconds
                         ]
                         
                     case .contacts(let conf):
@@ -1053,17 +1053,14 @@ public extension LibSession {
                 
                 Task.detached(priority: .medium) { [dependencies] in
                     /// Replicate any dumps
+                    ///
+                    /// A result with no dump changed no config, so its replica is left untouched - the replica's modification date is the
+                    /// "config last changed" timestamp the notification extension reads, and advancing it for a merge which changed
+                    /// nothing would make already-received messages look outdated
                     for result in results {
-                        switch result.dump {
-                            case .some(let dump):
-                                dependencies[singleton: .extensionHelper].replicate(dump: dump)
-                            
-                            case .none:
-                                dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
-                                    sessionId: result.sessionId,
-                                    variant: result.variant
-                                )
-                        }
+                        guard case .some(let dump) = result.dump else { continue }
+
+                        dependencies[singleton: .extensionHelper].replicate(dump: dump)
                     }
                 }
             }
@@ -1179,8 +1176,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     var displayName: String? { get }
     var proConfig: SessionPro.ProConfig? { get }
-    var proAccessExpiryTimestampMs: UInt64 { get }
-    
+    var proAccessExpiryTimestampSeconds: UInt64 { get }
+    var proAutoRenewing: Bool { get }
+    var proGracePeriodSeconds: UInt64 { get }
+
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
     /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
     func updateProfile(
@@ -1192,8 +1191,15 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     ) throws
     func updateProConfig(proConfig: SessionPro.ProConfig)
     func removeProConfig()
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64)
-    
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64)
+    func updateProAutoRenewing(_ proAutoRenewing: Bool)
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64)
+    var refundRequestedTimestampSeconds: UInt64 { get }
+    var proPrepaidTimestampSeconds: UInt64 { get }
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64)
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64)
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64
+
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,
@@ -1468,8 +1474,10 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     var displayName: String? { return nil }
     var proConfig: SessionPro.ProConfig? { return nil }
-    var proAccessExpiryTimestampMs: UInt64 { return 0 }
-    
+    var proAccessExpiryTimestampSeconds: UInt64 { return 0 }
+    var proAutoRenewing: Bool { return false }
+    var proGracePeriodSeconds: UInt64 { return 0 }
+
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
     func updateProfile(
@@ -1481,8 +1489,15 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     ) throws {}
     func updateProConfig(proConfig: SessionPro.ProConfig) {}
     func removeProConfig() {}
-    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {}
-    
+    func updateProAccessExpiryTimestampSeconds(_ proAccessExpiryTimestampSeconds: UInt64) {}
+    func updateProAutoRenewing(_ proAutoRenewing: Bool) {}
+    func updateProGracePeriodSeconds(_ proGracePeriodSeconds: UInt64) {}
+    var refundRequestedTimestampSeconds: UInt64 { return 0 }
+    var proPrepaidTimestampSeconds: UInt64 { return 0 }
+    func updateRefundRequested(_ refundRequestedTimestampSeconds: UInt64) {}
+    func updateProPrepaid(_ proPrepaidTimestampSeconds: UInt64) {}
+    func proRenewalTargetTimestampSeconds(nowUnixTimestampSeconds: Int64) -> Int64 { return 0 }
+
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,

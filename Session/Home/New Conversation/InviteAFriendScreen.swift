@@ -45,7 +45,6 @@ struct InviteAFriendScreen: View {
                 
                 Text(
                     "shareAccountIdDescription"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 )
                 .font(.system(size: Values.verySmallFontSize))

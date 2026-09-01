@@ -34,8 +34,8 @@ class GroupMemberSpec: QuickSpec {
                             profileLastUpdated: nil,
                             blocksCommunityMessageRequests: nil,
                             proFeatures: .none,
-                            proExpiryUnixTimestampMs: 0,
-                            proGenIndexHashHex: nil
+                            proExpiryUnixTimestampSeconds: 0,
+                            proRevocationTagHex: nil
                         ),
                         currentUserSessionId: userSessionId
                     )
@@ -291,8 +291,8 @@ private extension Array where Element == WithProfile<GroupMember> {
                         profileLastUpdated: currentProfile.profileLastUpdated,
                         blocksCommunityMessageRequests: currentProfile.blocksCommunityMessageRequests,
                         proFeatures: currentProfile.proFeatures,
-                        proExpiryUnixTimestampMs: currentProfile.proExpiryUnixTimestampMs,
-                        proGenIndexHashHex: currentProfile.proGenIndexHashHex
+                        proExpiryUnixTimestampSeconds: currentProfile.proExpiryUnixTimestampSeconds,
+                        proRevocationTagHex: currentProfile.proRevocationTagHex
                     )
                 }
             ),

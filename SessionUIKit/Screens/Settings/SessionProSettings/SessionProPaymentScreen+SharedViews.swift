@@ -161,6 +161,34 @@ struct ApproachCell: View {
                     return .globe
             }
         }
+
+        /// QA identifiers for this option's cell and its two lines.
+        ///
+        /// Derived from the variant rather than passed in, so every call site is addressable without
+        /// repeating itself. Named per option because several of these are shown at once, unlike the rest
+        /// of the screen. Same strings as Android's `qa_pro_link_cell_*`.
+        var accessibilityIdentifiers: (cell: String, title: String, description: String) {
+            switch self {
+                case .link:
+                    return (
+                        SessionProUI.AccessibilityIdentifier.linkCellLinkedDevice,
+                        SessionProUI.AccessibilityIdentifier.linkCellLinkedDeviceTitle,
+                        SessionProUI.AccessibilityIdentifier.linkCellLinkedDeviceDescription
+                    )
+                case .device:
+                    return (
+                        SessionProUI.AccessibilityIdentifier.linkCellDevice,
+                        SessionProUI.AccessibilityIdentifier.linkCellDeviceTitle,
+                        SessionProUI.AccessibilityIdentifier.linkCellDeviceDescription
+                    )
+                case .website:
+                    return (
+                        SessionProUI.AccessibilityIdentifier.linkCellWebsite,
+                        SessionProUI.AccessibilityIdentifier.linkCellWebsiteTitle,
+                        SessionProUI.AccessibilityIdentifier.linkCellWebsiteDescription
+                    )
+            }
+        }
     }
     
     struct Info {
@@ -205,11 +233,15 @@ struct ApproachCell: View {
                 Text(info.title)
                     .font(.Body.baseBold)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: info.variant.accessibilityIdentifiers.title))
                 
                 AttributedText(info.description)
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.leading)
+                    .accessibility(
+                        Accessibility(identifier: info.variant.accessibilityIdentifiers.description)
+                    )
             }
         }
         .padding(Values.mediumSpacing)
@@ -226,5 +258,6 @@ struct ApproachCell: View {
                 .stroke(themeColor: .borderSeparator)
         )
         .onTapGesture { info.action?() }
+        .accessibility(Accessibility(identifier: info.variant.accessibilityIdentifiers.cell))
     }
 }

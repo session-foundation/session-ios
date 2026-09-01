@@ -1137,8 +1137,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             profileLastUpdated: nil,
                             blocksCommunityMessageRequests: nil,
                             proFeatures: .none,
-                            proExpiryUnixTimestampMs: 0,
-                            proGenIndexHashHex: nil
+                            proExpiryUnixTimestampSeconds: 0,
+                            proRevocationTagHex: nil
                         ).insert(db)
                     }
                     
@@ -1825,8 +1825,8 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             profileLastUpdated: nil,
                             blocksCommunityMessageRequests: nil,
                             proFeatures: .none,
-                            proExpiryUnixTimestampMs: 0,
-                            proGenIndexHashHex: nil
+                            proExpiryUnixTimestampSeconds: 0,
+                            proRevocationTagHex: nil
                         ).insert(db)
                     }
                     
@@ -2917,6 +2917,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             db,
                             groupSessionId: fixture.groupId,
                             plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
                             using: fixture.dependencies
                         )
                     }
@@ -2932,6 +2933,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             db,
                             groupSessionId: fixture.groupId,
                             plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
                             using: fixture.dependencies
                         )
                     }
@@ -2959,6 +2961,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             db,
                             groupSessionId: fixture.groupId,
                             plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
                             using: fixture.dependencies
                         )
                     }
@@ -2974,6 +2977,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             db,
                             groupSessionId: fixture.groupId,
                             plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
                             using: fixture.dependencies
                         )
                     }
@@ -2990,6 +2994,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             db,
                             groupSessionId: fixture.groupId,
                             plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
                             using: fixture.dependencies
                         )
                     }
@@ -3005,7 +3010,24 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     }
                     expect(dumps).to(beEmpty())
                 }
-                
+
+                // MARK: ---- removes the replicated config dumps from the extension cache
+                it("removes the replicated config dumps from the extension cache") {
+                    try await fixture.mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: fixture.groupId,
+                            plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
+                            using: fixture.dependencies
+                        )
+                    }
+
+                    await fixture.mockExtensionHelper
+                        .verify { $0.removeConfigDumps(for: fixture.groupId) }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                }
+
                 // MARK: ------ unsubscribes from push notifications
                 it("unsubscribes from push notifications") {
                     try await fixture.mockUserDefaults
@@ -3020,6 +3042,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                             db,
                             groupSessionId: fixture.groupId,
                             plaintext: fixture.deleteMessage,
+                            serverTimestampMs: nil,
                             using: fixture.dependencies
                         )
                     }
@@ -3074,6 +3097,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3089,6 +3113,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3104,6 +3129,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3120,6 +3146,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3145,6 +3172,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3160,6 +3188,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3176,6 +3205,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3199,6 +3229,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3219,6 +3250,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3238,6 +3270,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
@@ -3257,13 +3290,94 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 db,
                                 groupSessionId: fixture.groupId,
                                 plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
                                 using: fixture.dependencies
                             )
                         }
                     }.to(throwError(MessageError.ignorableMessage))
                 }
+
+                // MARK: ---- ignores a stale kick message which predates the current membership
+                it("ignores a stale kick message which predates the current membership") {
+                    /// A valid-looking kick (passes the generation floor) but with a swarm timestamp earlier than the group's
+                    /// `joinedAt` - ie. a replayed kick from before the user's current membership (see #700)
+                    fixture.deleteMessage = try! LibSessionMessage.groupKicked(
+                        memberId: "05\(TestConstants.publicKey)",
+                        groupKeysGen: 1
+                    ).1
+                    let stubbedGroupInfo: LibSession.GroupInfo? = LibSession.GroupInfo(
+                        groupSessionId: fixture.groupId.hexString,
+                        groupIdentityPrivateKey: nil,
+                        name: "TestGroup",
+                        authData: Data([1, 2, 3]),
+                        priority: 0,
+                        joinedAt: 2000,
+                        invited: false,
+                        wasKickedFromGroup: false,
+                        wasGroupDestroyed: false
+                    )
+                    try await fixture.mockLibSessionCache
+                        .when { $0.groupInfo(for: .any) }
+                        .thenReturn([stubbedGroupInfo])
+
+                    await expect {
+                        try await fixture.mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: fixture.groupId,
+                                plaintext: fixture.deleteMessage,
+                                serverTimestampMs: 1_000_000,   /// 1,000s - earlier than joinedAt (2,000s)
+                                using: fixture.dependencies
+                            )
+                        }
+                    }.to(throwError(MessageError.ignorableMessage))
+
+                    /// The stale kick must NOT wipe the group state
+                    await fixture.mockLibSessionCache
+                        .verify { try $0.markAsKicked(groupSessionIds: [fixture.groupId.hexString]) }
+                        .wasNotCalled(timeout: .milliseconds(100))
+                    await fixture.mockLibSessionCache
+                        .verify { $0.removeConfigs(for: fixture.groupId) }
+                        .wasNotCalled(timeout: .milliseconds(100))
+                }
+
+                // MARK: ---- still applies a genuine kick which is newer than the current membership
+                it("still applies a genuine kick which is newer than the current membership") {
+                    fixture.deleteMessage = try! LibSessionMessage.groupKicked(
+                        memberId: "05\(TestConstants.publicKey)",
+                        groupKeysGen: 1
+                    ).1
+                    let stubbedGroupInfo: LibSession.GroupInfo? = LibSession.GroupInfo(
+                        groupSessionId: fixture.groupId.hexString,
+                        groupIdentityPrivateKey: nil,
+                        name: "TestGroup",
+                        authData: Data([1, 2, 3]),
+                        priority: 0,
+                        joinedAt: 2000,
+                        invited: false,
+                        wasKickedFromGroup: false,
+                        wasGroupDestroyed: false
+                    )
+                    try await fixture.mockLibSessionCache
+                        .when { $0.groupInfo(for: .any) }
+                        .thenReturn([stubbedGroupInfo])
+
+                    try await fixture.mockStorage.write { db in
+                        try MessageReceiver.handleGroupDelete(
+                            db,
+                            groupSessionId: fixture.groupId,
+                            plaintext: fixture.deleteMessage,
+                            serverTimestampMs: 3_000_000,   /// 3,000s - later than joinedAt (2,000s)
+                            using: fixture.dependencies
+                        )
+                    }
+
+                    await fixture.mockLibSessionCache
+                        .verify { try $0.markAsKicked(groupSessionIds: [fixture.groupId.hexString]) }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                }
             }
-            
+
             // MARK: -- when receiving a visible message from a member that is not accepted and the current user is a group admin
             context("when receiving a visible message from a member that is not accepted and the current user is a group admin") {
                 beforeEach {
@@ -3426,6 +3540,93 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     var groupMember: config_group_member = config_group_member()
                     expect(groups_members_get(fixture.groupMembersConfig.conf, &groupMember, &cMemberId)).to(beTrue())
                     expect(groupMember.invited).to(equal(0))
+                }
+            }
+
+            // MARK: -- when checking whether a message is outdated
+            context("when checking whether a message is outdated") {
+                @TestState var message: VisibleMessage! = VisibleMessage(
+                    sender: "051111111111111111111111111111111111111111111111111111111111111112",
+                    sentTimestampMs: 1234567890000,
+                    text: "Test"
+                )
+
+                // MARK: ---- rejects a message for a group the user was kicked from even when validated on receipt
+                it("rejects a message for a group the user was kicked from even when validated on receipt") {
+                    try await fixture.mockLibSessionCache
+                        .when { $0.wasKickedFromGroup(groupSessionId: .any) }
+                        .thenReturn(true)
+
+                    /// Being kicked removes the group's messages, so inserting one afterwards would leave an orphan the user
+                    /// cannot remove - the extension having validated the message at receipt must not bypass this
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: fixture.groupId.hexString,
+                            threadVariant: .group,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: true,
+                            using: fixture.dependencies
+                        )
+                    }.to(throwError(MessageError.outdatedMessage))
+                }
+
+                // MARK: ---- rejects a message sent before the group history was cleared even when validated on receipt
+                it("rejects a message sent before the group history was cleared even when validated on receipt") {
+                    try await fixture.mockLibSessionCache
+                        .when { $0.groupDeleteBefore(groupSessionId: .any) }
+                        .thenReturn(1234567890)
+
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: fixture.groupId.hexString,
+                            threadVariant: .group,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: true,
+                            using: fixture.dependencies
+                        )
+                    }.to(throwError(MessageError.outdatedMessage))
+                }
+
+                // MARK: ---- ignores the hidden conversation check when validated on receipt
+                it("ignores the hidden conversation check when validated on receipt") {
+                    try await fixture.mockLibSessionCache
+                        .when {
+                            $0.conversationInConfig(
+                                threadId: .any,
+                                threadVariant: .any,
+                                visibleOnly: .any,
+                                openGroupUrlInfo: .any
+                            )
+                        }
+                        .thenReturn(false)
+                    try await fixture.mockLibSessionCache
+                        .when { $0.canPerformChange(threadId: .any, threadVariant: .any, changeTimestampMs: .any) }
+                        .thenReturn(false)
+
+                    /// This is the combination which discards a message request the extension has already shown a notification for
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            threadVariant: .contact,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: true,
+                            using: fixture.dependencies
+                        )
+                    }.toNot(throwError())
+
+                    await expect {
+                        try MessageReceiver.throwIfMessageOutdated(
+                            message: message,
+                            threadId: "051111111111111111111111111111111111111111111111111111111111111112",
+                            threadVariant: .contact,
+                            openGroupUrlInfo: nil,
+                            wasValidatedOnReceipt: false,
+                            using: fixture.dependencies
+                        )
+                    }.to(throwError(MessageError.outdatedMessage))
                 }
             }
         }
@@ -3772,8 +3973,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 profileLastUpdated: nil,
                 blocksCommunityMessageRequests: nil,
                 proFeatures: .none,
-                proExpiryUnixTimestampMs: 0,
-                proGenIndexHashHex: nil
+                proExpiryUnixTimestampSeconds: 0,
+                proRevocationTagHex: nil
             ).insert(db)
         }
     }
@@ -3878,6 +4079,9 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
             .thenReturn(())
         try await mockExtensionHelper
             .when { try $0.upsertLastClearedRecord(threadId: .any) }
+            .thenReturn(())
+        try await mockExtensionHelper
+            .when { $0.removeConfigDumps(for: .any) }
             .thenReturn(())
     }
     

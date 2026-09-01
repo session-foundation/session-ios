@@ -2,7 +2,7 @@
 //
 // stringlint:disable
 
-import UIKit
+import SwiftUI
 import Combine
 import GRDB
 import DifferenceKit
@@ -11,11 +11,11 @@ import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     private var updatedDevnetPubkey: String?
     private var updatedDevnetIp: String?
@@ -40,22 +40,21 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
                 let oldState: State = self.internalState
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: oldState))
             }
     }
     
     // MARK: - Config
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case general
         case onionRequestConfig
         case quicConfig
         case devnetConfig
         
-        var title: String? {
+        public var title: String? {
             switch self {
                 case .general: return nil
                 case .onionRequestConfig: return "Onion Request Configuration"
@@ -64,15 +63,20 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             }
         }
         
-        var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .general: return .padding
                 default: return .titleRoundedContent
             }
         }
+        
+        public var divider: Bool { return true }
+        public var footer: String? { return nil }
+        public var extraVerticalPadding: CGFloat { return 0 }
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Hashable, Differentiable, CaseIterable {
+    public enum ListItem: Hashable, Differentiable, CaseIterable {
         case environment
         case router
         case pushNotificationService
@@ -113,13 +117,13 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             }
         }
         
-        public func isContentEqual(to source: TableItem) -> Bool {
+        public func isContentEqual(to source: ListItem) -> Bool {
             self.differenceIdentifier == source.differenceIdentifier
         }
         
-        public static var allCases: [TableItem] {
-            var result: [TableItem] = []
-            switch TableItem.environment {
+        public static var allCases: [ListItem] {
+            var result: [ListItem] = []
+            switch ListItem.environment {
                 case .environment: result.append(.environment); fallthrough
                 case .router: result.append(.router); fallthrough
                 case .pushNotificationService: result.append(.pushNotificationService); fallthrough
@@ -224,33 +228,36 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
     
     let title: String = "Developer Network Settings"
     
-    lazy var footerButtonInfo: AnyPublisher<SessionButton.Info?, Never> = $internalState
-        .map { [weak self] state -> SessionButton.Info? in
-            return SessionButton.Info(
-                style: .bordered,
-                title: "set".localized(),
-                isEnabled: {
-                    guard state.initialState != state.pendingState else { return false }
-                    
-                    switch (state.pendingState.environment, state.pendingState.router) {
-                        case (.devnet, .sessionRouter): return false
-                        case (.devnet, _): return state.pendingState.devnetConfig.isValid
-                        default: return true
-                    }
-                }(),
-                accessibility: Accessibility(
-                    identifier: "Set button",
-                    label: "Set button"
-                ),
-                minWidth: 110,
-                onTap: { [weak self] in
-                    Task { [weak self] in
-                        await self?.saveChanges()
-                    }
+    public var footerStyle: SessionListScreenContent.FooterStyle { .sticky }
+    
+    @MainActor public var footerView: some View {
+        let buttonViewModel: SessionButtonViewModel = SessionButtonViewModel(
+            title: "set".localized(),
+            style: .bordered,
+            accessibility: Accessibility(
+                identifier: "Set button",
+                label: "Set button"
+            ),
+            action: { [weak self] _ in
+                Task { [weak self] in
+                    await self?.saveChanges()
                 }
-            )
-        }
-        .eraseToAnyPublisher()
+            }
+        )
+        buttonViewModel.minWidth = 110
+        buttonViewModel.isEnabled = {
+            guard internalState.initialState != internalState.pendingState else { return false }
+            
+            switch (internalState.pendingState.environment, internalState.pendingState.router) {
+                case (.devnet, .sessionRouter): return false
+                case (.devnet, _): return internalState.pendingState.devnetConfig.isValid
+                default: return true
+            }
+        }()
+        
+        return SessionButton_SwiftUI(buttonViewModel)
+            .fixedSize(horizontal: true, vertical: false)
+    }
     
     @Sendable private static func queryState(
         previousState: State,
@@ -291,62 +298,78 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .environment,
-                    title: "Environment",
-                    subtitle: """
-                    The environment used for sending requests and storing messages.
-                    
-                    <b>Current:</b> <span>\(state.pendingState.environment.title)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Environment", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The environment used for sending requests and storing messages.
+
+                            <b>Current:</b> <span>\(state.pendingState.environment.title)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.showEnvironmentModal(pendingState: state.pendingState)
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .router,
-                    title: "Router",
-                    subtitle: """
-                    The routing method which should be used when making network requests.
-                    
-                    The Session Router option does not work with Devnet.
-                    
-                    <b>Current:</b> <span>\(state.pendingState.router.title)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Router", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The routing method which should be used when making network requests.
+
+                            The Session Router option does not work with Devnet.
+
+                            <b>Current:</b> <span>\(state.pendingState.router.title)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.showRoutingModal(pendingState: state.pendingState)
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .pushNotificationService,
-                    title: "Push Notification Service",
-                    subtitle: """
-                    The service used for subscribing for push notifications.
-                    
-                    The production service only works for production builds and neither option works in the Simulator.
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Push Notification Service", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The service used for subscribing for push notifications.
 
-                    <b>Current:</b> <span>\(state.pendingState.pushNotificationService.title)</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                            The production service only works for production builds and neither option works in the Simulator.
+
+                            <b>Current:</b> <span>\(state.pendingState.pushNotificationService.title)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         viewModel?.showPushServiceModal(pendingState: state.pendingState)
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .pushNotificationToken,
-                    title: "Push Notification Token",
-                    subtitle: """
-                    View the push notification token this device is currently registered with. 
-                    
-                    <b>Status:</b> \(pushNotificationRegistrationStatus)
-                    """,
-                    trailingAccessory: .icon(
-                        .eye,
-                        customTint: (state.pendingState.pushNotificationsEnabled && state.pendingState.pushNotificationToken != nil ?
-                            nil :
-                            .disabled
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Push Notification Token", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            View the push notification token this device is currently registered with. 
+
+                            <b>Status:</b> \(pushNotificationRegistrationStatus)
+                            """),
+                            trailingAccessory: .icon(
+                                .eye,
+                                tintColor: (state.pendingState.pushNotificationsEnabled && state.pendingState.pushNotificationToken != nil ?
+                                    .textPrimary :
+                                    .disabled
+                                )
+                            )
                         )
                     ),
                     isEnabled: (
@@ -383,15 +406,19 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .forceOffline,
-                    title: "Force Offline",
-                    subtitle: """
-                    Shut down the current network and cause all future network requests to fail after a 1 second delay with a 'serviceUnavailable' error.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.pendingState.forceOffline,
-                        oldValue: previousState.pendingState.forceOffline
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Force Offline", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Shut down the current network and cause all future network requests to fail after a 1 second delay with a 'serviceUnavailable' error.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.pendingState.forceOffline,
+                                oldValue: previousState.pendingState.forceOffline
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.notifyAsync(
@@ -402,15 +429,19 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .maxConcurrentFiles,
-                    title: "Maximum Concurrent Files",
-                    subtitle: """
-                    Controls the maximum number of files that can be downloaded/uploaded at the same time, modifying this can impact performance.
-                    
-                    <b>Current Value:</b> <span>\(state.pendingState.maxConcurrentFiles <= 0 ? "Default" : "\(state.pendingState.maxConcurrentFiles)")</span>
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Maximum Concurrent Files", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls the maximum number of files that can be downloaded/uploaded at the same time, modifying this can impact performance.
+
+                            <b>Current Value:</b> <span>\(state.pendingState.maxConcurrentFiles <= 0 ? "Default" : "\(state.pendingState.maxConcurrentFiles)")</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         DeveloperSettingsViewModel.showModalForMockableNumber(
                             title: "Maximum Concurrent Files",
@@ -419,7 +450,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                             minValue: 0,
                             maxValue: 256,
                             navigatableStateHolder: viewModel,
-                            onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                            onValueChanged: { [dependencies = viewModel?.dependencies] _ in
+                                dependencies?.notifyAsync(key: .updateScreen(DeveloperSettingsNetworkViewModel.self))
+                            },
                             using: viewModel?.dependencies
                         )
                     }
@@ -433,15 +466,19 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             onionRequestConfig = SectionModel(
                 model: .onionRequestConfig,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .onionRequestMinStandardPaths,
-                        title: "Minimum Standard Paths",
-                        subtitle: """
-                        Controls the minimum number of standard paths to have active at a time.
-                        
-                        <b>Current Value:</b> <span>\(state.pendingState.onionRequestMinStandardPaths <= 0 ? "Default" : "\(state.pendingState.onionRequestMinStandardPaths)")</span>
-                        """,
-                        trailingAccessory: .icon(.squarePen),
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("Minimum Standard Paths", font: .Body.largeBold),
+                                description: .htmlTagged("""
+                                Controls the minimum number of standard paths to have active at a time.
+
+                                <b>Current Value:</b> <span>\(state.pendingState.onionRequestMinStandardPaths <= 0 ? "Default" : "\(state.pendingState.onionRequestMinStandardPaths)")</span>
+                                """),
+                                trailingAccessory: .icon(.squarePen)
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             DeveloperSettingsViewModel.showModalForMockableNumber(
                                 title: "Minimum Standard Paths",
@@ -450,20 +487,26 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                                 minValue: 0,
                                 maxValue: 256,
                                 navigatableStateHolder: viewModel,
-                                onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                                onValueChanged: { [dependencies = viewModel?.dependencies] _ in
+                                dependencies?.notifyAsync(key: .updateScreen(DeveloperSettingsNetworkViewModel.self))
+                            },
                                 using: viewModel?.dependencies
                             )
                         }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .onionRequestMinFilePaths,
-                        title: "Minimum File Paths",
-                        subtitle: """
-                        Controls the minimum number of file paths to have active at a time.
-                        
-                        <b>Current Value:</b> <span>\(state.pendingState.onionRequestMinFilePaths <= 0 ? "Default" : "\(state.pendingState.onionRequestMinFilePaths)")</span>
-                        """,
-                        trailingAccessory: .icon(.squarePen),
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("Minimum File Paths", font: .Body.largeBold),
+                                description: .htmlTagged("""
+                                Controls the minimum number of file paths to have active at a time.
+
+                                <b>Current Value:</b> <span>\(state.pendingState.onionRequestMinFilePaths <= 0 ? "Default" : "\(state.pendingState.onionRequestMinFilePaths)")</span>
+                                """),
+                                trailingAccessory: .icon(.squarePen)
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             DeveloperSettingsViewModel.showModalForMockableNumber(
                                 title: "Minimum File Paths",
@@ -472,7 +515,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                                 minValue: 0,
                                 maxValue: 256,
                                 navigatableStateHolder: viewModel,
-                                onValueChanged: { _ in viewModel?.forceRefresh(type: .databaseQuery) },
+                                onValueChanged: { [dependencies = viewModel?.dependencies] _ in
+                                dependencies?.notifyAsync(key: .updateScreen(DeveloperSettingsNetworkViewModel.self))
+                            },
                                 using: viewModel?.dependencies
                             )
                         }
@@ -488,54 +533,70 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             devnetConfig = SectionModel(
                 model: .devnetConfig,
                 elements: [
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .devnetPubkey,
-                        title: "Public Key",
-                        subtitle: """
-                        The public key for the devnet seed node.
-                        
-                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.pubkey.isEmpty ? "None" : state.pendingState.devnetConfig.pubkey)</span>
-                        """,
-                        trailingAccessory: .icon(.squarePen),
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("Public Key", font: .Body.largeBold),
+                                description: .htmlTagged("""
+                                The public key for the devnet seed node.
+
+                                <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.pubkey.isEmpty ? "None" : state.pendingState.devnetConfig.pubkey)</span>
+                                """),
+                                trailingAccessory: .icon(.squarePen)
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             viewModel?.showDevnetPubkeyModal(pendingState: state.pendingState)
                         }
                     ),
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .devnetIp,
-                        title: "IP Address",
-                        subtitle: """
-                        The IP address for the devnet seed node.
-                        
-                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.ip.isEmpty ? "None" : state.pendingState.devnetConfig.ip)</span>
-                        """,
-                        trailingAccessory: .icon(.squarePen),
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("IP Address", font: .Body.largeBold),
+                                description: .htmlTagged("""
+                                The IP address for the devnet seed node.
+
+                                <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.ip.isEmpty ? "None" : state.pendingState.devnetConfig.ip)</span>
+                                """),
+                                trailingAccessory: .icon(.squarePen)
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             viewModel?.showDevnetIpModal(pendingState: state.pendingState)
                         }
                     ),
-                    SessionCell.Info(
-                        id: .devnetIp,
-                        title: "HTTP Port",
-                        subtitle: """
-                        The HTTP port for the devnet seed node.
-                        
-                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.httpPort)</span>
-                        """,
-                        trailingAccessory: .icon(.squarePen),
+                    SessionListScreenContent.ListItemInfo(
+                        id: .devnetHttpPort,
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("HTTP Port", font: .Body.largeBold),
+                                description: .htmlTagged("""
+                                The HTTP port for the devnet seed node.
+
+                                <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.httpPort)</span>
+                                """),
+                                trailingAccessory: .icon(.squarePen)
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             viewModel?.showDevnetHttpPortModal(pendingState: state.pendingState)
                         }
                     ),
-                    SessionCell.Info(
-                        id: .devnetIp,
-                        title: "QUIC Port",
-                        subtitle: """
-                        The QUIC port for the devnet seed node.
-                        
-                        <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.omqPort)</span>
-                        """,
-                        trailingAccessory: .icon(.squarePen),
+                    SessionListScreenContent.ListItemInfo(
+                        id: .devnetOmqPort,
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("QUIC Port", font: .Body.largeBold),
+                                description: .htmlTagged("""
+                                The QUIC port for the devnet seed node.
+
+                                <b>Current Value:</b> <span>\(state.pendingState.devnetConfig.omqPort)</span>
+                                """),
+                                trailingAccessory: .icon(.squarePen)
+                            )
+                        ),
                         onTap: { [weak viewModel] in
                             viewModel?.showDevnetOmqPortModal(pendingState: state.pendingState)
                         }
@@ -967,7 +1028,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         var needsRouterUpdate: Bool = false
         var needsPushServiceUpdate: Bool = false
         
-        for feature in TableItem.allCases {
+        for feature in ListItem.allCases {
             switch feature {
                 case .devnetPubkey, .devnetIp, .devnetHttpPort, .devnetOmqPort: break
                 case .pushNotificationsEnabled, .pushNotificationToken: break   /// Info only

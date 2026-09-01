@@ -3,37 +3,44 @@
 // stringlint:disable
 
 import Foundation
-import SessionUtil
-import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    enum BackendUserProStatus: Sendable, CaseIterable, Equatable, CustomStringConvertible {
-        case neverBeenPro
+    /// The user's account-level Pro status. libsession now delivers this as an opaque string code
+    /// (the `SESSION_PRO_BACKEND_USER_PRO_STATUS` enum was removed). An unrecognised/future code
+    /// (`"grace"`, `"suspended"`, …) is preserved via `.unknown(code)` for display/telemetry.
+    ///
+    /// CRITICAL: `.unknown` must NEVER grant Pro — every entitlement/gating check treats it exactly
+    /// like `.never` (fail closed). It is only surfaced informationally.
+    enum BackendUserProStatus: Sendable, CaseIterable, Equatable, Hashable, CustomStringConvertible {
+        case never
         case active
         case expired
-        
-        var libSessionValue: SESSION_PRO_BACKEND_USER_PRO_STATUS {
-            switch self {
-                case .neverBeenPro: return SESSION_PRO_BACKEND_USER_PRO_STATUS_NEVER_BEEN_PRO
-                case .active: return SESSION_PRO_BACKEND_USER_PRO_STATUS_ACTIVE
-                case .expired: return SESSION_PRO_BACKEND_USER_PRO_STATUS_EXPIRED
+        case unknown(String)
+
+        /// Canonical wire status codes
+        static let neverCode: String = "never"
+        static let activeCode: String = "active"
+        static let expiredCode: String = "expired"
+
+        /// The finite, mockable/known cases. `.unknown` carries a free-form wire value so it is
+        /// deliberately excluded (it's a real-backend value, not a dev-picker option).
+        public static var allCases: [BackendUserProStatus] { [.never, .active, .expired] }
+
+        init(code: String) {
+            switch code {
+                case "", BackendUserProStatus.neverCode: self = .never
+                case BackendUserProStatus.activeCode: self = .active
+                case BackendUserProStatus.expiredCode: self = .expired
+                default: self = .unknown(code)
             }
         }
-        
-        init(_ libSessionValue: SESSION_PRO_BACKEND_USER_PRO_STATUS) {
-            switch libSessionValue {
-                case SESSION_PRO_BACKEND_USER_PRO_STATUS_NEVER_BEEN_PRO: self = .neverBeenPro
-                case SESSION_PRO_BACKEND_USER_PRO_STATUS_ACTIVE: self = .active
-                case SESSION_PRO_BACKEND_USER_PRO_STATUS_EXPIRED: self = .expired
-                default: self = .neverBeenPro
-            }
-        }
-        
+
         public var description: String {
             switch self {
-                case .neverBeenPro: return "Never been pro"
+                case .never: return "Never been pro"
                 case .active: return "Active"
                 case .expired: return "Expired"
+                case .unknown(let code): return "Unknown (\(code))"
             }
         }
     }

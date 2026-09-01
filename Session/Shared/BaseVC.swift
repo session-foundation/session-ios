@@ -99,10 +99,17 @@ public class BaseVC: UIViewController {
         headingImageView.set(.height, to: Values.mediumFontSize)
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
-        sessionProBadge.isHidden = (
-            !sessionProUIManager.isSessionProEnabled ||
-            !sessionProUIManager.currentUserIsCurrentlyPro
-        )
+        /// **An entitlement indicator, so it reads ACCESS** - it says "you have this", and it has one while the proof
+        /// is live even if the plan has lapsed.
+        ///
+        /// Deliberately the opposite source to the composer's badge (`InputView`), which is the same widget class and
+        /// the same property in the opposite role - an upsell, reading DISPLAY. Do not reconcile the two: making this
+        /// one read DISPLAY would take a subscriber's badge away during the overhang, which is the inverse of the bug
+        /// that split them
+        sessionProBadge.isHidden = !sessionProUIManager.currentUserHasProAccess
+        /// Replaces the generic identifier the badge carries by default, so an assertion aimed at this one cannot
+        /// match the composer's badge instead - they are the same widget in opposite roles
+        sessionProBadge.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.homeHeader
         
         let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
         stackView.semanticContentAttribute = .forceLeftToRight
@@ -112,9 +119,9 @@ public class BaseVC: UIViewController {
         
         proObservationTask?.cancel()
         proObservationTask = Task.detached(priority: .userInitiated) { [weak sessionProBadge] in
-            for await isPro in sessionProUIManager.currentUserIsPro {
+            for await isPro in sessionProUIManager.currentUserHasProAccessStream {
                 await MainActor.run { [weak sessionProBadge] in
-                    sessionProBadge?.isHidden = !sessionProUIManager.isSessionProEnabled || !isPro
+                    sessionProBadge?.isHidden = !isPro
                 }
             }
         }

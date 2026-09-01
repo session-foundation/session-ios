@@ -183,8 +183,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     profileLastUpdated: nil,
                     blocksCommunityMessageRequests: nil,
                     proFeatures: .none,
-                    proExpiryUnixTimestampMs: 0,
-                    proGenIndexHashHex: nil
+                    proExpiryUnixTimestampSeconds: 0,
+                    proRevocationTagHex: nil
                 ).insert(db)
             }
             
@@ -227,11 +227,14 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .when { $0.generate(.uuid()) }
                 .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
             try await mockCrypto
-                .when { $0.generate(.legacyEncryptedDisplayPictureSize(plaintextSize: .any)) }
+                .when { try $0.tryGenerate(.expectedEncryptedAttachmentSize(plaintextSize: .any)) }
                 .thenReturn(1024)
             try await mockCrypto
-                .when { $0.generate(.legacyEncryptedDisplayPicture(data: .any, key: .any)) }
-                .thenReturn(TestConstants.validImageData)
+                .when { try $0.tryGenerate(.encryptAttachment(plaintext: .any, domain: .profilePicture)) }
+                .thenReturn((
+                    TestConstants.validImageData,
+                    Data((0..<DisplayPictureManager.encryptionKeySize).map { _ in 1 })
+                ))
             try await mockCrypto
                 .when {
                     try $0.generate(

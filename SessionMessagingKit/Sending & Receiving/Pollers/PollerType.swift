@@ -125,7 +125,17 @@ public extension PollerType {
                     for try await _ in group {}
                 }
             }
-            catch { await stop() }
+            catch {
+                /// If **this** task was cancelled then whoever cancelled it already owns the lifecycle, so don't touch shared state
+                ///
+                /// Calling `stop()` here would cancel whatever is *currently* in `pollTask` - and that is not necessarily this task. A
+                /// `stop()` immediately followed by `startIfNeeded()` (as `CommunityManager` does when joining a community) clears
+                /// `pollTask`, starts a replacement, and only *then* does this cancellation propagate - so an unconditional `stop()`
+                /// cancels the replacement and leaves the poller permanently dead with nothing to restart it.
+                guard !Task.isCancelled else { return }
+
+                await stop()
+            }
         }
         
         if logStartAndStopCalls {
@@ -254,7 +264,12 @@ public extension PollerType {
             for await changedValue in dependencies.stream(key: key, of: (any PollerType).self) {
                 if ObjectIdentifier(changedValue as AnyObject) != ObjectIdentifier(self as AnyObject) {
                     Log.info(.poller, "\(pollerName) has been replaced in dependencies, shutting down old instance.")
-                    pollTask?.cancel()
+
+                    /// **Note:** Use `stop()` rather than cancelling directly so `pollTask` is cleared as well. The `catch` in
+                    /// `startIfNeeded` deliberately doesn't tear down after a cancellation (it can't tell whether `pollTask` still refers
+                    /// to it), so a bare `cancel()` here would leave a finished task in `pollTask` and make every later
+                    /// `startIfNeeded` a silent no-op.
+                    stop()
                     break
                 }
             }

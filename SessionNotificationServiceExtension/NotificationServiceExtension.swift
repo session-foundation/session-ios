@@ -363,12 +363,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         sessionId: SessionId,
         timestampMs: Int64
     ) throws {
-        guard cache.configNeedsDump(config) else {
-            return dependencies[singleton: .extensionHelper].refreshDumpModifiedDate(
-                sessionId: sessionId,
-                variant: variant
-            )
-        }
+        /// A merge which produced no dump changed no config, so the replica (and the "config last changed" date its modification
+        /// date carries) must be left alone - advancing it would make messages already received by this extension look outdated
+        /// to the main app when it imports them
+        guard cache.configNeedsDump(config) else { return }
         
         /// Update the replicated extension config dump (this way any subsequent push notifications will use the correct
         /// data - eg. group encryption keys)
@@ -496,6 +494,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                                 plaintext: plaintext,
                                 userSessionId: userSessionId,
                                 groupSessionId: senderSessionId,
+                                serverTimestampMs: libSessionMessage.serverTimestampMs,
                                 using: dependencies
                             )
                             

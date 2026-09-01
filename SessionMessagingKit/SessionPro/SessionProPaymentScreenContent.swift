@@ -29,7 +29,7 @@ extension SessionProPaymentScreenContent {
                 }.value
                 
                 guard !dependencies[feature: .fakeAppleSubscriptionForDev] else { return .dev }
-                return .success(expirationTimestampMs: dependencies[singleton: .sessionProManager].currentUserCurrentProState.accessExpiryTimestampMs)
+                return .success(expirationTimestampSeconds: dependencies[singleton: .sessionProManager].currentUserCurrentProState.accessExpiryTimestampSeconds)
             } catch {
                 switch error {
                     case SessionProError.purchasePending: return .pending
@@ -57,8 +57,13 @@ extension SessionProPaymentScreenContent {
             try await dependencies[singleton: .sessionProManager].requestRefund(scene: scene)
             
             let updatedProState: SessionPro.State = dependencies[singleton: .sessionProManager].currentUserCurrentProState
+            let nowMs: UInt64 = await dependencies.networkOffsetTimestampMs()
             self.dataModel = DataModel(
-                flow: .init(state: updatedProState),
+                flow: .init(
+                    state: updatedProState,
+                    nowSeconds: (nowMs / 1000),
+                    using: dependencies
+                ),
                 plans: updatedProState.plans.map { SessionProPlanInfo(plan: $0) }
             )
         }

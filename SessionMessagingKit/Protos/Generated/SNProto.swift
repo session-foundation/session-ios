@@ -4073,11 +4073,8 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteM
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> SNProtoProProofBuilder {
         let builder = SNProtoProProofBuilder()
-        if hasVersion {
-            builder.setVersion(version)
-        }
-        if let _value = genIndexHash {
-            builder.setGenIndexHash(_value)
+        if let _value = revocationTag {
+            builder.setRevocationTag(_value)
         }
         if let _value = rotatingPublicKey {
             builder.setRotatingPublicKey(_value)
@@ -4097,12 +4094,8 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteM
 
         @objc fileprivate override init() {}
 
-        @objc public func setVersion(_ valueParam: UInt32) {
-            proto.version = valueParam
-        }
-
-        @objc public func setGenIndexHash(_ valueParam: Data) {
-            proto.genIndexHash = valueParam
+        @objc public func setRevocationTag(_ valueParam: Data) {
+            proto.revocationTag = valueParam
         }
 
         @objc public func setRotatingPublicKey(_ valueParam: Data) {
@@ -4128,21 +4121,14 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteM
 
     fileprivate let proto: SessionProtos_ProProof
 
-    @objc public var version: UInt32 {
-        return proto.version
-    }
-    @objc public var hasVersion: Bool {
-        return proto.hasVersion
-    }
-
-    @objc public var genIndexHash: Data? {
-        guard proto.hasGenIndexHash else {
+    @objc public var revocationTag: Data? {
+        guard proto.hasRevocationTag else {
             return nil
         }
-        return proto.genIndexHash
+        return proto.revocationTag
     }
-    @objc public var hasGenIndexHash: Bool {
-        return proto.hasGenIndexHash
+    @objc public var hasRevocationTag: Bool {
+        return proto.hasRevocationTag
     }
 
     @objc public var rotatingPublicKey: Data? {

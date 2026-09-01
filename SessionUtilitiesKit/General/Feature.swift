@@ -41,6 +41,17 @@ public extension FeatureStorage {
         identifier: "forceOffline"
     )
     
+    /// Set only by the automated-test launch environment: backdates the persisted revocation next-poll instant once at
+    /// launch so the polling gate, unmodified, decides a poll is due.
+    ///
+    /// It exists because the QA backend serves a `retry_in` of a day, which is inside libSession's clamp, so nothing
+    /// else shortens it and no revocation behaviour is reachable in a test run. It moves the input the gate reads -
+    /// it is deliberately not a fetch trigger, so a spec exercises the production polling path rather than one that
+    /// can pass while that path is broken.
+    static let forceProRevocationRefresh: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceProRevocationRefresh"
+    )
+    
     static let debugDisappearingMessageDurations: FeatureConfig<Bool> = Dependencies.create(
         identifier: "debugDisappearingMessageDurations"
     )
@@ -94,10 +105,6 @@ public extension FeatureStorage {
         identifier: "updatedGroupsDeleteAttachmentsBeforeNow"
     )
     
-    static let sessionProEnabled: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "sessionPro"
-    )
-    
     static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
         identifier: "proBadgeEverywhere"
     )
@@ -120,10 +127,6 @@ public extension FeatureStorage {
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
         identifier: "shortenFileTTL"
-    )
-    
-    static let useStreamEncryptionForAttachments: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "useStreamEncryptionForAttachments"
     )
     
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
@@ -305,33 +308,15 @@ public protocol FeatureStorageType {
 
 // MARK: - MockableFeature
 
+/// Conformers must supply the `RawRepresentable` requirements (`rawValue`/`init?(rawValue:)`) themselves.
+/// We deliberately do NOT provide a protocol-extension default: a previous default derived the raw index by
+/// matching `self` against `allCases` via `String(reflecting:)`, and that reflection could resolve a
+/// conformer's *localized* display string mid-lookup — which acquired the SNUIKit config lock and deadlocked
+/// the splash screen during feature-store init. Requiring an explicit, literal mapping per type keeps the
+/// lookup cheap and non-re-entrant so that failure mode can't be reintroduced by accident.
 public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equatable, CaseIterable where RawValue == Int {
     var title: String { get }
     var subtitle: String { get }
-}
-
-extension MockableFeatureValue {
-    public var rawValue: Int {
-        let targetId: String = String(reflecting: self)
-        
-        for (index, element) in Self.allCases.enumerated() {
-            if String(reflecting: element) == targetId {
-                return index + 1 /// The `rawValue` is 1-indexed whereas the array is 0-indexed
-            }
-        }
-        
-        return 0 /// Should theoretically never happen if self is in `allCases`
-    }
-
-    public init?(rawValue: Int) {
-        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
-        let index: Int = (rawValue - 1)
-        let all: [Self] = Array(Self.allCases)
-
-        guard all.indices.contains(index) else { return nil }
-                
-        self = all[index]
-    }
 }
 
 public enum MockableFeature<T: MockableFeatureValue>: Sendable, FeatureOption, CaseIterable {

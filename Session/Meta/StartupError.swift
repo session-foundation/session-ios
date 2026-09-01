@@ -17,6 +17,7 @@ internal enum StartupError: Error, CustomStringConvertible {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended):
                 return "Database startup failed"
             case .databaseError(StorageError.migrationNoLongerSupported): return "Unsupported version"
+            case .databaseError(StorageError.databaseKeyMissingWithActiveDatabase): return "Database key missing"
             case .failedToRestore: return "Failed to restore"
             case .databaseError: return "Database error"
             case .startupTimeout: return "Startup timeout"
@@ -27,17 +28,14 @@ internal enum StartupError: Error, CustomStringConvertible {
         switch self {
             case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED), .databaseError(StorageError.databaseSuspended), .failedToRestore, .databaseError:
                 return "databaseErrorGeneric"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localized()
 
             case .databaseError(StorageError.migrationNoLongerSupported):
                 return "databaseErrorUpdate"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localized()
             
             case .startupTimeout:
                 return "databaseErrorTimeout"
-                    .put(key: "app_name", value: Constants.app_name)
                     .localized()
         }
     }

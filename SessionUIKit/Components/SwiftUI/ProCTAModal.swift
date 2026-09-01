@@ -9,7 +9,7 @@ public struct ProCTAModal: View {
         case generic(renew: Bool)
         case longerMessages(renew: Bool)
         case animatedProfileImage(isSessionProActivated: Bool, renew: Bool)
-        case morePinnedConvos(isGrandfathered: Bool, renew: Bool)
+        case morePinnedConvos(isOverTheLimit: Bool, renew: Bool)
         case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
         case expiring(timeLeft: String?)
     }
@@ -438,24 +438,18 @@ public extension ProCTAModal.Variant {
         switch self {
             case .generic(renew: true):
                 return "proRenewMaxPotential"
-                    .put(key: "pro", value: Constants.pro)
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .generic(renew: false):
                 return "proUserProfileModalCallToAction"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
             
             case .longerMessages(renew: true):
                 return "proRenewLongerMessages"
-                    .put(key: "pro", value: Constants.pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .longerMessages(renew: false):
                 return "proCallToActionLongerMessages"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
             
             case .animatedProfileImage(isSessionProActivated: true, _):
@@ -464,33 +458,27 @@ public extension ProCTAModal.Variant {
                 
             case .animatedProfileImage(isSessionProActivated: false, renew: true):
                 return "proRenewAnimatedDisplayPicture"
-                    .put(key: "pro", value: Constants.pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .animatedProfileImage(isSessionProActivated: false, renew: false):
                 return "proAnimatedDisplayPictureCallToActionDescription"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
             
-            case .morePinnedConvos(isGrandfathered: true, renew: false):
+            case .morePinnedConvos(isOverTheLimit: true, renew: false):
                 return "proCallToActionPinnedConversations"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .morePinnedConvos(isGrandfathered: false, renew: false):
+            case .morePinnedConvos(isOverTheLimit: false, renew: false):
                 return "proCallToActionPinnedConversationsMoreThan"
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "limit", value: sessionProUIManager.pinnedConversationLimit)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .morePinnedConvos(isGrandfathered: true, renew: true):
+            case .morePinnedConvos(isOverTheLimit: true, renew: true):
                 return "proRenewPinMoreConversations"
-                    .put(key: "pro", value: Constants.pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
-            case .morePinnedConvos(isGrandfathered: false, renew: true):
+            case .morePinnedConvos(isOverTheLimit: false, renew: true):
                 return "proRenewPinFiveConversations"
-                    .put(key: "pro", value: Constants.pro)
                     .put(key: "limit", value: sessionProUIManager.pinnedConversationLimit)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
             
@@ -500,8 +488,6 @@ public extension ProCTAModal.Variant {
             
             case .groupLimit(isAdmin: true, isSessionProActivated: false, _):
                 return "proUserProfileModalCallToAction"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "app_name", value: Constants.app_name)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .groupLimit(isAdmin: false, isSessionProActivated: false, _):
@@ -512,15 +498,11 @@ public extension ProCTAModal.Variant {
             
             case .expiring(let timeLeft) where timeLeft?.isEmpty == false:
                 return "proExpiringSoonDescription"
-                    .put(key: "pro", value: Constants.pro)
                     .put(key: "time", value: timeLeft ?? "")
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
             case .expiring:
                 return "proExpiredDescription"
-                    .put(key: "pro", value: Constants.pro)
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .localizedFormatted(baseFont: Fonts.Body.largeRegular)
         }
     }

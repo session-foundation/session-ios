@@ -593,7 +593,6 @@ class ResilienceTestFixture: FixtureBase {
         }
         
         var encryptionKey: Data?
-        var digest: Data?
         
         /// Need to ensure the `MockFileManager` returns the right amount of content for the upload/download tests
         switch config.variant {
@@ -602,10 +601,9 @@ class ResilienceTestFixture: FixtureBase {
                 .downloadAttachmentConcurrentDownloads:
                 let readFileHandle: TestFileHandle? = (try dependencies[singleton: .fileHandleFactory].create(forReadingFrom: .any) as? TestFileHandle)
                 let encryptionResult = try dependencies[singleton: .crypto].tryGenerate(
-                    .legacyEncryptedAttachment(plaintext: readFileHandle?.data ?? Data())
+                    .encryptAttachment(plaintext: readFileHandle?.data ?? Data(), domain: .attachment)
                 )
                 encryptionKey = encryptionResult.encryptionKey
-                digest = encryptionResult.digest
                 
                 await mockFileManager.removeMocksFor { try $0.contents(atPath: .any) }
                 try await mockFileManager
@@ -650,7 +648,7 @@ class ResilienceTestFixture: FixtureBase {
                     try Attachment.updateAll(
                         db,
                         Attachment.Columns.encryptionKey.set(to: encryptionKey),
-                        Attachment.Columns.digest.set(to: digest)
+                        Attachment.Columns.digest.set(to: Data?.none)
                     )
                 }
                 

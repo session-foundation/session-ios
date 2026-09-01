@@ -53,11 +53,25 @@ struct MessageInfoScreen: View {
             switch self {
                 case .proBadge:
                     return "appProBadge"
-                        .put(key: "app_pro", value: Constants.app_pro)
                         .localized()
                     
                 case .increasedMessageLength: return "proIncreasedMessageLengthFeature".localized()
                 case .animatedDisplayPicture: return "proAnimatedDisplayPictureFeature".localized()
+            }
+        }
+        
+        /// Lets a test assert *which* features a message was sent with, rather than how many
+        ///
+        /// **Note:** A cross-platform contract - Android defines the same strings in its `content-descriptions`
+        /// module, so one Appium locator serves both platforms
+        var accessibilityIdentifier: String {
+            switch self {
+                case .proBadge: return SessionProUI.AccessibilityIdentifier.messageFeatureBadges
+                case .increasedMessageLength:
+                    return SessionProUI.AccessibilityIdentifier.messageFeatureLongerMessages
+                    
+                case .animatedDisplayPicture:
+                    return SessionProUI.AccessibilityIdentifier.messageFeatureAnimatedDisplayPicture
             }
         }
         
@@ -102,6 +116,12 @@ struct MessageInfoScreen: View {
         onStartThread: (@MainActor () -> Void)?,
         using dependencies: Dependencies
     ) {
+        /// One identity answer for the name and the badge both. In a community our own message carries the
+        /// blinded-id profile: it resolves as "You" through `currentUserSessionIds`, but it holds none of our
+        /// Pro features, so a badge read off that profile is missing on exactly the messages the label gets
+        /// right.
+        let isCurrentUser: Bool = messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId)
+        
         self.viewModel = ViewModel(
             dependencies: dependencies,
             actions: actions.filter { $0.actionType != .emoji },    // Exclude emoji actions
@@ -111,7 +131,7 @@ struct MessageInfoScreen: View {
             openGroupPublicKey: openGroupPublicKey,
             onStartThread: onStartThread,
             isMessageFailed: [.failed, .failedToSync].contains(messageViewModel.state),
-            isCurrentUser: messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId),
+            isCurrentUser: isCurrentUser,
             profileInfo: ProfilePictureView.Info.generateInfoFrom(
                 size: .message,
                 publicKey: messageViewModel.profile.id,
@@ -125,7 +145,18 @@ struct MessageInfoScreen: View {
                 messageFeatures: messageViewModel.proMessageFeatures,
                 profileFeatures: messageViewModel.proProfileFeatures
             ),
-            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
+            shouldShowProBadge: {
+                guard isCurrentUser else {
+                    return messageViewModel.profile.proFeatures.contains(.proBadge)
+                }
+                
+                /// Our own badge is what our own profile says, and `profileFeatures(for:)` applies the access
+                /// gate to it — so a badge we have hidden stays hidden, and one belonging to a lapsed
+                /// subscription stops showing.
+                return dependencies[singleton: .sessionProManager]
+                    .profileFeatures(for: dependencies.mutate(cache: .libSession) { $0.profile })
+                    .contains(.proBadge)
+            }()
         )
     }
     
@@ -381,7 +412,6 @@ struct MessageInfoScreen: View {
                                     
                                     Text(
                                         "proMessageInfoFeatures"
-                                            .put(key: "app_pro", value: Constants.app_pro)
                                             .localized()
                                     )
                                     .font(.Body.largeRegular)
@@ -400,6 +430,11 @@ struct MessageInfoScreen: View {
                                                 Text(feature.title)
                                                     .font(.Body.largeRegular)
                                                     .foregroundColor(themeColor: .textPrimary)
+                                                    .accessibility(
+                                                        Accessibility(
+                                                            identifier: feature.accessibilityIdentifier
+                                                        )
+                                                    )
                                             }
                                         }
                                     }

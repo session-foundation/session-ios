@@ -40,7 +40,6 @@ struct PNModeScreen: View {
             mode: .slow,
             title: "notificationsSlowMode".localized(),
             explanation: "notificationsSlowModeDescription"
-                .put(key: "app_name", value: Constants.app_name)
                 .localized(),
             isRecommended: false,
             accessibility: Accessibility(
@@ -67,7 +66,6 @@ struct PNModeScreen: View {
                 
                 Text(
                     "onboardingMessageNotificationExplanation"
-                        .put(key: "app_name", value: Constants.app_name)
                         .localized()
                 )
                 .font(.system(size: Values.smallFontSize))

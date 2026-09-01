@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SwiftUI
 import Combine
 import GRDB
 import DifferenceKit
@@ -11,11 +12,11 @@ import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsGroupsViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
@@ -35,32 +36,36 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
                 let oldState: State = self.internalState
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: oldState))
             }
     }
     
     // MARK: - Config
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case general
         
-        var title: String? {
+        public var title: String? {
             switch self {
                 case .general: return nil
             }
         }
         
-        var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .general: return .padding
             }
         }
+        
+        public var divider: Bool { return true }
+        public var footer: String? { return nil }
+        public var extraVerticalPadding: CGFloat { return 0 }
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Hashable, Differentiable, CaseIterable {
+    public enum ListItem: Hashable, Differentiable, CaseIterable {
         case groupsShowPubkeyInConversationSettings
         case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
@@ -91,13 +96,13 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
             }
         }
         
-        public func isContentEqual(to source: TableItem) -> Bool {
+        public func isContentEqual(to source: ListItem) -> Bool {
             self.differenceIdentifier == source.differenceIdentifier
         }
         
-        public static var allCases: [TableItem] {
-            var result: [TableItem] = []
-            switch TableItem.groupsShowPubkeyInConversationSettings {
+        public static var allCases: [ListItem] {
+            var result: [ListItem] = []
+            switch ListItem.groupsShowPubkeyInConversationSettings {
                 case .groupsShowPubkeyInConversationSettings: result.append(groupsShowPubkeyInConversationSettings); fallthrough
                 case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
                 case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
@@ -196,15 +201,19 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .groupsShowPubkeyInConversationSettings,
-                    title: "Show Group Pubkey in Conversation Settings",
-                    subtitle: """
-                    Makes the group identity public key appear in the conversation settings screen.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.groupsShowPubkeyInConversationSettings,
-                        oldValue: previousState.groupsShowPubkeyInConversationSettings
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Show Group Pubkey in Conversation Settings", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Makes the group identity public key appear in the conversation settings screen.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.groupsShowPubkeyInConversationSettings,
+                                oldValue: previousState.groupsShowPubkeyInConversationSettings
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -213,17 +222,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsDisableAutoApprove,
-                    title: "Disable Auto Approve",
-                    subtitle: """
-                    Prevents a group from automatically getting approved if the admin is already approved.
-                    
-                    <b>Note:</b> The default behaviour is to automatically approve new groups if the admin that sent the invitation is an approved contact.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsDisableAutoApprove,
-                        oldValue: previousState.updatedGroupsDisableAutoApprove
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Disable Auto Approve", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Prevents a group from automatically getting approved if the admin is already approved.
+                            
+                            <b>Note:</b> The default behaviour is to automatically approve new groups if the admin that sent the invitation is an approved contact.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsDisableAutoApprove,
+                                oldValue: previousState.updatedGroupsDisableAutoApprove
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -232,17 +245,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsRemoveMessagesOnKick,
-                    title: "Remove Messages on Kick",
-                    subtitle: """
-                    Controls whether a group members messages should be removed when they are kicked from an updated group.
-                    
-                    <b>Note:</b> In a future release we will offer this as an option when removing members but for the initial release it can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsRemoveMessagesOnKick,
-                        oldValue: previousState.updatedGroupsRemoveMessagesOnKick
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Remove Messages on Kick", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether a group members messages should be removed when they are kicked from an updated group.
+                            
+                            <b>Note:</b> In a future release we will offer this as an option when removing members but for the initial release it can be controlled via this flag for testing purposes.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsRemoveMessagesOnKick,
+                                oldValue: previousState.updatedGroupsRemoveMessagesOnKick
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -251,17 +268,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsAllowHistoricAccessOnInvite,
-                    title: "Allow Historic Message Access",
-                    subtitle: """
-                    Controls whether members should be granted access to historic messages when invited to an updated group.
-                    
-                    <b>Note:</b> In a future release we will offer this as an option when inviting members but for the initial release it can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsAllowHistoricAccessOnInvite,
-                        oldValue: previousState.updatedGroupsAllowHistoricAccessOnInvite
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Allow Historic Message Access", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether members should be granted access to historic messages when invited to an updated group.
+                            
+                            <b>Note:</b> In a future release we will offer this as an option when inviting members but for the initial release it can be controlled via this flag for testing purposes.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsAllowHistoricAccessOnInvite,
+                                oldValue: previousState.updatedGroupsAllowHistoricAccessOnInvite
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -270,17 +291,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsAllowDisplayPicture,
-                    title: "Custom Display Pictures",
-                    subtitle: """
-                    Controls whether the UI allows group admins to set a custom display picture for a group.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsAllowDisplayPicture,
-                        oldValue: previousState.updatedGroupsAllowDisplayPicture
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom Display Pictures", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the UI allows group admins to set a custom display picture for a group.
+                            
+                            <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsAllowDisplayPicture,
+                                oldValue: previousState.updatedGroupsAllowDisplayPicture
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -289,17 +314,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsAllowDescriptionEditing,
-                    title: "Edit Group Descriptions",
-                    subtitle: """
-                    Controls whether the UI allows group admins to modify the descriptions of updated groups.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsAllowDescriptionEditing,
-                        oldValue: previousState.updatedGroupsAllowDescriptionEditing
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Edit Group Descriptions", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the UI allows group admins to modify the descriptions of updated groups.
+                            
+                            <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsAllowDescriptionEditing,
+                                oldValue: previousState.updatedGroupsAllowDescriptionEditing
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -308,17 +337,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsAllowPromotions,
-                    title: "Allow Group Promotions",
-                    subtitle: """
-                    Controls whether the UI allows group admins to promote other group members to admin within an updated group.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsAllowPromotions,
-                        oldValue: previousState.updatedGroupsAllowPromotions
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Allow Group Promotions", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the UI allows group admins to promote other group members to admin within an updated group.
+                            
+                            <b>Note:</b> In a future release we will offer this functionality but for the initial release it may not be fully supported across platforms so can be controlled via this flag for testing purposes.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsAllowPromotions,
+                                oldValue: previousState.updatedGroupsAllowPromotions
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -327,17 +360,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsAllowInviteById,
-                    title: "Allow Invite by ID",
-                    subtitle: """
-                    Controls whether the UI allows group admins to invite other group members directly by their Account ID.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsAllowInviteById,
-                        oldValue: previousState.updatedGroupsAllowInviteById
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Allow Invite by ID", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the UI allows group admins to invite other group members directly by their Account ID.
+                            
+                            <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsAllowInviteById,
+                                oldValue: previousState.updatedGroupsAllowInviteById
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -346,17 +383,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsDeleteBeforeNow,
-                    title: "Show button to delete messages before now",
-                    subtitle: """
-                    Controls whether the UI allows group admins to delete all messages in the group that were sent before the button was pressed.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsDeleteBeforeNow,
-                        oldValue: previousState.updatedGroupsDeleteBeforeNow
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Show button to delete messages before now", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the UI allows group admins to delete all messages in the group that were sent before the button was pressed.
+                            
+                            <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsDeleteBeforeNow,
+                                oldValue: previousState.updatedGroupsDeleteBeforeNow
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -365,17 +406,21 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .updatedGroupsDeleteAttachmentsBeforeNow,
-                    title: "Show button to delete attachments before now",
-                    subtitle: """
-                    Controls whether the UI allows group admins to delete all attachments (and their associated messages) in the group that were sent before the button was pressed.
-                    
-                    <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.updatedGroupsDeleteAttachmentsBeforeNow,
-                        oldValue: previousState.updatedGroupsDeleteAttachmentsBeforeNow
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Show button to delete attachments before now", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether the UI allows group admins to delete all attachments (and their associated messages) in the group that were sent before the button was pressed.
+                            
+                            <b>Note:</b> In a future release we will offer this functionality but it's not included in the initial release.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.updatedGroupsDeleteAttachmentsBeforeNow,
+                                oldValue: previousState.updatedGroupsDeleteAttachmentsBeforeNow
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(

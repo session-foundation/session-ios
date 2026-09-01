@@ -181,7 +181,6 @@ extension MessageReceiver {
             let processedMessageBody: String? = processMessageBody(
                 message.text,
                 decodedMessage: decodedMessage,
-                threadVariant: thread.variant,
                 dependencies: dependencies
             )
             
@@ -217,6 +216,23 @@ extension MessageReceiver {
                 proProfileFeatures: (message.proProfileFeatures ?? .none),
                 using: dependencies
             ).inserted(db)
+
+            /// A message of ours arriving from a linked device is the same message, counted on whichever device sees it
+            /// first - the counters are per-device and are kept roughly aligned by both devices observing the same sends
+            /// rather than by syncing a number.
+            ///
+            /// **Note:** Only on a successful insert, so the sending device cannot count its own copy a second time -
+            /// in a swarm conversation that copy arrives as a unique-constraint conflict and is handled below, and in
+            /// a community it is deduplicated before it reaches here.
+            if variant == .standardOutgoing {
+                if message.proMessageFeatures?.contains(.largerCharacterLimit) == true {
+                    db[.longerMessagesSentCounter] = (db[.longerMessagesSentCounter] ?? 0) + 1
+                }
+
+                if message.proProfileFeatures?.contains(.proBadge) == true {
+                    db[.proBadgesSentCounter] = (db[.proBadgesSentCounter] ?? 0) + 1
+                }
+            }
         }
         catch {
             switch error {
@@ -726,58 +742,65 @@ extension MessageReceiver {
     private static func processMessageBody(
         _ text: String?,
         decodedMessage: DecodedMessage,
-        threadVariant: SessionThread.Variant,
         dependencies: Dependencies
     ) -> String? {
         guard let text: String = text else { return nil }
-        
+
         /// Extract the features used for the message
         let info: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].messageFeatures(for: text)
-        let proStatus: SessionPro.DecodedStatus? = dependencies[singleton: .sessionProManager].proStatus(
-            for: decodedMessage.decodedPro?.proProof,
-            verifyPubkey: {
-                switch threadVariant {
-                    case .community: return Array(Data(hex: Network.SessionPro.serverEdPublicKey))
-                    default: return decodedMessage.senderEd25519Pubkey
-                }
-            }(),
-            atTimestampMs: decodedMessage.sentTimestampMs
+
+        /// Use the status `libSession` already computed while decoding the message rather than re-verifying the proof here
+        ///
+        /// **Note:** `libSession` verifies the proof against the Session Pro backend's public key (regardless of the thread variant) and
+        /// documents this value as the way to determine whether the proof and it's features can be respected, so re-deriving it would
+        /// only risk diverging from that (see `session_protocol.h` `session_protocol_decode_envelope`)
+        let proStatus: SessionPro.DecodedStatus? = decodedMessage.decodedPro?.status
+
+        /// A verified proof is not the same as an entitled one: `libSession` checks the backend's signature and the proof's expiry,
+        /// but it has no knowledge of the revocation list, so a revoked proof still decodes as `.valid`. libsession's own contract is
+        /// that incoming messages carrying a revoked proof "will not be entitled to Pro features" (`pro_backend.hpp`), which is this
+        /// check - the profile-derived features already honour it elsewhere.
+        ///
+        /// **Note:** Judged against network time, and against the list as it stands at receipt. That makes the outcome depend on when
+        /// the message is processed, and truncation here is destructive - the shortened body is what is persisted. That is deliberate:
+        /// the sender was not entitled, so a recipient must not be able to recover the full "fake Pro" content later by switching to a
+        /// modified client.
+        let proofIsRevoked: Bool = dependencies[singleton: .sessionProManager].proofIsRevoked(
+            decodedMessage.decodedPro?.proProof,
+            atTimestampMs: dependencies.networkOffsetTimestampMs()
         )
-        
+        let proIsEntitled: Bool = (proStatus == .valid && !proofIsRevoked)
+
         /// Check if the message is too long
         guard
             info.status == .exceedsCharacterLimit || (
-                proStatus != .valid &&
+                !proIsEntitled &&
                 info.features.contains(.largerCharacterLimit)
             )
         else { return text }
         
-        // FIXME: Replace this with a libSession-based truncation solution
-        let utf16View = text.utf16
+        /// Cut on **code points**, which is the unit the limit is expressed in: `messageFeatures` above hands
+        /// `session_protocol_pro_features_for_message` a `unicodeScalars.count`, and both other platforms cut the
+        /// same way (`offsetByCodePoints` on Android, spreading the string on Desktop). Counting UTF-16 units here
+        /// halved the limit for anything outside the BMP - 10,000 emoji arrived as 5,000 - so the same message was
+        /// persisted at two different lengths depending on which client received it.
+        ///
+        /// A scalar view cannot be indexed into the middle of a surrogate pair, so this also replaces the
+        /// boundary-walking the UTF-16 version needed.
+        let scalars: String.UnicodeScalarView = text.unicodeScalars
         let characterLimit: Int = (
-            !dependencies[feature: .sessionProEnabled] || proStatus == .valid ?
+            proIsEntitled ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )
         
-        guard utf16View.count > characterLimit else { return text }
+        guard scalars.count > characterLimit else { return text }
         
-        // Get the index at the maxUnits position in UTF16
-        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: characterLimit)
+        let endIndex: String.UnicodeScalarView.Index = scalars.index(
+            scalars.startIndex,
+            offsetBy: characterLimit
+        )
         
-        // Try converting that UTF16 index back to a String.Index
-        if let endIndex = String.Index(endUTF16Index, within: text) {
-            return String(text[..<endIndex])
-        } else {
-            // Fallback: safely step back until there is a valid boundary
-            var adjustedIndex = endUTF16Index
-            while adjustedIndex > utf16View.startIndex {
-                adjustedIndex = utf16View.index(before: adjustedIndex)
-                if let validIndex = String.Index(adjustedIndex, within: text) {
-                    return String(text[..<validIndex])
-                }
-            }
-            return text // If all else fails, return original string
-        }
+        return String(String.UnicodeScalarView(scalars[..<endIndex]))
     }
 }

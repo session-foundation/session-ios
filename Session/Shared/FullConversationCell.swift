@@ -395,6 +395,10 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         
         accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
         isPinnedIcon.isHidden = (cellViewModel.pinnedPriority <= LibSession.visiblePriority)
+        /// The marker is identical in every row, so the identifier carries the conversation name to say which row
+        /// it belongs to. On the IDENTIFIER rather than the label deliberately: a label is read aloud, and the
+        /// screen reader has already announced this name from the cell a moment earlier.
+        isPinnedIcon.accessibilityIdentifier = "Pinned icon: \(cellViewModel.displayName.deformatted())"
         unreadCountView.isHidden = (unreadCount <= 0)
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?
@@ -421,7 +425,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         if cellViewModel.isTyping {
             snippetLabel.text = ""
             typingIndicatorView.isHidden = false
-            typingIndicatorView.startAnimation()
+            typingIndicatorView.startAnimation(using: dependencies)
         }
         else {
             displayNameLabel.themeTextColor = {

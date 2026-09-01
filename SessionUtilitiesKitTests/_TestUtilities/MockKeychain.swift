@@ -15,24 +15,22 @@ class MockKeychain: KeychainStorageType, Mockable {
         self.handler = MockHandler(forwardingHandler: handlerForBuilder)
     }
     
-    func string(forKey key: KeychainStorage.StringKey) throws -> String {
-        return try handler.mockThrowing(args: [key])
-    }
-    
-    func set(string: String, forKey key: KeychainStorage.StringKey) throws {
-        return try handler.mockThrowing(args: [key])
-    }
-    
-    func remove(key: KeychainStorage.StringKey) throws {
-        return try handler.mockThrowing(args: [key])
-    }
-    
+    var appGroupAccessGroup: String { return handler.mock() }
+
     func data(forKey key: KeychainStorage.DataKey) throws -> Data {
         return try handler.mockThrowing(args: [key])
     }
-    
+
     func set(data: Data, forKey key: KeychainStorage.DataKey) throws {
-        return try handler.mockThrowing(args: [key])
+        return try handler.mockThrowing(args: [key, data])
+    }
+
+    func data(forKey key: KeychainStorage.DataKey, accessGroup: String) throws -> Data {
+        return try handler.mockThrowing(args: [key, accessGroup])
+    }
+
+    func set(data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String) throws {
+        return try handler.mockThrowing(args: [key, accessGroup, data])
     }
     
     func remove(key: KeychainStorage.DataKey) throws {

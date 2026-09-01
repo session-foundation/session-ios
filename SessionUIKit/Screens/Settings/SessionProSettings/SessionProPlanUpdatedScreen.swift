@@ -12,7 +12,7 @@ public struct SessionProPlanUpdatedScreen: View {
     var blurSizeHeight: CGFloat { isFromBottomSheet ? 111 : blurSizeWidth }
     var dismissButtonTitle: String {
         switch flow {
-            case .purchase, .renew: "proStartUsing".put(key: "pro", value: Constants.pro).localized()
+            case .purchase, .renew: "proStartUsing".localized()
             case .update: "theReturn".localized()
             default: ""
         }
@@ -22,19 +22,13 @@ public struct SessionProPlanUpdatedScreen: View {
             case .update:
                 guard let expiredOn else { fallthrough }
                 return "proAllSetDescription"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "pro", value: Constants.pro)
                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                     .localizedFormatted(Fonts.Body.baseRegular)
             case .renew:
                 return "proPlanRenewSupport"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "network_name", value: Constants.network_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
             case .purchase:
                 return "proUpgraded"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "network_name", value: Constants.network_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
             default: fatalError("Unexpected case \(flow)")
         }
@@ -72,12 +66,14 @@ public struct SessionProPlanUpdatedScreen: View {
                 Text("proAllSet".localized())
                     .font(.Headings.H6)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenPlanConfirmation))
                 
                 AttributedText(desription)
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Values.mediumSpacing)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 
                 Button {
                     self.host.controller?.dismiss(animated: true)
@@ -96,6 +92,7 @@ public struct SessionProPlanUpdatedScreen: View {
                         )
                 }
                 .padding(.vertical, Values.smallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             }
             .padding(.horizontal, Values.mediumSpacing)
             .padding(.vertical, (blurSizeHeight - 111) / 2)

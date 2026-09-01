@@ -24,7 +24,8 @@ public extension SessionProPaymentScreenContent {
         case refund(
             originatingPlatform: SessionProUI.ClientPlatform,
             isNonOriginatingAccount: Bool?,
-            requestedAt: Date?
+            requestedAt: Date?,
+            isWithinQuickRefundWindow: Bool
         )
         case cancel(
             originatingPlatform: SessionProUI.ClientPlatform,
@@ -35,59 +36,49 @@ public extension SessionProPaymentScreenContent {
             switch self {
                 case .purchase(billingAccess: true):
                     return "proChooseAccess"
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
                 case .purchase(billingAccess: false):
                     return "proUpgradeAccess"
-                        .put(key: "app_pro", value: Constants.app_pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
                 case .update(let currentPlan, let expiredOn, .android, true, _, _):
                     return "proAccessActivatedAutoShort"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
                 case .update(_, let expiredOn, .android, false, _, _), .update(_, let expiredOn, .iOS, false, true, _):
                     return "proAccessExpireDate"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
                 case .update(let currentPlan, let expiredOn, .iOS, true, false, _):
                     return "proAccessActivatesAuto"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
                 case .update(let currentPlan, let expiredOn, .iOS, true, true, _):
                     return "proAccessActivatedAutoShort"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
                 case .update(_, let expiredOn, .iOS, false, _, _):
                     return "proAccessActivatedNotAuto"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
                 case .renew(_, billingAccess: true):
                     return "proChooseAccess"
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
                 case .renew(_, billingAccess: false):
                     return "proAccessRenewStart"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 
-                case .refund(originatingPlatform: .iOS, _, requestedAt: .some):
+                case .refund(originatingPlatform: .iOS, _, requestedAt: .some, _):
                     return "proRequestedRefund"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 case .refund:
@@ -96,7 +87,6 @@ public extension SessionProPaymentScreenContent {
                 
                 case .cancel:
                     return "proCancelSorry"
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
             }
         }
@@ -104,42 +94,35 @@ public extension SessionProPaymentScreenContent {
     
     struct SessionProPlanInfo: Equatable {
         public let id: String
+        /// Whole-month count, used ONLY for renewal-date arithmetic (`.date(byAdding: .month, …)`); an
+        /// annual plan is 12 here. NOT for display — the label is `durationString`, formatted upstream
+        /// from the plan's real `(count, unit)` (so "1 year" isn't shown as "12 months").
         public let duration: Int
         let discountPercent: Int?
         let titleWithPrice: String
         let subtitleWithPrice: String
-        
-        var durationString: String {
-            let components = DateComponents(month: self.duration)
-            let formatter = DateComponentsFormatter()
-            formatter.unitsStyle = .full
-            formatter.allowedUnits = [.month]
-            
-            return (formatter.string(from: components) ?? "\(self.duration) Months")
-        }
-        
-        var durationStringSingular: String {
-            let components = DateComponents(month: self.duration)
-            let formatter = DateComponentsFormatter()
-            formatter.unitsStyle = .full
-            formatter.allowedUnits = [.month]
-            formatter.maximumUnitCount = 1
-            
-            return (formatter.string(from: components) ?? "\(self.duration) Month")
-        }
-        
+        /// OS-formatted period label ("3 months", "1 year", …). Built upstream in `SessionMessagingKit`
+        /// from the plan's raw `(count, unit)` — this module can't import `SessionNetworkingKit`, so the
+        /// generic label is passed in pre-rendered rather than recomputed from `duration`.
+        let durationString: String
+        let durationStringSingular: String
+
         public init(
             id: String,
             duration: Int,
             discountPercent: Int?,
             titleWithPrice: String,
-            subtitleWithPrice: String
+            subtitleWithPrice: String,
+            durationString: String,
+            durationStringSingular: String
         ) {
             self.id = id
             self.duration = duration
             self.discountPercent = discountPercent
             self.titleWithPrice = titleWithPrice
             self.subtitleWithPrice = subtitleWithPrice
+            self.durationString = durationString
+            self.durationStringSingular = durationStringSingular
         }
     }
 
@@ -161,7 +144,7 @@ public extension SessionProPaymentScreenContent {
     }
     
     enum PaymentStatus {
-        case success(expirationTimestampMs: UInt64?)
+        case success(expirationTimestampSeconds: UInt64?)
         case pending
         case failed
         case cancelled

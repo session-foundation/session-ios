@@ -220,7 +220,6 @@ final class ShareNavController: UINavigationController {
                 try attachments.forEach { attachment in
                     try attachment.ensureExpectedEncryptedSize(
                         logCat: .media,
-                        domain: .attachment,
                         maxFileSize: Network.maxFileSize,
                         using: dependencies
                     )
@@ -770,5 +769,9 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
             case .iOS: return Constants.PaymentProvider.appStore
             case .android: return Constants.PaymentProvider.playStore
         }
+    }
+
+    func proVisiblePlatformStores() -> [String] {
+        return Constants.PaymentProvider.visiblePlatformStores
     }
 }

@@ -39,14 +39,24 @@ public enum KeychainStorageError: Error {
 // MARK: - KeychainStorageType
 
 public protocol KeychainStorageType: AnyObject {
-    func string(forKey key: KeychainStorage.StringKey) throws -> String
-    func set(string: String, forKey key: KeychainStorage.StringKey) throws
-    func remove(key: KeychainStorage.StringKey) throws
-    
+    /// The app group identifier, which doubles as a keychain access group
+    ///
+    /// Unlike `keychain-access-groups` and `application-identifier`, an app group identifier carries no team ID
+    /// prefix on iOS, so items written here remain reachable when the team ID changes
+    var appGroupAccessGroup: String { get }
+
     func data(forKey key: KeychainStorage.DataKey) throws -> Data
     func set(data: Data, forKey key: KeychainStorage.DataKey) throws
     func remove(key: KeychainStorage.DataKey) throws
-    
+
+    /// Read scoped to a single access group
+    ///
+    /// An unscoped read searches **every** access group the app belongs to, so it cannot distinguish an item in
+    /// the app group from the same item in the team-prefixed default group - scoping is the only way to assert
+    /// which group an item actually occupies
+    func data(forKey key: KeychainStorage.DataKey, accessGroup: String) throws -> Data
+    func set(data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String) throws
+
     func removeAll() throws
     
     func migrateLegacyKeyIfNeeded(legacyKey: String, legacyService: String?, toKey key: KeychainStorage.DataKey) throws
@@ -82,44 +92,39 @@ public class KeychainStorage: KeychainStorageType {
     private let keychain: KeychainSwift = {
         let result: KeychainSwift = KeychainSwift()
         result.synchronizable = false // This is the default but better to be explicit
-        
+
         return result
     }()
-    
+
+    /// `KeychainSwift` applies its `accessGroup` to every query it builds, so a scoped instance is the mechanism
+    /// for reading and writing a specific group rather than the app's whole access group list
+    @ThreadSafeObject private var scopedKeychains: [String: KeychainSwift] = [:]
+
+    public var appGroupAccessGroup: String { UserDefaults.applicationGroup }
+
     // MARK: - Initialization
-    
+
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+    }
+
+    private func keychain(for accessGroup: String) -> KeychainSwift {
+        if let existing: KeychainSwift = scopedKeychains[accessGroup] { return existing }
+
+        let result: KeychainSwift = KeychainSwift()
+        result.synchronizable = false
+        result.accessGroup = accessGroup
+        _scopedKeychains.performUpdate { current in
+            var updated: [String: KeychainSwift] = current
+            updated[accessGroup] = result
+            return updated
+        }
+
+        return result
     }
     
     // MARK: - Functions
     
-    public func string(forKey key: KeychainStorage.StringKey) throws -> String {
-        guard let result: String = keychain.get(key.rawValue) else {
-            throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
-                logCategory: .keychain,
-                description: "Error retrieving string, OSStatusCode: \(keychain.lastResultCode)"
-            )
-        }
-        
-        return result
-    }
-
-    public func set(string: String, forKey key: KeychainStorage.StringKey) throws {
-        guard keychain.set(string, forKey: key.rawValue, withAccess: .accessibleAfterFirstUnlockThisDeviceOnly) else {
-            throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
-                logCategory: .keychain,
-                description: "Error setting string, OSStatusCode: \(keychain.lastResultCode)"
-            )
-        }
-    }
-    
-    public func remove(key: KeychainStorage.StringKey) throws {
-        try remove(key: key.rawValue)
-    }
-
     public func data(forKey key: KeychainStorage.DataKey) throws -> Data {
         guard let result: Data = keychain.getData(key.rawValue) else {
             throw KeychainStorageError.failure(
@@ -140,12 +145,52 @@ public class KeychainStorage: KeychainStorageType {
                 description: "Error setting data, OSStatusCode: \(keychain.lastResultCode)"
             )
         }
+
+        /// Mirror into the app group's access group, because a write here removes the app group's copy first
+        ///
+        /// An unscoped write deletes before it adds, and an unscoped delete spans **every** access group the app belongs
+        /// to - so without this, any write silently un-migrates the key and leaves it reachable only from the
+        /// team-prefixed group, which is the group a change of team ID takes away. Mirroring at this level rather than at
+        /// each call site is deliberate: there are three unscoped writers today and this covers future ones too
+        ///
+        /// A failure here must not fail the write the caller asked for. The item is still readable, and
+        /// `KeychainAccessGroupMigration` re-mirrors it on the next launch
+        do { try set(data: data, forKey: key, accessGroup: appGroupAccessGroup) }
+        catch {
+            Log.warn(.keychain, "Failed to mirror \(key.rawValue) into the app group access group: \(error)")
+        }
     }
     
     public func remove(key: KeychainStorage.DataKey) throws {
         try remove(key: key.rawValue)
     }
-    
+
+    public func data(forKey key: KeychainStorage.DataKey, accessGroup: String) throws -> Data {
+        let scoped: KeychainSwift = keychain(for: accessGroup)
+
+        guard let result: Data = scoped.getData(key.rawValue) else {
+            throw KeychainStorageError.failure(
+                code: Int32(scoped.lastResultCode),
+                logCategory: .keychain,
+                description: "Error retrieving data for access group, OSStatusCode: \(scoped.lastResultCode)"
+            )
+        }
+
+        return result
+    }
+
+    public func set(data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String) throws {
+        let scoped: KeychainSwift = keychain(for: accessGroup)
+
+        guard scoped.set(data, forKey: key.rawValue, withAccess: .accessibleAfterFirstUnlockThisDeviceOnly) else {
+            throw KeychainStorageError.failure(
+                code: Int32(scoped.lastResultCode),
+                logCategory: .keychain,
+                description: "Error setting data for access group, OSStatusCode: \(scoped.lastResultCode)"
+            )
+        }
+    }
+
     private func remove(key: String) throws {
         guard keychain.delete(key) else {
             throw KeychainStorageError.failure(
@@ -277,13 +322,4 @@ public extension KeychainStorage {
         public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
     }
     
-    struct StringKey: RawRepresentable, ExpressibleByStringLiteral, Hashable {
-        public let rawValue: String
-        
-        public init(_ rawValue: String) { self.rawValue = rawValue }
-        public init?(rawValue: String) { self.rawValue = rawValue }
-        public init(stringLiteral value: String) { self.init(value) }
-        public init(unicodeScalarLiteral value: String) { self.init(value) }
-        public init(extendedGraphemeClusterLiteral value: String) { self.init(value) }
-    }
 }

@@ -10,7 +10,6 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case noAttachment
     case notUploaded
     case encryptionFailed
-    case legacyEncryptionFailed
     case legacyDecryptionFailed
     case notEncrypted
     case uploadFailed
@@ -46,7 +45,6 @@ public enum AttachmentError: Error, CustomStringConvertible {
             case .noAttachment: return "No such attachment."
             case .notUploaded: return "Attachment not uploaded."
             case .encryptionFailed: return "Couldn't encrypt file."
-            case .legacyEncryptionFailed: return "Couldn't encrypt file (legacy)."
             case .legacyDecryptionFailed: return "Couldn't decrypt file (legacy)."
             case .notEncrypted: return "File not encrypted."
             case .uploadFailed: return "Upload failed."

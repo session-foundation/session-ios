@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SwiftUI
 import StoreKit
 import Combine
 import GRDB
@@ -12,15 +13,20 @@ import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
-class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
+
+    /// The values currently being typed into the custom Pro backend modals (the modal body only reports changes
+    /// via `onChange` so they need somewhere to live until the user confirms)
+    private var updatedProBackendUrl: String?
+    private var updatedProBackendPubkey: String?
     
     // MARK: - Initialization
     
@@ -36,41 +42,45 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .assign { [weak self] updatedState in
                 guard let self = self else { return }
                 
-                // FIXME: To slightly reduce the size of the changes this new observation mechanism is currently wired into the old SessionTableViewController observation mechanism, we should refactor it so everything uses the new mechanism
                 let oldState: State = self.internalState
                 self.internalState = updatedState
-                self.pendingTableDataSubject.send(updatedState.sections(viewModel: self, previousState: oldState))
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: oldState))
             }
     }
     
     // MARK: - Config
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case general
         case subscriptions
+        case proBackendServer
         case proBackend
         case features
         
-        var title: String? {
+        public var title: String? {
             switch self {
                 case .general: return nil
                 case .subscriptions: return "Subscriptions"
+                case .proBackendServer: return "Pro Backend Server"
                 case .proBackend: return "Pro Backend"
                 case .features: return "Features"
             }
         }
         
-        var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .general: return .padding
                 default: return .titleRoundedContent
             }
         }
+        
+        public var divider: Bool { return true }
+        public var footer: String? { return nil }
+        public var extraVerticalPadding: CGFloat { return 0 }
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Hashable, Differentiable, CaseIterable {
-        case enableSessionPro
-        
+    public enum ListItem: Hashable, Differentiable, CaseIterable {
         case mockCurrentUserSessionProBuildVariant
         case mockCurrentUserSessionProBackendStatus
         case mockCurrentUserSessionProLoadingState
@@ -89,6 +99,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case restoreProSubscription
         case requestRefund
         
+        case customProBackendUrl
+        case customProBackendPubkey
+
         case submitPurchaseToProBackend
         case refreshProState
         case resetRevocationListTicket
@@ -100,8 +113,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         public var differenceIdentifier: String {
             switch self {
-                case .enableSessionPro: return "enableSessionPro"
-                    
                 case .mockCurrentUserSessionProBuildVariant: return "mockCurrentUserSessionProBuildVariant"
                 case .mockCurrentUserSessionProBackendStatus: return "mockCurrentUserSessionProBackendStatus"
                 case .mockCurrentUserSessionProLoadingState: return "mockCurrentUserSessionProLoadingState"
@@ -120,6 +131,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: return "restoreProSubscription"
                 case .requestRefund: return "requestRefund"
                 
+                case .customProBackendUrl: return "customProBackendUrl"
+                case .customProBackendPubkey: return "customProBackendPubkey"
+
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
                 case .refreshProState: return "refreshProState"
                 case .resetRevocationListTicket: return "resetRevocationListTicket"
@@ -127,15 +141,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             }
         }
         
-        public func isContentEqual(to source: TableItem) -> Bool {
+        public func isContentEqual(to source: ListItem) -> Bool {
             self.differenceIdentifier == source.differenceIdentifier
         }
         
-        public static var allCases: [TableItem] {
-            var result: [TableItem] = []
-            switch TableItem.enableSessionPro {
-                case .enableSessionPro: result.append(.enableSessionPro); fallthrough
-                
+        public static var allCases: [ListItem] {
+            var result: [ListItem] = []
+            switch ListItem.mockCurrentUserSessionProBuildVariant {
                 case .mockCurrentUserSessionProBuildVariant: result.append(.mockCurrentUserSessionProBuildVariant); fallthrough
                 case .mockCurrentUserSessionProBackendStatus: result.append(.mockCurrentUserSessionProBackendStatus); fallthrough
                 case .mockCurrentUserSessionProLoadingState: result.append(.mockCurrentUserSessionProLoadingState); fallthrough
@@ -154,6 +166,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
                 
+                case .customProBackendUrl: result.append(.customProBackendUrl); fallthrough
+                case .customProBackendPubkey: result.append(.customProBackendPubkey); fallthrough
+
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
                 case .refreshProState: result.append(.refreshProState); fallthrough
                 case .resetRevocationListTicket: result.append(.resetRevocationListTicket); fallthrough
@@ -164,9 +179,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
     }
     
-    public enum DeveloperSettingsProEvent: Hashable {
-        case purchasedProduct([Product], Product?, String?, String?, Transaction?)
-        case refundTransaction(Transaction.RefundRequestStatus)
+    public enum DeveloperSettingsProEvent: Equatable, Hashable {
+        case purchasedProduct([Product], Product?, String?, String?, StoreKit.Transaction?)
+        case refundTransaction(StoreKit.Transaction.RefundRequestStatus)
         case submittedTransaction(String?, Bool)
         case currentProStatus(String?, Bool)
     }
@@ -174,8 +189,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     // MARK: - Content
     
     public struct State: Equatable, ObservableKeyProvider {
-        let sessionProEnabled: Bool
-        
         let mockCurrentUserSessionProBuildVariant: MockableFeature<BuildVariant>
         let mockCurrentUserSessionProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
         let mockCurrentUserSessionProLoadingState: MockableFeature<SessionPro.LoadingState>
@@ -193,15 +206,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let purchasedProduct: Product?
         let purchaseError: String?
         let purchaseStatus: String?
-        let purchaseTransaction: Transaction?
-        let refundRequestStatus: Transaction.RefundRequestStatus?
+        let purchaseTransaction: StoreKit.Transaction?
+        let refundRequestStatus: StoreKit.Transaction.RefundRequestStatus?
         
         let submittedTransactionStatus: String?
         let submittedTransactionErrored: Bool
         
         let currentProStatus: String?
         let currentProStatusErrored: Bool
-        let currentRevocationListTicket: UInt32
+        let currentRevocationListTicket: Int64
+        let customProBackend: Network.SessionPro.Custom
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -212,7 +226,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         
         public let observedKeys: Set<ObservableKey> = [
-            .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBuildVariant),
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.mockCurrentUserSessionProLoadingState),
@@ -224,14 +237,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
+            .feature(.customProBackend),
             .updateScreen(DeveloperSettingsProViewModel.self),
             .proRevocationListUpdated
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
-                sessionProEnabled: dependencies[feature: .sessionProEnabled],
-                
                 mockCurrentUserSessionProBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
@@ -257,7 +269,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 currentProStatus: nil,
                 currentProStatusErrored: false,
-                currentRevocationListTicket: 0
+                currentRevocationListTicket: 0,
+                customProBackend: dependencies[feature: .customProBackend]
             )
         }
     }
@@ -277,15 +290,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var purchasedProduct: Product? = previousState.purchasedProduct
         var purchaseError: String? = previousState.purchaseError
         var purchaseStatus: String? = previousState.purchaseStatus
-        var purchaseTransaction: Transaction? = previousState.purchaseTransaction
-        var refundRequestStatus: Transaction.RefundRequestStatus? = previousState.refundRequestStatus
+        var purchaseTransaction: StoreKit.Transaction? = previousState.purchaseTransaction
+        var refundRequestStatus: StoreKit.Transaction.RefundRequestStatus? = previousState.refundRequestStatus
         var submittedTransactionStatus: String? = previousState.submittedTransactionStatus
         var submittedTransactionErrored: Bool = previousState.submittedTransactionErrored
-        var currentRevocationListTicket: UInt32 = previousState.currentRevocationListTicket
+        var currentRevocationListTicket: Int64 = previousState.currentRevocationListTicket
         
         if isInitialQuery {
             currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
-                UInt32(db[.proRevocationsTicket] ?? 0)
+                Int64(db[.proRevocationsTicket] ?? 0)
             }) ?? 0)
         }
         
@@ -315,12 +328,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         if changes.contains(.proRevocationListUpdated) {
             currentRevocationListTicket = ((try? await dependencies[singleton: .storage].read { db in
-                UInt32(db[.proRevocationsTicket] ?? 0)
+                Int64(db[.proRevocationsTicket] ?? 0)
             }) ?? currentRevocationListTicket)
         }
         
         return State(
-            sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
@@ -342,7 +354,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             submittedTransactionErrored: submittedTransactionErrored,
             currentProStatus: currentProStatus,
             currentProStatusErrored: currentProStatusErrored,
-            currentRevocationListTicket: currentRevocationListTicket
+            currentRevocationListTicket: currentRevocationListTicket,
+            customProBackend: dependencies[feature: .customProBackend]
         )
     }
     
@@ -351,43 +364,24 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         previousState: State,
         viewModel: DeveloperSettingsProViewModel
     ) -> [SectionModel] {
-        let general: SectionModel = SectionModel(
-            model: .general,
-            elements: [
-                SessionCell.Info(
-                    id: .enableSessionPro,
-                    title: "Enable Session Pro",
-                    subtitle: """
-                    Enable Post Pro Release mode.
-                    Turning on this Settings will show Pro badge and CTA if needed.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.sessionProEnabled,
-                        oldValue: previousState.sessionProEnabled
-                    ),
-                    onTap: { [weak viewModel] in
-                        viewModel?.updateSessionProEnabled(current: state.sessionProEnabled)
-                    }
-                )
-            ]
-        )
-        
-        guard state.sessionProEnabled else { return [general] }
-        
         // MARK: - Mockable Features
         
         let features: SectionModel = SectionModel(
             model: .features,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .mockCurrentUserSessionProBuildVariant,
-                    title: "Mocked Build Variant",
-                    subtitle: """
-                    Force the app to be a specific build variant.
-                    
-                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProBuildVariant)
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Mocked Build Variant", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Force the app to be a specific build variant.
+
+                            <b>Current:</b> \(devValue: state.mockCurrentUserSessionProBuildVariant)
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableState(
                             title: "Mocked Build Variant",
@@ -404,15 +398,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .mockCurrentUserSessionProBackendStatus,
-                    title: "Mocked Pro Status",
-                    subtitle: """
-                    Force the current users Session Pro to a specific status locally.
-                    
-                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProBackendStatus)
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Mocked Pro Status", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Force the current users Session Pro to a specific status locally.
+
+                            <b>Current:</b> \(devValue: state.mockCurrentUserSessionProBackendStatus)
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableState(
                             title: "Mocked Pro Status",
@@ -429,17 +427,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .mockCurrentUserSessionProLoadingState,
-                    title: "Mocked Loading State",
-                    subtitle: """
-                    Force the Session Pro UI into a specific loading state.
-                    
-                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProLoadingState)
-                    
-                    Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Mocked Loading State", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Force the Session Pro UI into a specific loading state.
+
+                            <b>Current:</b> \(devValue: state.mockCurrentUserSessionProLoadingState)
+
+                            Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     isEnabled: {
                         switch (state.mockCurrentUserSessionProLoadingState, state.mockCurrentUserSessionProBackendStatus, state.currentProStatus) {
                             case (.simulate, _, _), (_, .simulate, _), (_, _, .some): return true
@@ -462,17 +464,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .mockCurrentUserSessionProOriginatingPlatform,
-                    title: "Mocked Originating Platform",
-                    subtitle: """
-                    Force the current users Session Pro to have originated from a specific platform.
-                    
-                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProOriginatingPlatform)
-                    
-                    Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Mocked Originating Platform", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Force the current users Session Pro to have originated from a specific platform.
+
+                            <b>Current:</b> \(devValue: state.mockCurrentUserSessionProOriginatingPlatform)
+
+                            Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     isEnabled: {
                         switch (state.mockCurrentUserSessionProLoadingState, state.mockCurrentUserSessionProBackendStatus, state.currentProStatus) {
                             case (.simulate, _, _), (_, .simulate, _), (_, _, .some): return true
@@ -495,17 +501,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .mockCurrentUserOriginatingAccount,
-                    title: "Mocked Originating Account",
-                    subtitle: """
-                    Force the current users Session Pro to have originated from a specific account.
-                    
-                    <b>Current:</b> \(devValue: state.mockCurrentUserOriginatingAccount)
-                    
-                    Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Mocked Originating Account", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Force the current users Session Pro to have originated from a specific account.
+
+                            <b>Current:</b> \(devValue: state.mockCurrentUserOriginatingAccount)
+
+                            Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     isEnabled: {
                         switch (state.mockCurrentUserSessionProLoadingState, state.mockCurrentUserSessionProBackendStatus, state.currentProStatus) {
                             case (.simulate, _, _), (_, .simulate, _), (_, _, .some): return true
@@ -528,15 +538,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .mockCurrentUserAccessExpiryTimestamp,
-                    title: "Mocked Access Expiry Date/Time",
-                    subtitle: """
-                    Specify a custom date/time that the users Session Pro should expire.
-                    
-                    <b>Current:</b> \(devValue: viewModel.dependencies[feature: .mockCurrentUserAccessExpiryTimestamp])
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Mocked Access Expiry Date/Time", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Specify a custom date/time that the users Session Pro should expire.
+
+                            <b>Current:</b> \(devValue: viewModel.dependencies[feature: .mockCurrentUserAccessExpiryTimestamp])
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableDate(
                             title: "Mocked Access Expiry Date/Time",
@@ -547,17 +561,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .proBadgeEverywhere,
-                    title: "Show the Pro Badge everywhere",
-                    subtitle: """
-                    Force the pro badge to show everywhere.
-                    
-                    <b>Note:</b> On the "Message Info" screen this will make the Pro Badge appear against the sender profile info, but the message feature pro badge will show based on the "Message Feature: Pro Badge" setting below.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.proBadgeEverywhere,
-                        oldValue: previousState.proBadgeEverywhere
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Show the Pro Badge everywhere", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Force the pro badge to show everywhere.
+
+                            <b>Note:</b> On the "Message Info" screen this will make the Pro Badge appear against the sender profile info, but the message feature pro badge will show based on the "Message Feature: Pro Badge" setting below.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.proBadgeEverywhere,
+                                oldValue: previousState.proBadgeEverywhere
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -566,17 +584,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .fakeAppleSubscriptionForDev,
-                    title: "Fake the Apple Subscription for Pro Purchases",
-                    subtitle: """
-                    Apple subscriptions (even with Sandbox accounts) can't be tested on the iOS Simulator, to work around this the dev pro server allows "fake" transaction identifiers for the purposes of testing.
-                    
-                    This setting will bypass the AppStore section of the purchase flow and generate a fake transaction identifier to send to the Pro backend to create the purchase.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.fakeAppleSubscriptionForDev,
-                        oldValue: previousState.fakeAppleSubscriptionForDev
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Fake the Apple Subscription for Pro Purchases", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Apple subscriptions (even with Sandbox accounts) can't be tested on the iOS Simulator, to work around this the dev pro server allows "fake" transaction identifiers for the purposes of testing.
+
+                            This setting will bypass the AppStore section of the purchase flow and generate a fake transaction identifier to send to the Pro backend to create the purchase.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.fakeAppleSubscriptionForDev,
+                                oldValue: previousState.fakeAppleSubscriptionForDev
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -585,13 +607,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .forceMessageFeatureProBadge,
-                    title: "Message Feature: Pro Badge",
-                    subtitle: "Force all messages to show the \"Pro Badge\" feature.",
-                    trailingAccessory: .toggle(
-                        state.forceMessageFeatureProBadge,
-                        oldValue: previousState.forceMessageFeatureProBadge
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Message Feature: Pro Badge", font: .Body.largeBold),
+                            description: .htmlTagged("Force all messages to show the \"Pro Badge\" feature."),
+                            trailingAccessory: .toggle(
+                                state.forceMessageFeatureProBadge,
+                                oldValue: previousState.forceMessageFeatureProBadge
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -600,13 +626,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .forceMessageFeatureLongMessage,
-                    title: "Message Feature: Long Message",
-                    subtitle: "Force all messages to show the \"Long Message\" feature.",
-                    trailingAccessory: .toggle(
-                        state.forceMessageFeatureLongMessage,
-                        oldValue: previousState.forceMessageFeatureLongMessage
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Message Feature: Long Message", font: .Body.largeBold),
+                            description: .htmlTagged("Force all messages to show the \"Long Message\" feature."),
+                            trailingAccessory: .toggle(
+                                state.forceMessageFeatureLongMessage,
+                                oldValue: previousState.forceMessageFeatureLongMessage
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -615,13 +645,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .forceMessageFeatureAnimatedAvatar,
-                    title: "Message Feature: Animated Avatar",
-                    subtitle: "Force all messages to show the \"Animated Avatar\" feature.",
-                    trailingAccessory: .toggle(
-                        state.forceMessageFeatureAnimatedAvatar,
-                        oldValue: previousState.forceMessageFeatureAnimatedAvatar
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Message Feature: Animated Avatar", font: .Body.largeBold),
+                            description: .htmlTagged("Force all messages to show the \"Animated Avatar\" feature."),
+                            trailingAccessory: .toggle(
+                                state.forceMessageFeatureAnimatedAvatar,
+                                oldValue: previousState.forceMessageFeatureAnimatedAvatar
+                            )
+                        )
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
@@ -675,58 +709,74 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let subscriptions: SectionModel = SectionModel(
             model: .subscriptions,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .purchaseProSubscription,
-                    title: "Purchase Subscription",
-                    subtitle: """
-                    Purchase Session Pro via the App Store.
-                    
-                    <b>Notes:</b>
-                    • This only works on a real device (and some old iOS versions don't seem to support Sandbox accounts (eg. iOS 16).
-                    • This subscription isn't connected to the Session account by default (they are for testing purposes)
-                    
-                    <b>Status:</b> \(purchaseStatus)
-                    <b>Product Name:</b> \(productName)
-                    <b>TransactionId:</b> \(transactionId)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Purchase"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Purchase Subscription", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Purchase Session Pro via the App Store.
+
+                            <b>Notes:</b>
+                            • This only works on a real device (and some old iOS versions don't seem to support Sandbox accounts (eg. iOS 16).
+                            • This subscription isn't connected to the Session account by default (they are for testing purposes)
+
+                            <b>Status:</b> \(purchaseStatus)
+                            <b>Product Name:</b> \(productName)
+                            <b>TransactionId:</b> \(transactionId)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Purchase")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.purchaseSubscription(currentProduct: state.purchasedProduct) }
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .manageProSubscriptions,
-                    title: "Manage Subscriptions",
-                    subtitle: """
-                    Manage subscriptions for Session Pro via the App Store.
-                    
-                    <b>Note:</b> You must purchase a Session Pro subscription before you can manage it.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Manage"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Manage Subscriptions", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Manage subscriptions for Session Pro via the App Store.
+
+                            <b>Note:</b> You must purchase a Session Pro subscription before you can manage it.
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Manage")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.manageSubscriptions() }
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .restoreProSubscription,
-                    title: "Restore Subscriptions",
-                    subtitle: """
-                    Restore a Session Pro subscription via the App Store.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Restore"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Restore Subscriptions", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Restore a Session Pro subscription via the App Store.
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Restore")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.restoreSubscriptions() }
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .requestRefund,
-                    title: "Request Refund",
-                    subtitle: """
-                    Request a refund for a Session Pro subscription via the App Store.
-                    
-                    <b>Status: </b>\(refundStatus)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Request"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Request Refund", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Request a refund for a Session Pro subscription via the App Store.
+
+                            <b>Status: </b>\(refundStatus)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Request")
+                        )
+                    ),
                     isEnabled: (state.purchaseTransaction != nil),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.requestRefund() }
@@ -735,18 +785,64 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             ]
         )
         
+        let proBackendServer: SectionModel = SectionModel(
+            model: .proBackendServer,
+            elements: [
+                SessionListScreenContent.ListItemInfo(
+                    id: .customProBackendUrl,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom Pro Backend URL", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The URL to use instead of the default Session Pro backend (the production backend has no way to grant an entitlement to a test account, so QA needs its own instance).
+
+                            <b>Current:</b> <span>\(Network.SessionPro.server(using: viewModel.dependencies))</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showProBackendUrlModal(current: state.customProBackend)
+                    }
+                ),
+                SessionListScreenContent.ListItemInfo(
+                    id: .customProBackendPubkey,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom Pro Backend Public Key", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The Ed25519 public key for the above backend (if empty then the default backend's key will be used).
+
+                            <b>Note:</b> this key is also what libSession verifies <b>other users'</b> pro proofs against, so every device in a test needs the same value - a device left on the default will read a custom-backend proof as invalid.
+
+                            <b>Current:</b> <span>\(state.customProBackend.pubkey.isEmpty ? "Default" : state.customProBackend.pubkey)</span>
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showProBackendPubkeyModal(current: state.customProBackend)
+                    }
+                )
+            ]
+        )
+        
         let proBackend: SectionModel = SectionModel(
             model: .proBackend,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .submitPurchaseToProBackend,
-                    title: "Submit Purchase to Pro Backend",
-                    subtitle: """
-                    Submit a purchase to the Session Pro Backend.
-                    
-                    <b>Status: </b>\(submittedTransactionStatus)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Submit"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Submit Purchase to Pro Backend", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Submit a purchase to the Session Pro Backend.
+
+                            <b>Status: </b>\(submittedTransactionStatus)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Submit")
+                        )
+                    ),
                     isEnabled: (
                         state.purchaseTransaction != nil ||
                         state.fakeAppleSubscriptionForDev
@@ -755,39 +851,51 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         Task { await viewModel?.submitTransactionToProBackend() }
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .refreshProState,
-                    title: "Refresh Pro State",
-                    subtitle: """
-                    Manually trigger a refresh of the users Pro state.
-                    
-                    <b>Status: </b>\(currentProStatus)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Refresh"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Refresh Pro State", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Manually trigger a refresh of the users Pro state.
+
+                            <b>Status: </b>\(currentProStatus)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Refresh")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.refreshProState() }
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .resetRevocationListTicket,
-                    title: "Reset Revocation List Ticket",
-                    subtitle: """
-                    Reset the revocation list ticket (this will result in the revocation list being refetched from the beginning).
-                    
-                    <b>Current Ticket: </b>\(state.currentRevocationListTicket)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Reset Revocation List Ticket", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Reset the revocation list ticket (this will result in the revocation list being refetched from the beginning).
+
+                            <b>Current Ticket: </b>\(state.currentRevocationListTicket)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Reset")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.resetProRevocationListTicket() }
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .removeProFromUserConfig,
-                    title: "Remove Pro From User Config",
-                    subtitle: """
-                    Remove the cached pro state from the configs (this will mean the local device doesn't know that the user has pro on restart).
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Remove"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Remove Pro From User Config", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Remove the cached pro state from the configs (this will mean the local device doesn't know that the user has pro on restart).
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Remove")
+                        )
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.removeProFromUserConfig() }
                     }
@@ -795,14 +903,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             ]
         )
         
-        return [general, features, subscriptions, proBackend]
+        return [proBackendServer, features, subscriptions, proBackend]
     }
     
     // MARK: - Functions
     
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
-            .sessionProEnabled,
             .proBadgeEverywhere,
             .fakeAppleSubscriptionForDev,
             .forceMessageFeatureProBadge,
@@ -827,18 +934,126 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     // MARK: - Internal Functions
     
-    private func updateSessionProEnabled(current: Bool) {
-        dependencies.set(feature: .sessionProEnabled, to: !current)
-        
-        if dependencies.hasSet(feature: .proBadgeEverywhere) {
-            dependencies.reset(feature: .proBadgeEverywhere)
-        }
-        
-        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-            dependencies.reset(feature: .mockCurrentUserSessionProBackendStatus)
-        }
+    // MARK: - Custom Pro Backend
+
+    private func showProBackendUrlModal(current: Network.SessionPro.Custom) {
+        updatedProBackendUrl = current.url
+
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Custom Pro Backend URL",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: "The url for the custom Session Pro backend."
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter URL",
+                            initialValue: current.url,
+                            inputChecker: { text in
+                                guard URL(string: text) != nil else {
+                                    return "Value must be a valid url (with HTTP or HTTPS)."
+                                }
+
+                                return nil
+                            }
+                        ),
+                        onChange: { [weak self] value in
+                            self?.updatedProBackendUrl = value.lowercased()
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard
+                            let value: String = self?.updatedProBackendUrl,
+                            let url: URL = URL(string: value)
+                        else { return false }
+
+                        return (url.scheme != nil && url.host != nil)
+                    },
+                    cancelTitle: (current.url.isEmpty ? "cancel".localized() : "remove".localized()),
+                    cancelStyle: (current.url.isEmpty ? .alert_text : .danger),
+                    hasCloseButton: !current.url.isEmpty,
+                    onConfirm: { [weak self, dependencies] _ in
+                        guard
+                            let value: String = self?.updatedProBackendUrl,
+                            URL(string: value) != nil
+                        else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(url: value))
+                    },
+                    onCancel: { [dependencies] modal in
+                        modal.dismiss(animated: true)
+
+                        /// The cancel button doubles as "remove" once a custom url has been set
+                        guard !current.url.isEmpty else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(url: ""))
+                    }
+                )
+            ),
+            transitionType: .present
+        )
     }
-    
+
+    private func showProBackendPubkeyModal(current: Network.SessionPro.Custom) {
+        updatedProBackendPubkey = current.pubkey
+
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Custom Pro Backend Public Key",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: "The Ed25519 public key for the custom Session Pro backend (also used to verify other users' pro proofs)."
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter public key",
+                            initialValue: current.pubkey,
+                            inputChecker: { text in
+                                guard Hex.isValid(text), text.count == 64 else {
+                                    return "Value must be a 64 character hex encoded public key."
+                                }
+
+                                return nil
+                            }
+                        ),
+                        onChange: { [weak self] value in
+                            self?.updatedProBackendPubkey = value.lowercased()
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.updatedProBackendPubkey else { return false }
+
+                        return (Hex.isValid(value) && value.count == 64)
+                    },
+                    cancelTitle: (current.pubkey.isEmpty ? "cancel".localized() : "remove".localized()),
+                    cancelStyle: (current.pubkey.isEmpty ? .alert_text : .danger),
+                    hasCloseButton: !current.pubkey.isEmpty,
+                    onConfirm: { [weak self, dependencies] _ in
+                        guard
+                            let value: String = self?.updatedProBackendPubkey,
+                            Hex.isValid(value),
+                            value.count == 64
+                        else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(pubkey: value))
+                    },
+                    onCancel: { [dependencies] modal in
+                        modal.dismiss(animated: true)
+
+                        /// The cancel button doubles as "remove" once a custom pubkey has been set
+                        guard !current.pubkey.isEmpty else { return }
+
+                        dependencies.set(feature: .customProBackend, to: current.with(pubkey: ""))
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+
     // MARK: - Pro Requests
     
     private func purchaseSubscription(currentProduct: Product?) async {
@@ -978,7 +1193,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func requestRefund() async {
-        guard let transaction: Transaction = await internalState.purchaseTransaction else { return }
+        guard let transaction: StoreKit.Transaction = await internalState.purchaseTransaction else { return }
         guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
         }
@@ -998,21 +1213,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     private func submitTransactionToProBackend() async {
         do {
-            let transactionId: String = try await {
-                guard await internalState.fakeAppleSubscriptionForDev else {
-                    guard let transaction: Transaction = await internalState.purchaseTransaction else {
-                        throw SessionProError.transactionNotFound
-                    }
-                    
-                    return "\(transaction.id)"
-                }
-                
-                let bytes: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(8))
-                return "DEV.\(bytes.toHexString())"
-            }()
-            
-            try await dependencies[singleton: .sessionProManager].addProPayment(transactionId: transactionId)
-            
+            /// Redemption is implicit now — there's no `/add_pro_payment`. Refreshing the pro state requests a
+            /// proof via `generate_pro_proof`, and the backend binds any unbound payment on that master-signed
+            /// request, so this dev action just drives that refresh.
+            try await dependencies[singleton: .sessionProManager].refreshProState()
+
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.submittedTransaction("Success", false)

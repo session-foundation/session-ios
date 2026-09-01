@@ -283,8 +283,23 @@ public enum SwarmPoller {
                             default:
                                 invalidMessageCount += 1
                                 Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
+
+                                /// On the synchronous notification extension import path the message (and a dedupe file) will have
+                                /// been saved by the extension; since we failed to process it here (eg. `CryptoError.invalidKey` when
+                                /// the group keys haven't synced into the main app yet) we need to remove that dedupe record so a
+                                /// subsequent poll can genuinely reprocess the message once it becomes decryptable - otherwise the
+                                /// surviving dedupe file would make the poll drop it as a duplicate and the message would be lost
+                                ///
+                                /// **Note:** For groups the `threadId` matches the `swarmPublicKey`; for other conversations the
+                                /// computed path won't exist so this is a harmless no-op (hence `try?`)
+                                if forceSynchronousProcessing {
+                                    try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                        threadId: swarmPublicKey,
+                                        uniqueIdentifier: message.hash
+                                    )
+                                }
                         }
-                        
+
                         return nil
                     }
                 }
@@ -347,8 +362,20 @@ public enum SwarmPoller {
                     }
                     catch {
                         /// If we deferred the dedupe inserts then the savepoint rolled them back so cancel their pending file writes too
+                        ///
+                        /// Cancelling the pending write only discards the record *this* run would have created - the extension saved its
+                        /// own dedupe file when it received the message, so that has to be removed separately or the config message is
+                        /// dropped as a duplicate on every future poll and never merges (for `groupKeys` that leaves the extension's
+                        /// replica able to decrypt messages the main app cannot, which is the divergence behind #700)
                         if forceSynchronousProcessing {
-                            processedMessages.forEach { MessageDeduplication.removePendingWrite($0, using: dependencies) }
+                            processedMessages.forEach { processedMessage in
+                                MessageDeduplication.removePendingWrite(processedMessage, using: dependencies)
+
+                                try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                    threadId: processedMessage.threadId,
+                                    uniqueIdentifier: processedMessage.uniqueIdentifier
+                                )
+                            }
                         }
 
                         invalidMessageCount += 1
@@ -386,6 +413,7 @@ public enum SwarmPoller {
                                     serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                                     suppressNotifications: (source == .pushNotification),    /// Have already shown
                                     currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
+                                    wasValidatedOnReceipt: (source == .pushNotification),
                                     using: dependencies
                                 )
 
@@ -420,6 +448,16 @@ public enum SwarmPoller {
                                 default:
                                     invalidMessageCount += 1
                                     Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
+
+                                    /// The savepoint rolled back the message handling (and its deferred dedupe insert) but the extension
+                                    /// may have saved a dedupe file for this message; remove it so a subsequent poll can reprocess the
+                                    /// message rather than dropping it as a duplicate
+                                    if forceSynchronousProcessing {
+                                        try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
+                                            threadId: threadId,
+                                            uniqueIdentifier: processedMessage.uniqueIdentifier
+                                        )
+                                    }
                             }
                         }
                     }

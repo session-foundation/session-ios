@@ -183,6 +183,65 @@ class CryptoSMKSpec: AsyncSpec {
                     .to(throwError(MessageError.decodingFailed))
                 }
             }
+
+            // MARK: -- when deriving the Session Pro Apple account token
+            describe("when deriving the Session Pro Apple account token") {
+                // MARK: ---- derives a deterministic UUID from a known master public key
+                it("derives a deterministic UUID from a known master public key") {
+                    let publicKey: [UInt8] = Array(0..<32).map { UInt8($0) }
+
+                    expect(try UUID(sessionProMasterPublicKey: publicKey).uuidString)
+                        .to(equal("00010203-0405-4607-8809-0A0B0C0D0E0F"))
+                }
+
+                // MARK: ---- overwrites only the version and variant bits
+                it("overwrites only the version and variant bits") {
+                    let publicKey: [UInt8] = [
+                        0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+                        0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                    ]
+
+                    /// The 6th byte's high nibble becomes `4` (version) and the 8th byte's top two bits become
+                    /// `10` (variant → `b`), every other bit of the first 16 bytes is preserved verbatim
+                    expect(try UUID(sessionProMasterPublicKey: publicKey).uuidString)
+                        .to(equal("FFEEDDCC-BBAA-4988-B766-554433221100"))
+                }
+
+                // MARK: ---- uses only the first 16 bytes of the master public key
+                it("uses only the first 16 bytes of the master public key") {
+                    let first16: [UInt8] = Array(0..<16).map { UInt8($0) }
+                    let differentTail: [UInt8] = first16 + Array(repeating: 0xAB, count: 16)
+
+                    expect(try UUID(sessionProMasterPublicKey: differentTail))
+                        .to(equal(try UUID(sessionProMasterPublicKey: first16 + Array(repeating: 0, count: 16))))
+                }
+
+                // MARK: ---- throws if the public key is too short
+                it("throws if the public key is too short") {
+                    expect { try UUID(sessionProMasterPublicKey: Array(0..<15).map { UInt8($0) }) }
+                        .to(throwError(CryptoError.invalidPublicKey))
+                }
+
+                // MARK: ---- produces a valid version 4 UUID via the crypto generator
+                it("produces a valid version 4 UUID via the crypto generator") {
+                    let result: UUID? = crypto.generate(.sessionProAppleAccountToken())
+                    try require(result).toNot(beNil())
+
+                    let chars: [Character] = Array(result!.uuidString)
+
+                    /// 15th character (start of the 3rd group) is the version and must be `4`
+                    expect(chars[14]).to(equal(Character("4")))
+
+                    /// 20th character (start of the 4th group) is the variant and must be one of `8`, `9`, `a`, `b`
+                    expect([Character("8"), Character("9"), Character("A"), Character("B")])
+                        .to(contain(chars[19]))
+
+                    /// The derivation is deterministic for a given identity seed
+                    expect(crypto.generate(.sessionProAppleAccountToken())).to(equal(result))
+                }
+            }
         }
     }
 }

@@ -40,12 +40,15 @@ public enum MessageReceiver {
         
         /// The group "revoked retrievable" namespace uses custom encryption so we need to custom handle it
         guard !origin.isRevokedRetrievableNamespace else {
-            guard case .swarm(let publicKey, _, let serverHash, _, let serverExpirationTimestamp) = origin else {
+            guard case .swarm(let publicKey, _, let serverHash, let serverTimestampMs, let serverExpirationTimestamp) = origin else {
                 throw MessageError.invalidRevokedRetrievalMessageHandling
             }
-            
+
             let message: LibSessionMessage = LibSessionMessage(ciphertext: data)
             message.serverHash = serverHash
+            /// Retain the swarm timestamp so a stale/replayed `groupKicked` control message can be rejected downstream
+            /// (see `validateGroupKickedMessage`)
+            message.serverTimestampMs = serverTimestampMs
             
             return .standard(
                 threadId: publicKey,
@@ -83,17 +86,12 @@ public enum MessageReceiver {
         message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
         message.receivedTimestampMs = dependencies.networkOffsetTimestampMs()
         
-        /// If the `decodedPro` content on the message is not `valid` or `expired` then we should remove any pro content from
-        /// the message itself as it's invalid
-        ///
-        /// **Note:** We sync the `expired` case because it's possible another device received and synced it while the data was
-        /// `valid` and we don't want to incorrectly remove pro state (or cause a config ping-pong due to inconsistent behaviours)
-        switch decodedMessage.decodedPro?.status {
-            case .valid, .expired: break
-            case .none, .invalidProBackendSig, .invalidUserSig:
-                message.proMessageFeatures = nil
-                message.proProfileFeatures = nil
-                message.proProof = nil
+        /// If the `decodedPro` content on the message wasn't verified by `libSession` at decode time then we should remove any
+        /// pro content from the message itself as it's invalid (see `SessionPro.DecodedProForMessage.isVerified`)
+        if decodedMessage.decodedPro?.isVerified != true {
+            message.proMessageFeatures = nil
+            message.proProfileFeatures = nil
+            message.proProof = nil
         }
         
         /// Perform validation and assign additional message values based on the origin
@@ -201,6 +199,7 @@ public enum MessageReceiver {
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
         currentUserSessionIds: Set<String>,
+        wasValidatedOnReceipt: Bool = false,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -212,6 +211,7 @@ public enum MessageReceiver {
             openGroupUrlInfo: (threadVariant != .community ? nil :
                 try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
             ),
+            wasValidatedOnReceipt: wasValidatedOnReceipt,
             using: dependencies
         )
         
@@ -365,6 +365,18 @@ public enum MessageReceiver {
         // When handling any message type which has related UI we want to make sure the thread becomes
         // visible (the only other spot this flag gets set is when sending messages)
         let shouldBecomeVisible: Bool = {
+            /// A message from ourselves is not someone getting in touch, so it should never bring a hidden conversation
+            /// back - the rule is "another person contacted you", and the sender is what says whether that happened.
+            ///
+            /// **Note:** Keyed on the sender rather than on the conversation. Note to Self is the case that made this
+            /// visible, since its incoming messages are all our own synced from another device, but the same is true of
+            /// any conversation we have hidden and then sent to elsewhere. The un-hide is written through
+            /// `updateAllAndConfig`, and `shouldBeVisible` is a config-synced column, so it does not stay local - it
+            /// pushes and reverts the hide on every device.
+            /// `sender` is populated for every received message on the way in (see `handle`), so this is the
+            /// same value the rest of the receive path keys on
+            guard message.sender != dependencies[cache: .general].sessionId.hexString else { return false }
+
             switch message {
                 case is ReadReceipt: return false
                 case is TypingIndicator: return false
@@ -481,11 +493,23 @@ public enum MessageReceiver {
         }
     }
     
+    /// - Parameter wasValidatedOnReceipt: Set for messages the notification extension already validated when it received them (ie.
+    /// the import path). It skips **only** the trailing hidden-conversation check, which is the one whose answer drifts after receipt:
+    /// its baseline moves forwards with every config change, including ones unrelated to the conversation, and a conversation which
+    /// has never been in the config cannot be told apart from one the user deleted (see the `deleted_contacts` TODO above) - so by
+    /// import time it discards messages the user has already been shown a notification for.
+    ///
+    /// The group checks are deliberately **still** applied, because their answers remain meaningful (and are recoverable if they were
+    /// wrong): being kicked removes the group's messages, so a message inserted afterwards would be an orphan the user cannot get
+    /// rid of, and a message predating `deleteBefore` must not reappear after the history was cleared. A group check which fails
+    /// because the main app has not caught up yet is not a permanent loss either - the caller removes the deduplication record on
+    /// failure, so a later poll can reprocess the message once the state is in place.
     public static func throwIfMessageOutdated(
         message: Message,
         threadId: String,
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
+        wasValidatedOnReceipt: Bool = false,
         using dependencies: Dependencies
     ) throws {
         // TODO: [Database Relocation] Need the "deleted_contacts" logic to handle the 'throwIfMessageOutdated' case
@@ -548,6 +572,8 @@ public enum MessageReceiver {
                 }
         }
         
+        guard !wasValidatedOnReceipt else { return }
+
         /// If the conversation is not visible in the config and the message was sent before the last config update (minus a buffer period)
         /// then we can assume that the user has hidden/deleted the conversation and it shouldn't be reshown by this (old) message
         try dependencies.mutate(cache: .libSession) { cache in

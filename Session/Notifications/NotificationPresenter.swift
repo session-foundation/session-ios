@@ -313,8 +313,6 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             groupingIdentifier: .none,
             title: Constants.app_name,
             body: "sessionNetworkNotificationLive"
-                .put(key: "token_name_long", value: Constants.token_name_long)
-                .put(key: "network_name", value: Constants.network_name)
                 .localized(),
             delay: (force ? 10 : 3600),
             sound: notificationSettings.sound,

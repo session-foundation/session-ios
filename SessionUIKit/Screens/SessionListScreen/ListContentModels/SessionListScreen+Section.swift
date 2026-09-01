@@ -12,6 +12,9 @@ public extension SessionListScreenContent {
         var extraVerticalPadding: CGFloat { get }
         var footer: String? { get }
         var shadow: Bool { get }
+
+        /// Applied to the section's *header*, not to its rows - rows carry their own via `ListItemInfo.accessibility`
+        var accessibility: Accessibility? { get }
     }
     
     enum ListSectionStyle: Equatable, Hashable, Differentiable {
@@ -60,14 +63,23 @@ public extension SessionListScreenContent {
             }
         }
         
+        /// **Note:** Everything except `none` rounds, matching the UIKit `SessionCell`, which rounded the first and
+        /// last cell of *every* section (`SessionCell.cornerRadius`) independent of the section's style
         var cornerRadius: CGFloat {
             switch self {
-                case .none, .titleWithTooltips, .titleNoBackgroundContent,
+                case .none: return 0
+                case .titleRoundedContent, .titleWithTooltips, .titleNoBackgroundContent,
                     .titleSeparator, .padding:
-                    return 0
-                case .titleRoundedContent: return 16
+                    return 16
             }
         }
     }
+}
+
+// MARK: - Defaults
+
+public extension SessionListScreenContent.ListSection {
+    /// Most sections don't need their header addressed directly, so only the ones which do have to provide this
+    var accessibility: Accessibility? { nil }
 }
 

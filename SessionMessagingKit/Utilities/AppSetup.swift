@@ -116,5 +116,23 @@ public enum AppSetup {
         
         /// Load community data into memory
         await dependencies[singleton: .communityManager].loadCacheIfNeeded()
+
+        /// Copy keychain items into the app group's access group so they survive a change of team ID
+        ///
+        /// This runs on every launch rather than once, because the keys are created lazily at different times -
+        /// `dbCipherKeySpec` when the database is first opened, the others on first use - so a single run would
+        /// permanently miss whichever keys did not exist yet. The migration is idempotent, so repeating it is
+        /// only the cost of a few keychain operations
+        ///
+        /// It has to run **after** the database is set up: on a fresh install `dbCipherKeySpec` does not exist
+        /// until then, and a migration that ran earlier would find nothing to copy
+        KeychainAccessGroupMigration.run(
+            keys: [
+                .dbCipherKeySpec,
+                .extensionEncryptionKey,
+                .pushNotificationEncryptionKey
+            ],
+            using: dependencies
+        )
     }
 }

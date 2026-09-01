@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import UIKit
+import SwiftUI
 import CryptoKit
 import Compression
 import GRDB
@@ -13,11 +14,11 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class DeveloperSettingsViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     private var showAdvancedLogging: Bool = false
     private var contactPrefix: String = ""
@@ -25,15 +26,36 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private var databaseKeyEncryptionPassword: String = ""
     private var documentPickerResult: DocumentPickerResult?
     
+    /// This value is the current state of the view
+    @MainActor @Published private(set) var internalState: State
+    private var observationTask: Task<Void, Never>?
+    
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.internalState = State.initialState(using: dependencies)
+        
+        bindState()
+    }
+    
+    @MainActor private func bindState() {
+        observationTask = ObservationBuilder
+            .initialValue(self.internalState)
+            .using(dependencies: dependencies)
+            .query(DeveloperSettingsViewModel.queryState)
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                let oldState: State = self.internalState
+                self.internalState = updatedState
+                self.state.updateTableData(self.content(oldState, updatedState))
+            }
     }
     
     // MARK: - Section
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case developerMode
         case sessionNetwork
         case sessionPro
@@ -45,7 +67,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case communities
         case database
         
-        var title: String? {
+        public var title: String? {
             switch self {
                 case .developerMode: return nil
                 case .sessionNetwork: return "Session Network"
@@ -60,15 +82,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             }
         }
         
-        var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .developerMode: return .padding
                 default: return .titleRoundedContent
             }
         }
+        
+        public var divider: Bool { return true }
+        public var footer: String? { return nil }
+        public var extraVerticalPadding: CGFloat { return 0 }
+        public var shadow: Bool { return false }
     }
     
-    public enum TableItem: Hashable, Differentiable, CaseIterable {
+    public enum ListItem: Hashable, Differentiable, CaseIterable {
         case developerMode
         
         case networkConfig
@@ -99,6 +126,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case createMockContacts
         case forceSlowDatabaseQueries
+        case appGroupKeychainStatus
         case exportDatabase
         case importDatabase
         
@@ -138,18 +166,19 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 
                 case .createMockContacts: return "createMockContacts"
                 case .forceSlowDatabaseQueries: return "forceSlowDatabaseQueries"
+                case .appGroupKeychainStatus: return "appGroupKeychainStatus"
                 case .exportDatabase: return "exportDatabase"
                 case .importDatabase: return "importDatabase"
             }
         }
         
-        public func isContentEqual(to source: TableItem) -> Bool {
+        public func isContentEqual(to source: ListItem) -> Bool {
             self.differenceIdentifier == source.differenceIdentifier
         }
         
-        public static var allCases: [TableItem] {
-            var result: [TableItem] = []
-            switch TableItem.developerMode {
+        public static var allCases: [ListItem] {
+            var result: [ListItem] = []
+            switch ListItem.developerMode {
                 case .developerMode: result.append(.developerMode); fallthrough
                 
                 case .networkConfig: result.append(.networkConfig); fallthrough
@@ -181,6 +210,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 case .createMockContacts: result.append(.createMockContacts); fallthrough
                 case .forceSlowDatabaseQueries: result.append(.forceSlowDatabaseQueries); fallthrough
+                case .appGroupKeychainStatus: result.append(.appGroupKeychainStatus); fallthrough
                 case .exportDatabase: result.append(.exportDatabase); fallthrough
                 case .importDatabase: result.append(.importDatabase)
             }
@@ -191,7 +221,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     // MARK: - Content
     
-    private struct State: Equatable {
+    public struct State: Equatable, ObservableKeyProvider {
         let developerMode: Bool
         let versionBlindedID: String?
         
@@ -212,74 +242,101 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let forceSlowDatabaseQueries: Bool
         
         let usePngInsteadOfWebPForFallbackImageType: Bool
+        
+        /// **Note:** Everything on this screen is read straight back out of `dependencies` by `queryState`, so a
+        /// single "something changed" key is enough - the mutations all nudge it rather than each value being
+        /// observed individually (which is what the old `forceRefresh(type:)` did)
+        public let observedKeys: Set<ObservableKey> = [
+            .updateScreen(DeveloperSettingsViewModel.self)
+        ]
+        
+        static func initialState(using dependencies: Dependencies) -> State {
+            return DeveloperSettingsViewModel.currentState(advancedLogging: false, using: dependencies)
+        }
     }
     
     let title: String = "Developer Settings"
     
-    lazy var observation: TargetObservation = ObservationBuilderOld
-        .refreshableData(self) { [weak self, dependencies] () -> State in
-            let versionBlindedID: String? = {
-                guard
-                    !dependencies[cache: .general].ed25519SecretKey.isEmpty,
-                    let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                        .versionBlinded07KeyPair(
-                            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
-                        )
+    @Sendable private static func queryState(
+        previousState: State,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> State {
+        /// The only value that isn't readable from `dependencies` is the advanced-logging toggle, which is local to
+        /// the screen - it rides along on the event that triggered the refresh
+        let advancedLogging: Bool = (
+            (events.compactMap { $0.value as? Bool }.last) ??
+            previousState.advancedLogging
+        )
+        
+        return currentState(advancedLogging: advancedLogging, using: dependencies)
+    }
+    
+    private static func currentState(advancedLogging: Bool, using dependencies: Dependencies) -> State {
+        let versionBlindedID: String? = {
+            guard
+                !dependencies[cache: .general].ed25519SecretKey.isEmpty,
+                let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
+                    .versionBlinded07KeyPair(
+                        ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                     )
-                else {
-                    return nil
-                }
-                return SessionId(.versionBlinded07, publicKey: blinded07KeyPair.publicKey).hexString
-            }()
+                )
+            else {
+                return nil
+            }
+            return SessionId(.versionBlinded07, publicKey: blinded07KeyPair.publicKey).hexString
+        }()
+        
+        return State(
+            developerMode: dependencies.mutate(cache: .libSession) { cache in
+                cache.get(.developerModeEnabled)
+            },
+            versionBlindedID: versionBlindedID,
+            customDateTime: dependencies[feature: .customDateTime],
+            shortenFileTTL: dependencies[feature: .shortenFileTTL],
+            animationsEnabled: dependencies[feature: .animationsEnabled],
+            showStringKeys: dependencies[feature: .showStringKeys],
+            truncatePubkeysInLogs: dependencies[feature: .truncatePubkeysInLogs],
             
-            let pushNotificationsEnabled: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+            defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
+            advancedLogging: advancedLogging,
+            loggingCategories: dependencies[feature: .allLogLevels].currentValues(using: dependencies),
             
-            return State(
-                developerMode: dependencies.mutate(cache: .libSession) { cache in
-                    cache.get(.developerModeEnabled)
-                },
-                versionBlindedID: versionBlindedID,
-                customDateTime: dependencies[feature: .customDateTime],
-                shortenFileTTL: dependencies[feature: .shortenFileTTL],
-                animationsEnabled: dependencies[feature: .animationsEnabled],
-                showStringKeys: dependencies[feature: .showStringKeys],
-                truncatePubkeysInLogs: dependencies[feature: .truncatePubkeysInLogs],
-                
-                defaultLogLevel: dependencies[feature: .logLevel(cat: .default)],
-                advancedLogging: (self?.showAdvancedLogging == true),
-                loggingCategories: dependencies[feature: .allLogLevels].currentValues(using: dependencies),
-                
-                debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
-                
-                communityPollLimit: dependencies[feature: .communityPollLimit],
-                
-                forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
-                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType]
-            )
-        }
-        .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
+            debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
+            
+            communityPollLimit: dependencies[feature: .communityPollLimit],
+            
+            forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
+            usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType]
+        )
+    }
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
         let developerMode: SectionModel = SectionModel(
             model: .developerMode,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .developerMode,
-                    title: "Developer Mode",
-                    subtitle: """
-                    Grants access to this screen.
-                    
-                    Disabling this setting will:
-                    • Reset all the below settings to default (removing data as described below)
-                    • Revoke access to this screen unless Developer Mode is re-enabled
-                    """,
-                    trailingAccessory: .toggle(
-                        current.developerMode,
-                        oldValue: previous?.developerMode
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Developer Mode", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Grants access to this screen.
+
+                            Disabling this setting will:
+                            • Reset all the below settings to default (removing data as described below)
+                            • Revoke access to this screen unless Developer Mode is re-enabled
+                            """),
+                            trailingAccessory: .toggle(
+                                current.developerMode,
+                                oldValue: previous?.developerMode
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         guard current.developerMode else { return }
-                        
+
                         Task { [weak self] in await self?.disableDeveloperMode() }
                     }
                 )
@@ -288,60 +345,71 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let network: SectionModel = SectionModel(
             model: .network,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .networkConfig,
-                    title: "Network Configuration",
-                    subtitle: """
-                    Configure settings related to how and where network requests are sent.
-                    
-                    <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
-                    <b>Router:</b> <span>\(dependencies[feature: .router].title)</span>
-                    <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Network Configuration", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Configure settings related to how and where network requests are sent.
+
+                            <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
+                            <b>Router:</b> <span>\(dependencies[feature: .router].title)</span>
+                            <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
+                            """),
+                            trailingAccessory: .icon(.chevronRight)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
-                            SessionTableViewController(
+                            SessionListHostingViewController(
                                 viewModel: DeveloperSettingsNetworkViewModel(using: dependencies)
                             )
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .resetSnodeCache,
-                    title: "Reset Service Node Cache",
-                    subtitle: """
-                    Reset and rebuild the service node cache and rebuild the paths.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Reset Service Node Cache", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Reset and rebuild the service node cache and rebuild the paths.
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache")
+                        )
+                    ),
                     onTap: { [weak self] in self?.resetServiceNodeCache() }
                 )
             ]
         )
         
-        let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
         let mockedProStatus: String = {
-            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProBackendStatus]) {
-                case (true, .simulate(let status)): return "<span>\(status)</span>"
-                case (false, _), (_, .useActual): return "<disabled>None</disabled>"
+            switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
+                case .simulate(let status): return "<span>\(status)</span>"
+                case .useActual: return "<disabled>None</disabled>"
             }
         }()
         let sessionPro: SectionModel = SectionModel(
             model: .sessionPro,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .proConfig,
-                    title: "Session Pro",
-                    subtitle: """
-                    Configure settings related to Session Pro.
-                    
-                    <b>Session Pro:</b> <span>\(sessionProStatus)</span>
-                    <b>Mock Pro Status:</b> \(mockedProStatus)
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Session Pro", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Configure settings related to Session Pro.
+
+                            <b>Mock Pro Status:</b> \(mockedProStatus)
+                            <b>Session Pro Server:</b> <span>\(Network.SessionPro.server(using: dependencies))</span>
+                            """),
+                            trailingAccessory: .icon(.chevronRight)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
-                            SessionTableViewController(
+                            SessionListHostingViewController(
                                 viewModel: DeveloperSettingsProViewModel(using: dependencies)
                             )
                         )
@@ -352,16 +420,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let groups: SectionModel = SectionModel(
             model: .groups,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .groupConfig,
-                    title: "Group Configuration",
-                    subtitle: """
-                    Configure settings related to Groups.
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Group Configuration", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Configure settings related to Groups.
+                            """),
+                            trailingAccessory: .icon(.chevronRight)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
-                            SessionTableViewController(
+                            SessionListHostingViewController(
                                 viewModel: DeveloperSettingsGroupsViewModel(using: dependencies)
                             )
                         )
@@ -372,74 +444,89 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .customDateTime,
-                    title: "Custom Date/Time",
-                    subtitle: """
-                    Specify a custom date/time that the app should use.
-                    
-                    <b>Current Value:</b> \(devValue: dependencies[feature: .customDateTime])
-                    
-                    <b>Warning:</b>
-                    Service nodes require the time to be within 2 minutes of their time so modifying this value will generally result in all network requests failing.
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Custom Date/Time", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Specify a custom date/time that the app should use.
+
+                            <b>Current Value:</b> \(devValue: dependencies[feature: .customDateTime])
+
+                            <b>Warning:</b>
+                            Service nodes require the time to be within 2 minutes of their time so modifying this value will generally result in all network requests failing.
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableDate(
                             title: "Custom Date/Time",
                             explanation: "The custom date/time to use throughout the app.",
                             feature: .customDateTime,
                             navigatableStateHolder: self,
-                            onValueChanged: { _ in self?.forceRefresh(type: .databaseQuery) },
+                            onValueChanged: { _ in self?.refreshScreen() },
                             using: dependencies
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .fileServerConfig,
-                    title: "File Server Configuration",
-                    subtitle: """
-                    Configure settings related to the File Server.
-                    
-                    <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
-                    <b>Stream Encryption:</b> <span>\(dependencies[feature: .useStreamEncryptionForAttachments] ? "Enabled" : "Disabled")</span>
-                    <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("File Server Configuration", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Configure settings related to the File Server.
+
+                            <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
+                            <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
+                            """),
+                            trailingAccessory: .icon(.chevronRight)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
-                            SessionTableViewController(
+                            SessionListHostingViewController(
                                 viewModel: DeveloperSettingsFileServerViewModel(using: dependencies)
                             )
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .modalsAndBanners,
-                    title: "Modal and Banner Settings",
-                    subtitle: """
-                    Configure settings related to the modals and banners.
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Modal and Banner Settings", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Configure settings related to the modals and banners.
+                            """),
+                            trailingAccessory: .icon(.chevronRight)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
-                            SessionTableViewController(
+                            SessionListHostingViewController(
                                 viewModel: DeveloperSettingsModalsAndBannersViewModel(using: dependencies)
                             )
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .animationsEnabled,
-                    title: "Animations Enabled",
-                    subtitle: """
-                    Controls whether animations are enabled throughout the app
-                    
-                    Note: There may be some custom or low-level animations which can't be disabled via this setting
-                    """,
-                    trailingAccessory: .toggle(
-                        current.animationsEnabled,
-                        oldValue: previous?.animationsEnabled
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Animations Enabled", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether animations are enabled throughout the app
+
+                            Note: There may be some custom or low-level animations which can't be disabled via this setting
+                            """),
+                            trailingAccessory: .toggle(
+                                current.animationsEnabled,
+                                oldValue: previous?.animationsEnabled
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.updateFlag(
@@ -448,19 +535,23 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .showStringKeys,
-                    title: "Show String Keys",
-                    subtitle: """
-                    Controls whether localised strings should render using their keys rather than the localised value (strings will be rendered as "[{key}]")
-                    
-                    Notes:
-                    • This change will only apply to newly created screens (eg. the Settings screen will need to be closed and reopened before it gets updated
-                    • The "Home" screen won't update as it never gets recreated
-                    """,
-                    trailingAccessory: .toggle(
-                        current.showStringKeys,
-                        oldValue: previous?.showStringKeys
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Show String Keys", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether localised strings should render using their keys rather than the localised value (strings will be rendered as "[{key}]")
+
+                            Notes:
+                            • This change will only apply to newly created screens (eg. the Settings screen will need to be closed and reopened before it gets updated
+                            • The "Home" screen won't update as it never gets recreated
+                            """),
+                            trailingAccessory: .toggle(
+                                current.showStringKeys,
+                                oldValue: previous?.showStringKeys
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.updateFlag(
@@ -469,15 +560,19 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .truncatePubkeysInLogs,
-                    title: "Truncate Public Keys in Logs",
-                    subtitle: """
-                    Controls whether public keys in logs should automatically be truncated (to the form "1234...abcd") when included in logs"
-                    """,
-                    trailingAccessory: .toggle(
-                        current.truncatePubkeysInLogs,
-                        oldValue: previous?.truncatePubkeysInLogs
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Truncate Public Keys in Logs", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether public keys in logs should automatically be truncated (to the form "1234...abcd") when included in logs"
+                            """),
+                            trailingAccessory: .toggle(
+                                current.truncatePubkeysInLogs,
+                                oldValue: previous?.truncatePubkeysInLogs
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.updateFlag(
@@ -486,39 +581,51 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .copyDocumentsPath,
-                    title: "Copy Documents Path",
-                    subtitle: """
-                    Copies the path to the Documents directory (quick way to access it for the simulator for debugging)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Copy Documents Path", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Copies the path to the Documents directory (quick way to access it for the simulator for debugging)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Copy")
+                        )
+                    ),
                     onTap: { [weak self] in
                         self?.copyDocumentsPath()
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .copyAppGroupPath,
-                    title: "Copy AppGroup Path",
-                    subtitle: """
-                    Copies the path to the AppGroup directory (quick way to access it for the simulator for debugging)
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Copy"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Copy AppGroup Path", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Copies the path to the AppGroup directory (quick way to access it for the simulator for debugging)
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Copy")
+                        )
+                    ),
                     onTap: { [weak self] in
                         self?.copyAppGroupPath()
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .usePngInsteadOfWebPForFallbackImageType,
-                    title: "Use PNG instead of WebP for fallback image type",
-                    subtitle: """
-                    Controls whether we should encode to PNG and GIF when sending less common image types (eg. HEIC/HEIF).
-                    
-                    This is beneficial to enable when testing Debug builds as the WebP encoding is an order of magnitude slower than in Release builds.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.usePngInsteadOfWebPForFallbackImageType,
-                        oldValue: previous?.usePngInsteadOfWebPForFallbackImageType
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Use PNG instead of WebP for fallback image type", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether we should encode to PNG and GIF when sending less common image types (eg. HEIC/HEIF).
+
+                            This is beneficial to enable when testing Debug builds as the WebP encoding is an order of magnitude slower than in Release builds.
+                            """),
+                            trailingAccessory: .toggle(
+                                current.usePngInsteadOfWebPForFallbackImageType,
+                                oldValue: previous?.usePngInsteadOfWebPForFallbackImageType
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.updateFlag(
@@ -532,15 +639,19 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let logging: SectionModel = SectionModel(
             model: .logging,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .defaultLogLevel,
-                    title: "Default Log Level",
-                    subtitle: """
-                    Sets the default log level
-                    
-                    All logging categories which don't have a custom level set below will use this value
-                    """,
-                    trailingAccessory: .dropDown { current.defaultLogLevel.title },
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Default Log Level", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Sets the default log level
+
+                            All logging categories which don't have a custom level set below will use this value
+                            """),
+                            trailingAccessory: .dropDown(current.defaultLogLevel.title)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         self?.transitionToScreen(
                             SessionTableViewController(
@@ -557,13 +668,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .advancedLogging,
-                    title: "Advanced Logging",
-                    subtitle: "Show per-category log levels",
-                    trailingAccessory: .toggle(
-                        current.advancedLogging,
-                        oldValue: previous?.advancedLogging
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Advanced Logging", font: .Body.largeBold),
+                            description: .htmlTagged("Show per-category log levels"),
+                            trailingAccessory: .toggle(
+                                current.advancedLogging,
+                                oldValue: previous?.advancedLogging
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.setAdvancedLoggingVisibility(to: !current.advancedLogging)
@@ -573,11 +688,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 contentsOf: !current.advancedLogging ? nil : current.loggingCategories
                     .sorted(by: { lhs, rhs in lhs.key.rawValue < rhs.key.rawValue })
                     .map { category, level in
-                        SessionCell.Info(
+                        SessionListScreenContent.ListItemInfo(
                             id: .loggingCategory(category.rawValue),
-                            title: category.rawValue,
-                            subtitle: "Sets the log level for the \(category.rawValue) category",
-                            trailingAccessory: .dropDown { level.title },
+                            variant: .cell(
+                                info: ListItemCell.Info(
+                                    title: SessionListScreenContent.TextInfo(category.rawValue, font: .Body.largeBold),
+                                    description: .htmlTagged("Sets the log level for the \(category.rawValue) category"),
+                                    trailingAccessory: .dropDown(level.title)
+                                )
+                            ),
                             onTap: { [weak self, dependencies] in
                                 self?.transitionToScreen(
                                     SessionTableViewController(
@@ -603,17 +722,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let disappearingMessages: SectionModel = SectionModel(
             model: .disappearingMessages,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .debugDisappearingMessageDurations,
-                    title: "Debug Durations",
-                    subtitle: """
-                    Adds 10, 30 and 60 second durations for Disappearing Message settings.
-                    
-                    These should only be used for debugging purposes and will likely result in odd behaviours.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.debugDisappearingMessageDurations,
-                        oldValue: previous?.debugDisappearingMessageDurations
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Debug Durations", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Adds 10, 30 and 60 second durations for Disappearing Message settings.
+
+                            These should only be used for debugging purposes and will likely result in odd behaviours.
+                            """),
+                            trailingAccessory: .toggle(
+                                current.debugDisappearingMessageDurations,
+                                oldValue: previous?.debugDisappearingMessageDurations
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.updateFlag(
@@ -628,17 +751,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let communities: SectionModel = SectionModel(
             model: .communities,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .communityPollLimit,
-                    title: "Community Poll Limit",
-                    subtitle: """
-                    The number of messages to try to retrieve when polling a community (up to a maximum of 256).
-                    
-                    <b>Current Value:</b> \(devValue: dependencies[feature: .communityPollLimit])
-                    
-                    <b>Note:</b> An empty value, or a value of 0 will use the default value: \(dependencies.defaultValue(feature: .communityPollLimit).map { "\($0)"} ?? "N/A").
-                    """,
-                    trailingAccessory: .icon(.squarePen),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Community Poll Limit", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            The number of messages to try to retrieve when polling a community (up to a maximum of 256).
+
+                            <b>Current Value:</b> \(devValue: dependencies[feature: .communityPollLimit])
+
+                            <b>Note:</b> An empty value, or a value of 0 will use the default value: \(dependencies.defaultValue(feature: .communityPollLimit).map { "\($0)"} ?? "N/A").
+                            """),
+                            trailingAccessory: .icon(.squarePen)
+                        )
+                    ),
                     onTap: { [weak self, dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableNumber(
                             title: "Comunity Poll Limit",
@@ -647,7 +774,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             minValue: 0,
                             maxValue: 256,
                             navigatableStateHolder: self,
-                            onValueChanged: { _ in self?.forceRefresh(type: .databaseQuery) },
+                            onValueChanged: { _ in self?.refreshScreen() },
                             using: dependencies
                         )
                     }
@@ -657,30 +784,38 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let database: SectionModel = SectionModel(
             model: .database,
             elements: [
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .createMockContacts,
-                    title: "Create Mock Contacts",
-                    subtitle: """
-                    Creates the specified number of contacts and adds them to the Contacts config message.
-                    
-                    <b>Note:</b> Some of these may be real contacts so best not to message them
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Create"),
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Create Mock Contacts", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Creates the specified number of contacts and adds them to the Contacts config message.
+
+                            <b>Note:</b> Some of these may be real contacts so best not to message them
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Create")
+                        )
+                    ),
                     onTap: { [weak self] in
                         self?.createContacts()
                     }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
                     id: .forceSlowDatabaseQueries,
-                    title: "Force slow database queries",
-                    subtitle: """
-                    Controls whether we artificially add an initial 1s delay to all database queries.
-                    
-                    <b>Note:</b> This is generally not desired (as it'll make things run slowly) but can be beneficial for testing to track down database queries which are running on the main thread when they shouldn't be.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.forceSlowDatabaseQueries,
-                        oldValue: previous?.forceSlowDatabaseQueries
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Force slow database queries", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Controls whether we artificially add an initial 1s delay to all database queries.
+
+                            <b>Note:</b> This is generally not desired (as it'll make things run slowly) but can be beneficial for testing to track down database queries which are running on the main thread when they shouldn't be.
+                            """),
+                            trailingAccessory: .toggle(
+                                current.forceSlowDatabaseQueries,
+                                oldValue: previous?.forceSlowDatabaseQueries
+                            )
+                        )
                     ),
                     onTap: { [weak self] in
                         self?.updateFlag(
@@ -689,31 +824,68 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
-                SessionCell.Info(
-                    id: .exportDatabase,
-                    title: "Export App Data",
-                    trailingAccessory: .icon(
-                        UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
-                            .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                SessionListScreenContent.ListItemInfo(
+                    id: .appGroupKeychainStatus,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo(
+                                "App Group Keychain Items",
+                                font: .Body.largeBold
+                            ),
+                            description: .htmlTagged("""
+                            Checks how many keychain items are readable from the app group's access group, which is \
+                            the copy that survives a change of team ID when the app is transferred between \
+                            developer accounts.
+
+                            <b>Note:</b> Keys are created lazily, so a fresh install can legitimately report fewer \
+                            than the full count until push registration and the extensions have each run once.
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Check")
+                        )
                     ),
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .danger
-                    ),
-                    onTapView: { [weak self] view in self?.exportDatabase(view) }
+                    onTap: { [weak self] in
+                        self?.checkAppGroupKeychainStatus()
+                    }
                 ),
-                SessionCell.Info(
+                SessionListScreenContent.ListItemInfo(
+                    id: .exportDatabase,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo(
+                                "Export App Data",
+                                font: .Body.largeBold,
+                                color: .danger
+                            ),
+                            trailingAccessory: .icon(
+                                UIImage(systemName: "square.and.arrow.up.trianglebadge.exclamationmark")?
+                                    .withRenderingMode(.alwaysTemplate),
+                                size: .small,
+                                tintColor: .danger
+                            )
+                        )
+                    ),
+                    /// **Note:** The UIKit cell handed its own view over as the iPad popover anchor; there's no cell
+                    /// view to reach for here, so `exportDatabase` falls back to the presenting controller's view
+                    onTap: { [weak self] in self?.exportDatabase(nil) }
+                ),
+                SessionListScreenContent.ListItemInfo(
                     id: .importDatabase,
-                    title: "Import App Data",
-                    trailingAccessory: .icon(
-                        UIImage(systemName: "square.and.arrow.down")?
-                            .withRenderingMode(.alwaysTemplate),
-                        size: .small
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo(
+                                "Import App Data",
+                                font: .Body.largeBold,
+                                color: .danger
+                            ),
+                            trailingAccessory: .icon(
+                                UIImage(systemName: "square.and.arrow.down")?
+                                    .withRenderingMode(.alwaysTemplate),
+                                size: .small,
+                                tintColor: .danger
+                            )
+                        )
                     ),
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .danger
-                    ),
-                    onTapView: { [weak self] view in self?.importDatabase(view) }
+                    onTap: { [weak self] in self?.importDatabase(nil) }
                 )
             ]
         )
@@ -722,34 +894,36 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .sessionNetwork,
             elements: [
                 (current.versionBlindedID == nil ? nil :
-                    SessionCell.Info(
+                    SessionListScreenContent.ListItemInfo(
                         id: .versionBlindedID,
-                        title: "Version Blinded ID",
-                        subtitle: current.versionBlindedID!,
-                        trailingAccessory: .button(
-                            style: .bordered,
-                            title: "copy".localized(),
-                            run: { [weak self] button in
-                                self?.copyVersionBlindedID(current.versionBlindedID!, button: button)
-                            }
-                        )
-                    )
-                ),
-                SessionCell.Info(
-                    id: .scheduleLocalNotification,
-                    title: "Schedule Local Notification",
-                    subtitle: """
-                    Schedule a local notifcation in 10 seconds from click
-                    
-                    Note: local scheduled notifcations are not reliable on Simulators
-                    """,
-                    trailingAccessory: .button(
-                        style: .bordered,
-                        title: "Fire",
-                        run: { [weak self] button in
-                            self?.scheduleLocalNotification(button: button)
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo("Version Blinded ID", font: .Body.largeBold),
+                                description: .htmlTagged(current.versionBlindedID!),
+                                trailingAccessory: .highlightingBackgroundLabel(title: "copy".localized())
+                            )
+                        ),
+                        onTap: { [weak self] in
+                            self?.copyVersionBlindedID(current.versionBlindedID!)
                         }
                     )
+                ),
+                SessionListScreenContent.ListItemInfo(
+                    id: .scheduleLocalNotification,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Schedule Local Notification", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Schedule a local notifcation in 10 seconds from click
+
+                            Note: local scheduled notifcations are not reliable on Simulators
+                            """),
+                            trailingAccessory: .highlightingBackgroundLabel(title: "Fire")
+                        )
+                    ),
+                    onTap: { [weak self] in
+                        self?.scheduleLocalNotification()
+                    }
                 )
             ].compactMap { $0 }
         )
@@ -770,14 +944,25 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     // MARK: - Functions
     
+    /// Re-runs `queryState`, which re-reads every value on the screen
+    ///
+    /// **Note:** Replaces the old `forceRefresh(type:)` from `ObservableTableSource` - the values here live in
+    /// features/settings rather than the database, so there's nothing to requery beyond re-reading them
+    private func refreshScreen(advancedLogging: Bool? = nil) {
+        dependencies.notifyAsync(
+            key: .updateScreen(DeveloperSettingsViewModel.self),
+            value: advancedLogging
+        )
+    }
+    
     private func disableDeveloperMode() async {
         /// Loop through all of the sections and reset the features back to default for each one as needed (this way if a new section is added
         /// then we will get a compile error if it doesn't get resetting instructions added)
-        for item in TableItem.allCases {
+        for item in ListItem.allCases {
             switch item {
                 case .developerMode, .versionBlindedID, .customDateTime, .scheduleLocalNotification,
                     .copyDocumentsPath, .copyAppGroupPath, .resetSnodeCache, .createMockContacts,
-                    .exportDatabase, .importDatabase, .advancedLogging:
+                    .appGroupKeychainStatus, .exportDatabase, .importDatabase, .advancedLogging:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                     
                 case .networkConfig:
@@ -825,7 +1010,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .communityPollLimit) else { break }
                     
                     dependencies.reset(feature: .communityPollLimit)
-                    forceRefresh(type: .databaseQuery)
+                    refreshScreen()
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { break }
@@ -841,22 +1026,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
         Log.setDefaultLogLevel(updatedDefaultLogLevel)
-        forceRefresh(type: .databaseQuery)
+        refreshScreen()
     }
     
     private func setAdvancedLoggingVisibility(to value: Bool) {
         self.showAdvancedLogging = value
-        forceRefresh(type: .databaseQuery)
+        refreshScreen(advancedLogging: value)
     }
     
     private func updateLogLevel(of category: Log.Category, to level: Log.Level) {
         Log.setLogLevel(level, for: category)
-        forceRefresh(type: .databaseQuery)
+        refreshScreen()
     }
     
     private func resetLoggingCategories() {
         Log.resetAllLogLevelsToDefaults()
-        forceRefresh(type: .databaseQuery)
+        refreshScreen()
     }
     
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
@@ -866,9 +1051,44 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             case .none: dependencies.reset(feature: feature)
         }
         
-        forceRefresh(type: .databaseQuery)
+        refreshScreen()
     }
     
+    private func checkAppGroupKeychainStatus() {
+        let keys: [KeychainStorage.DataKey] = [
+            .dbCipherKeySpec,
+            .extensionEncryptionKey,
+            .pushNotificationEncryptionKey
+        ]
+        let status: [KeychainStorage.DataKey: KeychainAccessGroupMigration.KeyState] = KeychainAccessGroupMigration
+            .verify(keys: keys, using: dependencies)
+        let presentCount: Int = status.filter { _, state in state == .present }.count
+        /// "absent" and "could not be read" are deliberately distinguished - this screen is the only field
+        /// signal there is, and a check which learned nothing must not look like a check which found nothing
+        let detail: String = keys
+            .map { key in
+                switch status[key] {
+                    case .present: return "✓ \(key.rawValue)"
+                    case .absent: return "✗ \(key.rawValue) (not created yet)"
+                    case .unreadable(let reason): return "⚠️ \(key.rawValue) (unreadable: \(reason))"
+                    case .none: return "⚠️ \(key.rawValue) (not checked)"
+                }
+            }
+            .joined(separator: "\n")
+
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "App Group Keychain Items",
+                    body: .text("\(presentCount)/\(keys.count) readable from \(dependencies[singleton: .keychain].appGroupAccessGroup)\n\n\(detail)"),
+                    cancelTitle: "Done",
+                    cancelStyle: .alert_text
+                )
+            ),
+            transitionType: .present
+        )
+    }
+
     private func resetServiceNodeCache() {
         self.transitionToScreen(
             ConfirmationModal(
@@ -1018,74 +1238,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     // MARK: - SESH
     
-    private func scheduleLocalNotification(button: SessionButton?) {
+    /// **Note:** The UIKit version flipped the button's own title to "Fired" and back; the row's accessory is a
+    /// plain label now, so this reports through a toast instead
+    private func scheduleLocalNotification() {
         dependencies[singleton: .notificationsManager].scheduleSessionNetworkPageLocalNotifcation(force: true)
-        
-        guard let button: SessionButton = button else { return }
-        
-        // Ensure we are on the main thread just in case
-        DispatchQueue.main.async {
-            button.isUserInteractionEnabled = false
-            
-            UIView.transition(
-                with: button,
-                duration: 0.25,
-                options: .transitionCrossDissolve,
-                animations: {
-                    button.setTitle("Fired", for: .normal)
-                },
-                completion: { _ in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(12)) {
-                        button.isUserInteractionEnabled = true
-                    
-                        UIView.transition(
-                            with: button,
-                            duration: 0.25,
-                            options: .transitionCrossDissolve,
-                            animations: {
-                                button.setTitle("Fire", for: .normal)
-                            },
-                            completion: nil
-                        )
-                    }
-                }
-            )
-        }
+        showToast(text: "Local notification scheduled, firing in 10 seconds")
     }
         
-    private func copyVersionBlindedID(_ versionBlindedID: String, button: SessionButton?) {
+    /// **Note:** As above - the copied state is a toast rather than a title swap on the button
+    private func copyVersionBlindedID(_ versionBlindedID: String) {
         UIPasteboard.general.string = versionBlindedID
-        
-        guard let button: SessionButton = button else { return }
-        
-        // Ensure we are on the main thread just in case
-        DispatchQueue.main.async {
-            button.isUserInteractionEnabled = false
-            
-            UIView.transition(
-                with: button,
-                duration: 0.25,
-                options: .transitionCrossDissolve,
-                animations: {
-                    button.setTitle("copied".localized(), for: .normal)
-                },
-                completion: { _ in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
-                        button.isUserInteractionEnabled = true
-                    
-                        UIView.transition(
-                            with: button,
-                            duration: 0.25,
-                            options: .transitionCrossDissolve,
-                            animations: {
-                                button.setTitle("copy".localized(), for: .normal)
-                            },
-                            completion: nil
-                        )
-                    }
-                }
-            )
-        }
+        showToast(text: "copied".localized())
     }
     
     // MARK: - Export and Import
@@ -1268,10 +1431,26 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             }
                             
                             if UIDevice.current.isIPad {
+                                /// **Note:** A popover with no `sourceView` is a hard crash on iPad, and the SwiftUI
+                                /// rows can't hand their own view over the way the UIKit cells did, so fall back to
+                                /// the presenting controller's view (a centred popover rather than an anchored one)
+                                let anchorView: UIView? = (
+                                    targetView ??
+                                    dependencies[singleton: .appContext].frontMostViewController?.view
+                                )
+                                
                                 shareVC.excludedActivityTypes = []
                                 shareVC.popoverPresentationController?.permittedArrowDirections = (targetView != nil ? [.up] : [])
-                                shareVC.popoverPresentationController?.sourceView = targetView
-                                shareVC.popoverPresentationController?.sourceRect = (targetView?.bounds ?? .zero)
+                                shareVC.popoverPresentationController?.sourceView = anchorView
+                                shareVC.popoverPresentationController?.sourceRect = (
+                                    targetView?.bounds ??
+                                    CGRect(
+                                        x: ((anchorView?.bounds.midX ?? 0) - 1),
+                                        y: ((anchorView?.bounds.midY ?? 0) - 1),
+                                        width: 2,
+                                        height: 2
+                                    )
+                                )
                             }
                             
                             self?.transitionToScreen(shareVC, transitionType: .present)

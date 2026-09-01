@@ -218,14 +218,12 @@ struct FakeChat: View {
     let chatBubbles: [ChatBubble] = [
         ChatBubble(
             text: "onboardingBubbleWelcomeToSession"
-                .put(key: "app_name", value: Constants.app_name)
                 .put(key: "emoji", value: "👋")
                 .localized(),
             outgoing: false
         ),
         ChatBubble(
             text: "onboardingBubbleSessionIsEngineered"
-                .put(key: "app_name", value: Constants.app_name)
                 .localized(),
             outgoing: true
         ),

@@ -132,20 +132,18 @@ public final class VisibleMessage: Message {
             .map { proMessage -> ProInfo? in
                 guard
                     let vmProof: SNProtoProProof = proMessage.proof,
-                    vmProof.hasVersion,
-                    vmProof.version <= UInt8.max,    /// Sanity check - Protobuf only supports `UInt32`/`UInt64`
                     vmProof.hasExpiryUnixTs,
-                    let vmGenIndexHash: Data = vmProof.genIndexHash,
+                    let vmRevocationTag: Data = vmProof.revocationTag,
                     let vmRotatingPublicKey: Data = vmProof.rotatingPublicKey,
                     let vmSig: Data = vmProof.sig
                 else { return nil }
                 
                 return (
                     Network.SessionPro.ProProof(
-                        version: UInt8(vmProof.version),
-                        genIndexHash: Array(vmGenIndexHash),
+                        revocationTag: Array(vmRevocationTag),
                         rotatingPubkey: Array(vmRotatingPublicKey),
-                        expiryUnixTimestampMs: vmProof.expiryUnixTs,
+                        /// The wire carries whole seconds; convert to our millisecond domain
+                        expiryUnixTimestampSeconds: vmProof.expiryUnixTs,
                         signature: Array(vmSig)
                     ),
                     SessionPro.MessageFeatures(rawValue: proMessage.msgBitset),

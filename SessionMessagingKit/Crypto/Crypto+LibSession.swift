@@ -106,12 +106,13 @@ public extension Crypto.Generator {
                     var cRecipientPubkey: bytes33 = bytes33()
                     cServerPubkey.set(\.data, to: Data(hex: serverPubkey))
                     cRecipientPubkey.set(\.data, to: Data(hex: recipientPubkey))
+                    /// `session_protocol_encode_for_community_inbox` no longer takes `sent_timestamp_ms`
+                    /// (removed in the §4 C-API changes); the group encoder above still does.
                     result = session_protocol_encode_for_community_inbox(
                         cPlaintext,
                         cPlaintext.count,
                         cEd25519SecretKey,
                         cEd25519SecretKey.count,
-                        sentTimestampMs,
                         &cRecipientPubkey,
                         &cServerPubkey,
                         cRotatingProSecretKey,
@@ -140,7 +141,9 @@ public extension Crypto.Generator {
             args: []
         ) { dependencies in
             let cEncodedMessage: [UInt8] = Array(encodedMessage)
-            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverEdPublicKey))
+            /// **Note:** This is the key `libSession` verifies the sender's pro proof against, so it has to be the
+            /// same backend the sender got their proof from (see `Network.SessionPro.edPublicKey(using:)`)
+            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.edPublicKey(using: dependencies)))
             var error: [CChar] = [CChar](repeating: 0, count: 256)
             
             switch origin {
@@ -148,7 +151,7 @@ public extension Crypto.Generator {
                     /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
                     /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
                     /// structure) then we try to decode as the legacy structure (which succeeds)
-                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    let sentTimestampMs: Int64 = Int64(floor(posted * 1000))
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cEncodedMessage,
                         cEncodedMessage.count,
@@ -182,7 +185,7 @@ public extension Crypto.Generator {
                     /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
                     /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
                     /// structure) then we try to decode as the legacy structure (which succeeds)
-                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    let sentTimestampMs: Int64 = Int64(floor(posted * 1000))
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cPlaintext,
                         cPlaintext.count,
@@ -413,9 +416,77 @@ public extension Crypto.Generator {
             }
             
             let seed: Data = try dependencies[singleton: .crypto].tryGenerate(.ed25519Seed(ed25519SecretKey: cMasterSecretKey))
-            
+
             return try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair(seed: seed))
         }
+    }
+
+    /// Derives the deterministic `appAccountToken` (a `UUID`) to attach to an Apple StoreKit purchase from the
+    /// Session Pro master public key.
+    ///
+    /// See `UUID(sessionProMasterPublicKey:)` for why this exists and how it's constructed. The Pro backend
+    /// performs the identical derivation from the master public key it receives in the redemption request and
+    /// compares it against the `appAccountToken` Apple reported in the payment notification, cryptographically
+    /// binding the payment to the master key rather than relying on the (guessable/observable) transaction id.
+    static func sessionProAppleAccountToken() -> Crypto.Generator<UUID> {
+        return Crypto.Generator(
+            id: "sessionProAppleAccountToken",
+            args: []
+        ) { dependencies in
+            let masterKeyPair: KeyPair = try dependencies[singleton: .crypto]
+                .tryGenerate(.sessionProMasterKeyPair())
+
+            return try UUID(sessionProMasterPublicKey: masterKeyPair.publicKey)
+        }
+    }
+
+    /// Deterministically derive the rotating Session Pro keypair for `nowUnixTimestampSeconds` via libsession
+    /// (`session_protocol_pro_rotating_seed`). The rotation schedule is libsession-owned and opaque to the
+    /// client — we just hand it the current time and use the seed it returns (no window/period logic here).
+    /// Every device on the account derives the same 32-byte seed for the same `now`, so concurrent proof
+    /// (re)generations converge rather than racing; we expand that seed to an ed25519 keypair for signing.
+    /// Replaces the old ad-hoc per-purchase rotating key.
+    static func sessionProRotatingKeyPair(nowUnixTimestampSeconds: Int64) -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(
+            id: "sessionProRotatingKeyPair",
+            args: [nowUnixTimestampSeconds]
+        ) { dependencies in
+            let masterKeyPair: KeyPair = try dependencies[singleton: .crypto]
+                .tryGenerate(.sessionProMasterKeyPair())
+            var rotatingSeed: [UInt8] = [UInt8](repeating: 0, count: 32)
+
+            /// The C function uses the first 32 bytes of the 64-byte master secret key as the master seed.
+            session_protocol_pro_rotating_seed(masterKeyPair.secretKey, nowUnixTimestampSeconds, &rotatingSeed)
+
+            return try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair(seed: Data(rotatingSeed)))
+        }
+    }
+}
+
+public extension UUID {
+    /// Builds a deterministic `UUID` from a Session Pro master public key, for use as Apple's `appAccountToken`.
+    ///
+    /// Apple only lets us attach a single opaque `UUID` to a StoreKit purchase, and that value is the only
+    /// piece of client-controlled data the Pro backend receives from Apple's payment notification. To bind a
+    /// payment to a specific master key (rather than trusting that the Apple transaction id stays secret) we
+    /// stuff the first 16 bytes of the master public key into the UUID, overwriting only the 6 bits that the
+    /// version-4 UUID format reserves for the version/variant. That leaves 122 bits of the master public key
+    /// intact — enough that forging a matching payment within the window before the real client redeems it is
+    /// impractical.
+    ///
+    /// This is the exact equivalent of Python's `uuid.UUID(bytes=master_pkey[:16], version=4)`; the backend
+    /// must derive the token the same way for the comparison to succeed.
+    init(sessionProMasterPublicKey publicKey: [UInt8]) throws {
+        guard publicKey.count >= 16 else { throw CryptoError.invalidPublicKey }
+
+        var bytes: [UInt8] = Array(publicKey.prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x40     /// Version 4
+        bytes[8] = (bytes[8] & 0x3F) | 0x80     /// Variant (RFC 4122)
+
+        self = UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 }
 

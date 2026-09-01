@@ -422,7 +422,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
                             },
                             onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else {
+                                /// **The gate reads ACCESS.** Note the prompt below is NOT covered by the DISPLAY guard in
+                                /// `showSessionProCTAIfNeeded` on the group path: `.groupLimit` is on that function's exempt
+                                /// list, so a user whose plan reads active still sees it. That is correct here: the variant
+                                /// asks whether the GROUP has Pro, which is independent of the user's own plan
+                                guard !dependencies[singleton: .sessionProManager].currentUserHasProAccess else {
                                     guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
                                         return
                                     }
@@ -2380,11 +2384,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     
     private func toggleConversationPinnedStatus(threadInfo: ConversationInfoViewModel) async {
         let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > LibSession.visiblePriority)
-        let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
-            .state
-            .first(defaultValue: .invalid)
         
-        if sessionProState.sessionProEnabled && !isCurrentlyPinned && sessionProState.status != .active {
+        /// The pin limit is an entitlement, so it's gated on Pro **access** rather than on the displayed plan status
+        if !isCurrentlyPinned && !dependencies[singleton: .sessionProManager].currentUserHasProAccess {
+            /// Only used to pick the CTA's wording, which follows the *displayed* status
+            let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
+                .state
+                .first(defaultValue: .invalid)
+            
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
                 let numPinnedConversations: Int = try await dependencies[singleton: .storage].write { [dependencies] db in
@@ -2419,7 +2426,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 _ = await MainActor.run { [weak self, dependencies] in
                     dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                         .morePinnedConvos(
-                            isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit),
+                            isOverTheLimit: (numPinnedConversations > SessionPro.PinnedConversationLimit),
                             renew: (sessionProState.status == .expired)
                         ),
                         onConfirm: { [weak self] in

@@ -17,7 +17,7 @@ public extension Request where Endpoint == Network.SessionPro.Endpoint {
             endpoint: endpoint,
             destination: .server(
                 method: method,
-                server: Network.SessionPro.server,
+                server: Network.SessionPro.server(using: dependencies),
                 queryParameters: queryParameters,
                 headers: headers,
                 x25519PublicKey: Network.SessionPro.x25519PublicKey(using: dependencies)

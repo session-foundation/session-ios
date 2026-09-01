@@ -10,12 +10,24 @@ public actor DebounceTaskManager<Event: Sendable> {
     /// The interval needs to be long enough to be able to group different events that could be triggered by an action (db write, async
     /// tasks, actor hopping, etc.) but not so long that the user might perceive some lag after performing an action that should trigger a
     /// UI update.
-    private let debounceInterval: DispatchTimeInterval = .milliseconds(25)
-    
+    public static var defaultInterval: DispatchTimeInterval { .milliseconds(25) }
+
+    private let debounceInterval: DispatchTimeInterval
     private var debounceTask: Task<Void, Never>? = nil
     private var pendingEvents: [Event] = []
     private var pendingEventSet: Set<AnyHashable> = []
     private var action: (@Sendable ([Event]) async -> Void)?
+
+    // MARK: - Initialization
+
+    /// Create a debouncer
+    ///
+    /// **Note:** The interval is injectable so tests can drive it to zero. The debounce is a real `Task.sleep`, so it adds wall-clock
+    /// latency that the schedulers injected via `Dependencies` cannot control - leaving it at the production value makes any spec
+    /// which asserts on an observation timing-dependent (see `QueryRunner`).
+    public init(interval: DispatchTimeInterval = DebounceTaskManager.defaultInterval) {
+        self.debounceInterval = interval
+    }
 
     public func setAction(_ newAction: @Sendable @escaping ([Event]) async -> Void) {
         self.action = newAction

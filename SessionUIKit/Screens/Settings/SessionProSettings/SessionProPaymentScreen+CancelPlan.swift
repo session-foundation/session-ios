@@ -17,16 +17,16 @@ struct CancelPlanOriginatingPlatformContent: View {
                 Text("proCancellation".localized())
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenCancelPlan))
                 
                 AttributedText(
                     "proCancellationShortDescription"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.vertical, Values.smallSpacing)
+                .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
             }
             .padding(Values.mediumSpacing)
             .background(
@@ -39,7 +39,6 @@ struct CancelPlanOriginatingPlatformContent: View {
             } label: {
                 Text(
                     "cancelAccess"
-                        .put(key: "pro", value: Constants.pro)
                         .localized()
                 )
                 .font(.Body.largeRegular)
@@ -55,6 +54,7 @@ struct CancelPlanOriginatingPlatformContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }
@@ -81,21 +81,20 @@ struct CancelPlanNonOriginatorContent: View {
                     Text("proCancellation".localized())
                         .font(.Headings.H7)
                         .foregroundColor(themeColor: .textPrimary)
+                        .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenCancelPlanNonOriginating))
                     
                     AttributedText(
                         "proCancellationDescription"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .put(key: "pro", value: Constants.pro)
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .localizedFormatted(Fonts.Body.baseRegular)
                     )
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 }
                 
                 Text(
                     "proCancellationOptions"
-                        .put(key: "pro", value: Constants.pro)
                         .localized()
                 )
                 .font(.Body.baseRegular)
@@ -107,11 +106,8 @@ struct CancelPlanNonOriginatorContent: View {
                             .put(key: "device_type", value: originatingPlatform.device)
                             .localized(),
                         description: "onDeviceCancelDescription"
-                            .put(key: "app_name", value: Constants.app_name)
                             .put(key: "device_type", value: originatingPlatform.device)
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(),
                         variant: .device
                     )
@@ -125,7 +121,6 @@ struct CancelPlanNonOriginatorContent: View {
                         description: "cancelProPlatform"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .put(key: "platform", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
-                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .website
                     )
@@ -158,6 +153,7 @@ struct CancelPlanNonOriginatorContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
             
             Spacer(minLength: 0)
         }

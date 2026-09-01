@@ -66,6 +66,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     public var quoteViewModel: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
     public var linkPreviewViewModel: LinkPreviewViewModel?
     private var proStatusObservationTask: Task<Void, Never>?
+    private var proPlanObservationTask: Task<Void, Never>?
     private var linkPreviewLoadTask: Task<Void, Never>?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
     private lazy var mentionsViewHeightConstraint = mentionsView.set(.height, to: 0)
@@ -279,6 +280,9 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         result.alignment = .center
         result.addGestureRecognizer(characterLimitLabelTapGestureRecognizer)
         result.alpha = 0
+        /// Matches the `alpha` above: `updateNumberOfCharactersLeft` only runs once the text changes, so without this
+        /// a composer which has not been typed in yet would expose an invisible, textless countdown
+        result.accessibilityElementsHidden = true
         
         return result
     }()
@@ -296,16 +300,24 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         label.font = .systemFont(ofSize: Values.smallFontSize)
         label.themeTextColor = .textPrimary
         label.textAlignment = .center
+        /// Identifier only, unlike the other controls in this file which set `accessibilityLabel` to the same string -
+        /// a `UILabel`'s `accessibilityLabel` defaults to its text, so assigning one here would overwrite the
+        /// remaining-character count with a constant and leave the number unreadable
+        label.accessibilityIdentifier = "character-limit-text"
         
         return label
     }()
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .medium)
-        result.isHidden = (
-            sessionProManager?.isSessionProEnabled != true ||
-            sessionProManager?.currentUserIsCurrentlyPro == true
-        )
+        /// **The gate reads ACCESS; the thing explaining the gate reads DISPLAY.** This badge is a prompt to buy Pro -
+        /// tapping its stack opens the `longerMessages` CTA - so it follows the plan, not the entitlement. Read on
+        /// ACCESS it would offer Pro to someone whose plan is active but whose proof has not arrived yet, four pixels
+        /// from a modal that (correctly) declines to make that same offer
+        result.isHidden = (sessionProManager?.currentUserProPlanIsActive == true)
+        /// Replaces the generic identifier the badge carries by default, so a test aimed at this one cannot match the
+        /// home screen's badge instead - see `SessionProBadge.AccessibilityIdentifier.composer`
+        result.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.composer
         
         return result
     }()
@@ -360,14 +372,25 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         setUpViewHierarchy()
         
+        /// The character limit is an ACCESS question, so it follows the entitlement
         self.proStatusObservationTask = Task(priority: .userInitiated) { [weak self] in
             guard let sessionProManager else { return }
             
-            for await isPro in sessionProManager.currentUserIsPro {
+            for await _ in sessionProManager.currentUserHasProAccessStream {
                 await MainActor.run { [weak self] in
-                    /// The pro badge is a button to prompt a pro upgrade so hide it when already pro
-                    self?.sessionProBadge.isHidden = (sessionProManager.isSessionProEnabled != true || isPro)
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
+                }
+            }
+        }
+        
+        /// The badge is an upgrade prompt, so it follows the PLAN - see its initialiser. Separate from the task above
+        /// because the two values change independently: a proof can lapse while the plan stays active, and vice versa
+        self.proPlanObservationTask = Task(priority: .userInitiated) { [weak self] in
+            guard let sessionProManager else { return }
+            
+            for await planIsActive in sessionProManager.currentUserProPlanIsActiveStream {
+                await MainActor.run { [weak self] in
+                    self?.sessionProBadge.isHidden = planIsActive
                 }
             }
         }
@@ -384,6 +407,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     deinit {
         linkPreviewLoadTask?.cancel()
         proStatusObservationTask?.cancel()
+        proPlanObservationTask?.cancel()
     }
 
     private func setUpViewHierarchy() {
@@ -444,7 +468,11 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         let numberOfCharactersLeft: Int = SNUIKit.numberOfCharactersLeft(for: text)
         characterLimitLabel.text = "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
-        proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0
+        let showCharacterLimit: Bool = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit)
+        proStackView.alpha = (showCharacterLimit ? 1 : 0)
+        /// An `alpha` of `0` leaves the view in the accessibility tree, where it reads as present-but-blank; hiding it
+        /// here keeps the tree agreeing with the screen, which is what lets absence be asserted at all
+        proStackView.accessibilityElementsHidden = !showCharacterLimit
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 

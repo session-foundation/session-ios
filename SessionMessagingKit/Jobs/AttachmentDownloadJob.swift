@@ -216,8 +216,12 @@ public enum AttachmentDownloadJob: JobExecutor {
         try Task.checkCancellation()
         
         /// Decrypt the data if needed
-        switch (attachment.encryptionKey, attachment.digest, parsedDownloadUrl.wantsStreamDecryption) {
-            case (.some(let key), .some(let digest), false) where !key.isEmpty:
+        switch try AttachmentDownloadJob.decryptionFormat(
+            encryptionKey: attachment.encryptionKey,
+            digest: attachment.digest,
+            wantsStreamDecryption: parsedDownloadUrl.wantsStreamDecryption
+        ) {
+            case .legacy(let key, let digest):
                 let ciphertext: Data = try dependencies[singleton: .fileManager].contents(atPath: response.temporaryFilePath)
                 let plaintext: Data = try dependencies[singleton: .crypto].tryGenerate(
                     .legacyDecryptAttachment(
@@ -234,7 +238,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                     throw AttachmentDownloadError.failedToSaveFile
                 }
                 
-            case (.some(let key), _, true) where !key.isEmpty:
+            case .stream(let key):
                 guard
                     let downloadUrl: String = attachment.downloadUrl,
                     let finalPath: String = try? dependencies[singleton: .attachmentManager]
@@ -249,8 +253,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                     )
                 )
                 
-            default:
-                /// File is in plaintext so just move it to the destination
+            case .plaintext:
                 guard
                     let finalPath: String = try? dependencies[singleton: .attachmentManager]
                         .path(for: parsedDownloadUrl.originalUrlString)
@@ -316,13 +319,47 @@ extension AttachmentDownloadJob {
         }
     }
     
+    /// The download url is the only thing that records which encryption an attachment was uploaded
+    /// with, so a key that cannot be paired with a format means the url did not describe its own
+    /// content - treating that as plaintext would write the ciphertext to the attachment's path and
+    /// report the download as successful
+    enum DecryptionFormat: Equatable {
+        case legacy(key: Data, digest: Data)
+        case stream(key: Data)
+        case plaintext
+    }
+    
+    static func decryptionFormat(
+        encryptionKey: Data?,
+        digest: Data?,
+        wantsStreamDecryption: Bool
+    ) throws -> DecryptionFormat {
+        switch (encryptionKey, digest, wantsStreamDecryption) {
+            case (.some(let key), .some(let digest), false) where !key.isEmpty:
+                return .legacy(key: key, digest: digest)
+                
+            case (.some(let key), _, true) where !key.isEmpty:
+                return .stream(key: key)
+                
+            case (.some(let key), _, _) where !key.isEmpty:
+                throw AttachmentDownloadError.unknownEncryptionFormat
+                
+            /// Community attachments carry no key, so they really are in plaintext
+            default:
+                return .plaintext
+        }
+    }
+    
     public enum AttachmentDownloadError: LocalizedError {
         case failedToSaveFile
+        case unknownEncryptionFormat
 
         // stringlint:ignore_contents
         public var errorDescription: String? {
             switch self {
                 case .failedToSaveFile: return "Failed to save file"
+                case .unknownEncryptionFormat:
+                    return "Attachment has an encryption key but the download url did not indicate its format"
             }
         }
     }

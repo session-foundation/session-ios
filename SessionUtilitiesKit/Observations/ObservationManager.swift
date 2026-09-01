@@ -24,6 +24,14 @@ public actor ObservationManager {
     /// observer - we need the window to be large enough to account for the worst case actor-hop, but not so large to have an excessive
     /// buffer size
     private let bufferWindow: TimeInterval = 0.1
+
+    /// How long buffered events are retained for
+    ///
+    /// This is deliberately longer than `bufferWindow`: that window is the *default* replay reach for a caller which doesn't know
+    /// when it started observing, whereas a caller which passes an explicit `since` can only replay what's still retained here. Keeping
+    /// these separate means an unusually slow query can't silently cost us an event, and the extra retention is cheap (events are
+    /// small and this is a rolling buffer).
+    private let bufferRetention: TimeInterval = 1
     private let lifecycleObservations: [any NSObjectProtocol]
     private var eventBuffer: [ObservableKey: [BufferedEvent]] = [:]
     private var store: [ObservableKey: [UUID: AsyncStream<ObservedEvent>.Continuation]] = [:]
@@ -60,16 +68,22 @@ public actor ObservationManager {
     
     // MARK: - Functions
     
-    public func observe(_ key: ObservableKey) -> AsyncStream<ObservedEvent> {
+    /// Observe a key, replaying any buffered events the observer would otherwise have missed
+    ///
+    /// - Parameter since: The instant from which the caller considers itself to be observing. Pass this when there is a known gap
+    /// between *deciding* to observe a key and this subscription actually being registered (eg. a query has to run first to work out
+    /// which keys to observe) - everything buffered from that instant is replayed, so the caller doesn't depend on how long the gap
+    /// happened to take. When omitted the `bufferWindow` is used, which only covers a gap shorter than that window.
+    public func observe(_ key: ObservableKey, since: Date? = nil) -> AsyncStream<ObservedEvent> {
         let id: UUID = UUID()
-        
+
         return AsyncStream { continuation in
             self.addContinuation(continuation, for: key, id: id)
-            
-            /// Replay any buffered events within the window
-            let now: Date = Date()
+
+            /// Replay any buffered events the observer missed
+            let cutoff: Date = (since ?? Date().addingTimeInterval(-bufferWindow))
             eventBuffer[key]?
-                .filter { now.timeIntervalSince($0.timestamp) < bufferWindow }
+                .filter { $0.timestamp >= cutoff }
                 .forEach { continuation.yield($0.event) }
             
             continuation.onTermination = { _ in
@@ -86,7 +100,7 @@ public actor ObservationManager {
             store[event.key]?.values.forEach { $0.yield(event) }
         }
         
-        pruneBuffer(before: now.addingTimeInterval(-bufferWindow))
+        pruneBuffer(before: now.addingTimeInterval(-bufferRetention))
     }
     
     // MARK: - Internal Functions

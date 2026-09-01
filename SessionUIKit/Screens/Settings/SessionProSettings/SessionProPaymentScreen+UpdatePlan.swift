@@ -24,28 +24,26 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 ) {
                     Text(
                         "updateAccess"
-                            .put(key: "pro", value: Constants.pro)
                             .localized()
                     )
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenChoosePlanNonOriginating))
                     
                     AttributedText(
                         "proAccessSignUp"
-                            .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "platform_store", value: originatingPlatform.store)
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular)
                     )
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.leading)
+                    .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenDescription))
                 }
                 
                 Text(
                     "updateAccessTwo"
-                        .put(key: "pro", value: Constants.pro)
                         .localized()
                 )
                 .font(.Body.baseRegular)
@@ -57,11 +55,8 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                             .put(key: "device_type", value: originatingPlatform.device)
                             .localized(),
                         description: "onDeviceDescription"
-                            .put(key: "app_name", value: Constants.app_name)
                             .put(key: "device_type", value: originatingPlatform.device)
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .device
                     )
@@ -75,7 +70,6 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                         description: "viaStoreWebsiteDescription"
                             .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .put(key: "platform_store", value: (originatingPlatform == .iOS ? originatingPlatform.platform : originatingPlatform.store))
-                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .website
                     )
@@ -108,6 +102,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 )
                 .padding(.vertical, Values.smallSpacing)
             }
+            .accessibility(Accessibility(identifier: SessionProUI.AccessibilityIdentifier.screenAction))
         }
     }
 }

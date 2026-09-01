@@ -1780,29 +1780,23 @@ struct SessionProtos_GroupUpdateDeleteMemberContentMessage {
   fileprivate var _adminSignature: Data? = nil
 }
 
+/// Numbering starts at 2: field 1 was `version`, dropped because a proof's format is its type
+/// rather than a value it carries -- the format is bound into the signature by the domain prefix
+/// it picks, and a future format arrives as its own message/field.
 struct SessionProtos_ProProof {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var version: UInt32 {
-    get {return _version ?? 0}
-    set {_version = newValue}
-  }
-  /// Returns true if `version` has been explicitly set.
-  var hasVersion: Bool {return self._version != nil}
-  /// Clears the value of `version`. Subsequent reads from it will return its default value.
-  mutating func clearVersion() {self._version = nil}
-
   /// Opaque identifier of this proof produced by the Session Pro backend
-  var genIndexHash: Data {
-    get {return _genIndexHash ?? Data()}
-    set {_genIndexHash = newValue}
+  var revocationTag: Data {
+    get {return _revocationTag ?? Data()}
+    set {_revocationTag = newValue}
   }
-  /// Returns true if `genIndexHash` has been explicitly set.
-  var hasGenIndexHash: Bool {return self._genIndexHash != nil}
-  /// Clears the value of `genIndexHash`. Subsequent reads from it will return its default value.
-  mutating func clearGenIndexHash() {self._genIndexHash = nil}
+  /// Returns true if `revocationTag` has been explicitly set.
+  var hasRevocationTag: Bool {return self._revocationTag != nil}
+  /// Clears the value of `revocationTag`. Subsequent reads from it will return its default value.
+  mutating func clearRevocationTag() {self._revocationTag = nil}
 
   /// Public key whose signatures is authorised to entitle messages with Session Pro
   var rotatingPublicKey: Data {
@@ -1814,7 +1808,7 @@ struct SessionProtos_ProProof {
   /// Clears the value of `rotatingPublicKey`. Subsequent reads from it will return its default value.
   mutating func clearRotatingPublicKey() {self._rotatingPublicKey = nil}
 
-  /// Epoch timestamps in milliseconds
+  /// Proof expiry, unix epoch SECONDS (iOS domain keeps ms; boundary converts ×/÷1000)
   var expiryUnixTs: UInt64 {
     get {return _expiryUnixTs ?? 0}
     set {_expiryUnixTs = newValue}
@@ -1838,8 +1832,7 @@ struct SessionProtos_ProProof {
 
   init() {}
 
-  fileprivate var _version: UInt32? = nil
-  fileprivate var _genIndexHash: Data? = nil
+  fileprivate var _revocationTag: Data? = nil
   fileprivate var _rotatingPublicKey: Data? = nil
   fileprivate var _expiryUnixTs: UInt64? = nil
   fileprivate var _sig: Data? = nil
@@ -3728,8 +3721,7 @@ extension SessionProtos_GroupUpdateDeleteMemberContentMessage: SwiftProtobuf.Mes
 extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ProProof"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "version"),
-    2: .same(proto: "genIndexHash"),
+    2: .same(proto: "revocationTag"),
     3: .same(proto: "rotatingPublicKey"),
     4: .same(proto: "expiryUnixTs"),
     5: .same(proto: "sig"),
@@ -3741,8 +3733,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularUInt32Field(value: &self._version) }()
-      case 2: try { try decoder.decodeSingularBytesField(value: &self._genIndexHash) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self._revocationTag) }()
       case 3: try { try decoder.decodeSingularBytesField(value: &self._rotatingPublicKey) }()
       case 4: try { try decoder.decodeSingularUInt64Field(value: &self._expiryUnixTs) }()
       case 5: try { try decoder.decodeSingularBytesField(value: &self._sig) }()
@@ -3756,10 +3747,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
     // https://github.com/apple/swift-protobuf/issues/1182
-    try { if let v = self._version {
-      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 1)
-    } }()
-    try { if let v = self._genIndexHash {
+    try { if let v = self._revocationTag {
       try visitor.visitSingularBytesField(value: v, fieldNumber: 2)
     } }()
     try { if let v = self._rotatingPublicKey {
@@ -3775,8 +3763,7 @@ extension SessionProtos_ProProof: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 
   static func ==(lhs: SessionProtos_ProProof, rhs: SessionProtos_ProProof) -> Bool {
-    if lhs._version != rhs._version {return false}
-    if lhs._genIndexHash != rhs._genIndexHash {return false}
+    if lhs._revocationTag != rhs._revocationTag {return false}
     if lhs._rotatingPublicKey != rhs._rotatingPublicKey {return false}
     if lhs._expiryUnixTs != rhs._expiryUnixTs {return false}
     if lhs._sig != rhs._sig {return false}
