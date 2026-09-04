@@ -144,7 +144,14 @@ struct DisplayNameScreen: View {
                     return await dependencies[singleton: .onboarding].useAPNS
                 }()
                 
-                await dependencies[singleton: .onboarding].completeRegistration()
+                do { try await dependencies[singleton: .onboarding].completeRegistration() }
+                catch {
+                    /// Nothing was written, so the account that registration refused to overwrite is still intact -
+                    /// don't navigate to the home screen, which would present it as if the registration had worked
+                    return await MainActor.run { [dependencies] in
+                        Onboarding.showRegistrationRefusedAlert(using: dependencies)
+                    }
+                }
                 
                 /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
                 /// requesting the permission from the user

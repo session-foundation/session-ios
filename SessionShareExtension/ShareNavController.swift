@@ -94,7 +94,16 @@ final class ShareNavController: UINavigationController {
                     self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                 }
             }
-            catch { Log.error("Failed to complete migrations") }
+            catch {
+                Log.error("Failed to complete migrations: \(error)")
+                
+                /// The extension has custom UI for a startup which didn't complete, and showing it beats leaving the
+                /// share sheet blank. This is reachable for a database which is merely unreadable at the moment, not
+                /// only for one which is permanently broken
+                await MainActor.run { [weak self] in
+                    self?.checkIsAppReady(migrationsCompleted: false, userMetadata: nil)
+                }
+            }
         }
 
         // We don't need to use "screen protection" in the SAE.
