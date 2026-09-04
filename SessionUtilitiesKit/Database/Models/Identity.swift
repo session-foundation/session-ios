@@ -77,10 +77,25 @@ public extension Identity {
         try Identity(variant: .x25519PublicKey, data: Data(x25519KeyPair.publicKey)).upsert(db)
     }
     
-    static func fetchUserKeyPair(_ db: ObservingDatabase) -> KeyPair? {
+    /// Whether the `identity` table holds any row at all
+    ///
+    /// Deliberately broader than `fetchUserEd25519KeyPair` returning non-nil: a partially written identity is still an
+    /// identity that must not be overwritten, and this is used to refuse a destructive write rather than to load an
+    /// account, so any row present is enough to refuse
+    static func hasStoredIdentity(_ db: ObservingDatabase) throws -> Bool {
+        return try Identity.fetchCount(db) > 0
+    }
+    
+    /// - Returns: the stored key pair, or `nil` if the identity has not been stored yet
+    /// - Throws: if the `identity` table could not be read
+    ///
+    /// A read failure and an absent identity are **not** interchangeable: callers use the absent case to decide that
+    /// there is no account, and registering on the strength of that decision overwrites the identity of an account which
+    /// was there all along
+    static func fetchUserKeyPair(_ db: ObservingDatabase) throws -> KeyPair? {
         guard
-            let publicKey: Data = try? Identity.fetchOne(db, id: .x25519PublicKey)?.data,
-            let secretKey: Data = try? Identity.fetchOne(db, id: .x25519PrivateKey)?.data
+            let publicKey: Data = try Identity.fetchOne(db, id: .x25519PublicKey)?.data,
+            let secretKey: Data = try Identity.fetchOne(db, id: .x25519PrivateKey)?.data
         else { return nil }
         
         return KeyPair(
@@ -89,10 +104,16 @@ public extension Identity {
         )
     }
     
-    static func fetchUserEd25519KeyPair(_ db: ObservingDatabase) -> KeyPair? {
+    /// - Returns: the stored key pair, or `nil` if the identity has not been stored yet
+    /// - Throws: if the `identity` table could not be read
+    ///
+    /// A read failure and an absent identity are **not** interchangeable: callers use the absent case to decide that
+    /// there is no account, and registering on the strength of that decision overwrites the identity of an account which
+    /// was there all along
+    static func fetchUserEd25519KeyPair(_ db: ObservingDatabase) throws -> KeyPair? {
         guard
-            let publicKey: Data = try? Identity.fetchOne(db, id: .ed25519PublicKey)?.data,
-            let secretKey: Data = try? Identity.fetchOne(db, id: .ed25519SecretKey)?.data
+            let publicKey: Data = try Identity.fetchOne(db, id: .ed25519PublicKey)?.data,
+            let secretKey: Data = try Identity.fetchOne(db, id: .ed25519SecretKey)?.data
         else { return nil }
         
         return KeyPair(
@@ -117,8 +138,8 @@ public extension Identity {
                 
                 let result: (hasStoredXKeyPair: Bool, hasStoredEdKeyPair: Bool)? = try? await dependencies[singleton: .storage].read { db in
                     (
-                        (Identity.fetchUserKeyPair(db) != nil),
-                        (Identity.fetchUserEd25519KeyPair(db) != nil)
+                        ((try? Identity.fetchUserKeyPair(db)) ?? nil) != nil,
+                        ((try? Identity.fetchUserEd25519KeyPair(db)) ?? nil) != nil
                     )
                 }
                 

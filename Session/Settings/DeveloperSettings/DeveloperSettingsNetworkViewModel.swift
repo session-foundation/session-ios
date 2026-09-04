@@ -1445,7 +1445,8 @@ class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType,
                     .defaulting(to: "Anonymous"),
                 using: dependencies
             )
-            await updatedOnboarding?.completeRegistration()
+            do { try await updatedOnboarding?.completeRegistration() }
+            catch { Log.error("[DevSettings] Unable to complete registration: \(error)") }
         }
         
         /// Re-enable developer mode
