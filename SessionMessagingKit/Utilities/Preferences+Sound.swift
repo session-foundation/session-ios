@@ -164,6 +164,10 @@ public extension Preferences {
                 return UNNotificationSound.default
             }
             
+            /// `default` has an *empty* filename rather than a `nil` one, and `UNNotificationSound(named:)` resolves an
+            /// empty name to no file at all - so it plays nothing rather than falling back to the system sound
+            guard !filename.isEmpty else { return UNNotificationSound.default }
+            
             return UNNotificationSound(named: UNNotificationSoundName(rawValue: filename))
         }
         

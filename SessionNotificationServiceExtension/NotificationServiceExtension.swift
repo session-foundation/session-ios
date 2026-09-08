@@ -1218,6 +1218,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
     }
     
+    /// The fallback paths construct their own `UNMutableNotificationContent` rather than going through
+    /// `NotificationContent.toMutableContent(shouldPlaySound:)`, so nothing else attaches the user's sound to them -
+    /// any path which builds content by hand must call this or its notification is delivered silently
+    private func applyNotificationSound(
+        to content: UNMutableNotificationContent,
+        notificationSettings: Preferences.NotificationSettings
+    ) {
+        /// `didReceive` aborts when the main app is active, so the extension only ever presents notifications on behalf
+        /// of a backgrounded app - the "quiet" variants exist for the in-app case and never apply here
+        content.sound = notificationSettings.sound.notificationSound(isQuiet: false)
+    }
+    
     private func handleFailureForVoIP(
         _ notification: ProcessedNotification,
         threadVariant: SessionThread.Variant,
@@ -1232,6 +1244,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let content: UNMutableNotificationContent = UNMutableNotificationContent()
         content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
         content.title = Constants.app_name
+        applyNotificationSound(
+            to: content,
+            notificationSettings: dependencies[singleton: .notificationsManager].settings(
+                threadId: notification.threadId,
+                threadVariant: threadVariant
+            )
+        )
         content.body = callMessage.sender
             .map { sender in displayNameRetriever(sender, false) }
             .map { senderDisplayName in
@@ -1311,6 +1330,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// **Note:** All `1-to-1` notifications will have the current users session id for the `accountId` value so only attach
         /// the `accountId` as the `threadId` for group notifications (for which it'll _actually_ be the group id)
         info.content.title = Constants.app_name
+        applyNotificationSound(to: info.content, notificationSettings: notificationSettings)
         info.content.userInfo = {
             switch (info.metadata, threadId, try? SessionId.Prefix(from: info.metadata.accountId)) {
                 case (_, .some(let threadId), _):
