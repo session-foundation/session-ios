@@ -65,7 +65,7 @@ public enum ConfigMessageReceiveJob: JobExecutor {
         }
         
         do {
-            try await dependencies[singleton: .storage].write { db in
+            let tookInEverything: Bool = try await dependencies[singleton: .storage].write { db in
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.handleConfigMessages(
                         db,
@@ -73,6 +73,23 @@ public enum ConfigMessageReceiveJob: JobExecutor {
                         messages: details.messages
                     )
                 }
+            } ?? false
+
+            /// Applied out here because the recovery store is an actor and the write above is synchronous. A merge which lost
+            /// a message must not leave the swarm looking level - the message's `lastHash` has already moved past it, so it
+            /// will never be offered again
+            switch tookInEverything {
+                case true:
+                    /// **`outsideAPoll`, never a live token.** This job is not a poll - it merges messages handed to it from
+                    /// elsewhere, and it has no idea whether the swarm was fully answered. Stamping the swarm's current token
+                    /// here would make the force rekey's freshness check agree on the strength of a merge that never polled
+                    /// anything, which is the exact staleness that check exists to catch
+                    await dependencies[singleton: .configRecovery]
+                        .markLocalStateLevelWithSwarm(swarmPublicKey: swarmPublicKey, token: .outsideAPoll)
+
+                case false:
+                    await dependencies[singleton: .configRecovery]
+                        .markMergeIncompleteForSwarm(swarmPublicKey: swarmPublicKey)
             }
             
             return .success

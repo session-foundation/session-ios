@@ -65,6 +65,124 @@ extension SwarmPollerType {
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool) async throws -> PollResult<PollResponse> {
+        let outcome: (result: PollResult<PollResponse>, detection: ConfigRecovery.DetectionReport, pollToken: ConfigRecovery.PollToken) = try await performPoll(
+            forceSynchronousProcessing: forceSynchronousProcessing
+        )
+
+        /// Both consumers are handed this poll's detection explicitly rather than reading it back out of a cache
+        ///
+        /// Storing a detection to be consumed later allows it to be picked up by a different poll, or dropped when nothing
+        /// consumes it - and it bought nothing, since detection repeats every poll and a hash that is still missing is simply
+        /// reported again
+        ///
+        /// A missing keys config means the group is expired, and unlike the other configs there's no re-store to attempt
+        /// first, so apply that straight away
+        await ConfigRecovery.applyKeysVerdictIfNeeded(
+            outcome.detection.keysVerdict,
+            swarmPublicKey: destination.target,
+            using: dependencies
+        )
+
+        /// Now that the poll has fully completed, put back any config messages this node told us it no longer holds
+        ///
+        /// This is deliberately after the poll rather than inside it - recovery must not run until our local state is known to
+        /// be level, and doing it here means a detection made during this poll can be acted on in the same pass as long as an
+        /// earlier poll already established that
+        await ConfigRecovery.recoverIfNeeded(
+            outcome.detection,
+            swarmPublicKey: destination.target,
+            using: dependencies
+        )
+
+        /// Backfill any keys-message bytes we are missing
+        ///
+        /// **Deliberately not gated on `outcome.detection`.** Detection says the swarm has *lost* a hash; this fires when
+        /// *we* lack bytes for a hash the swarm still has - the opposite condition, and one that stops being fixable the
+        /// moment detection would notice it. Hanging this off the detection path would look correct and repair almost nothing.
+        ///
+        /// It also runs after the two consumers above rather than before: this poll's report was built from the byte set
+        /// as it stood at the start, so anything captured now is for the next poll's report to use. That ordering is what
+        /// makes this feed the ordinary re-store path rather than duplicate it
+        if namespaces.contains(.configGroupKeys) {
+            await ConfigRecovery.backfillKeysIfNeeded(
+                swarmPublicKey: destination.target,
+                /// Captured strongly on purpose - the closure is consumed inside this same `await`, so there is no retain
+                /// cycle to break and a weak capture would only introduce a silent "returned nothing" path
+                fetchKeysMessages: { try await self.fetchKeysMessagesFromScratch() },
+                using: dependencies
+            )
+        }
+
+        /// Force a rekey only when *nobody has it and it is gone*: a backfill has already run for this group and left the
+        /// bytes absent, so they are not obtainable by re-reading; and this poll's detection says the swarm has lost the keys.
+        /// Those are two different facts and neither implies the other - `keysVerdict == .expired` alone would fire on a group
+        /// that has simply never been looked at.
+        /// Levelness as of *this* poll, not at any point this session. The plain predicate is set by a good poll and
+        /// cleared only by a sticky withdrawal, so it stays true indefinitely. Right for the re-store, where staleness costs a
+        /// redundant store; fail-open here at exactly the wrong moment, because a member added an hour ago with our last
+        /// complete poll yesterday still reads true, and our `GroupMembers` view is stale by precisely the delta that produces
+        /// the exclusion.
+        ///
+        /// A rekey encrypts the new key to this device's view of the members. Issued from a stale view it silently excludes
+        /// anyone we have not merged yet - and this fires precisely on devices whose config state is known to be degraded, so
+        /// the stale view is the expected case rather than the unlucky one
+        if outcome.detection.keysVerdict == .expired,
+           await dependencies[singleton: .configRecovery].keysBackfillHasFailed(swarmPublicKey: destination.target)
+        {
+            await ConfigRecovery.forceRekeyIfPossible(
+                swarmPublicKey: destination.target,
+                pollToken: outcome.pollToken,
+                using: dependencies
+            )
+        }
+
+        return outcome.result
+    }
+
+    /// Re-read the whole keys namespace, deliberately without a `lastHash`
+    ///
+    /// There is no retrieve-by-hash API, so re-reading the namespace from scratch is the mechanism: passing our last hash
+    /// would return only what has arrived since, which is precisely the set we already have bytes for. One small read per
+    /// affected group, and only until the group's bytes are captured - the trigger is self-clearing, so no migration flag or
+    /// version check is needed to stop it running forever
+    private func fetchKeysMessagesFromScratch() async throws -> [ConfigMessageReceiveJob.Details.MessageInfo] {
+        let snode: LibSession.Snode = try await swarmDrainer.selectNextNode()
+        let authMethod: AuthenticationMethod = try Authentication.with(
+            swarmPublicKey: destination.target,
+            using: dependencies
+        )
+        let request: Network.PreparedRequest<Network.StorageServer.PreparedGetMessagesResponse> = try Network
+            .StorageServer
+            .preparedGetMessages(
+                namespace: .configGroupKeys,
+                snode: snode,
+                lastHash: nil,
+                authMethod: authMethod,
+                using: dependencies
+            )
+        let response: Network.StorageServer.PreparedGetMessagesResponse = try await request.send(using: dependencies)
+
+        return response.messages.map { message in
+            ConfigMessageReceiveJob.Details.MessageInfo(
+                namespace: .configGroupKeys,
+                serverHash: message.hash,
+                serverTimestampMs: message.timestampMs,
+                data: message.data
+            )
+        }
+    }
+
+    private func performPoll(
+        forceSynchronousProcessing: Bool
+    ) async throws -> (result: PollResult<PollResponse>, detection: ConfigRecovery.DetectionReport, pollToken: ConfigRecovery.PollToken) {
+        /// Open the poll before anything else runs, because the token has to name the poll that is about to happen
+        ///
+        /// Minting this at the end instead would produce a check that can never refuse. The token would name the poll
+        /// that just finished, so a mark made during that poll would always equal it, and the rekey's freshness test would
+        /// agree every time while looking exactly like a working guard
+        let pollToken: ConfigRecovery.PollToken = await dependencies[singleton: .configRecovery]
+            .beginPoll(swarmPublicKey: destination.target)
+
         /// Select the node to poll
         let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
             .getSwarm(for: destination.target, ignoreStrikeCount: false)
@@ -76,14 +194,39 @@ extension SwarmPollerType {
             swarmPublicKey: destination.target,
             using: dependencies
         ))
-        let activeHashes: [String] = {
+        /// Retrieved per config rather than as one flat set, because config expiry detection has to be able to say which
+        /// config a missing hash belongs to - the keys config decides whether a group is expired, and is also the one config
+        /// which must never be re-stored
+        let activeHashesByVariant: [ConfigDump.Variant: Set<String>] = {
             /// If we don't have an account then there won't be any active hashes so don't bother trying to get them
-            guard dependencies[cache: .general].userExists else { return [] }
-            
+            guard dependencies[cache: .general].userExists else { return [:] }
+
             return dependencies.mutate(cache: .libSession) { cache in
-                cache.activeHashes(for: destination.target)
+                cache.activeHashesByVariant(for: destination.target)
             }
         }()
+
+        /// Which `GroupKeys` hashes we hold the raw bytes for, and could therefore put back
+        ///
+        /// Read alongside the active hashes and for the same reason - it decides whether an all-keys-missing detection means
+        /// "this group is expired" or "this device can repair it", and the two answers are not interchangeable
+        let recoverableKeysHashes: Set<String> = {
+            guard dependencies[cache: .general].userExists else { return [] }
+
+            return dependencies.mutate(cache: .libSession) { cache in
+                cache.recoverableKeysHashes(for: destination.target)
+            }
+        }()
+
+        /// Merged only here, to build the request payload
+        let activeHashes: [String] = activeHashesByVariant.values.reduce(into: []) { $0.append(contentsOf: $1) }
+
+        /// Captured by the detection callback below and returned to `poll`, which hands it to the two things that act on it
+        var detectionReport: ConfigRecovery.DetectionReport = .noDetection
+
+        /// Whether a synchronous config merge took everything in, captured for the same reason - it is discovered inside a
+        /// database write and applied afterwards, because the recovery store is an actor
+        var configMergeWasComplete: Bool?
         let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].read { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
@@ -101,6 +244,13 @@ extension SwarmPollerType {
             refreshingConfigHashes: activeHashes,
             updateExpiryDates: SnodeReceivedMessageInfo
                 .updateExpirationDates(groupedExpiryResult:using:),
+            onExpiryDetection: { [activeHashesByVariant, recoverableKeysHashes] detection, _ in
+                detectionReport = ConfigRecovery.DetectionReport(
+                    detection: detection,
+                    activeHashesByVariant: activeHashesByVariant,
+                    recoverableKeysHashes: recoverableKeysHashes
+                )
+            },
             from: snode,
             authMethod: authMethod,
             using: dependencies
@@ -115,9 +265,58 @@ extension SwarmPollerType {
             .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
+        /// If every config namespace we asked about answered and none of them had anything new, our local state is level with
+        /// what this service node holds - which is what config recovery needs before it will re-store anything. It does
+        /// not need a merge to have literally occurred, and waiting for one would mean recovery could never run for the
+        /// devices that need it most: a device whose configs have expired gets *nothing* back from the swarm to merge.
+        ///
+        /// One node, not the swarm - and that is sufficient for two reasons, both load-bearing. We poll a single snode,
+        /// so a peer could hold a newer config this one hasn't backfilled, and we would re-store while stale:
+        ///
+        /// 1. A stale re-store loses cleanly. It lands as its own message and loses to the higher-seqno one on merge,
+        ///    because re-storing is *additive* rather than an overwrite - it cannot displace the newer state.
+        /// 2. We cannot delete what we have not seen. The obsolete-hash set accompanying a re-store contains only hashes
+        ///    our own config superseded, so an unmerged newer message is not a candidate for sweeping.
+        ///
+        /// If either ever stops holding, polling one node becomes a genuine correctness bug here and no test points at
+        /// it - which is why they are written down rather than left as something a reader could re-derive.
+        ///
+        /// Note: This cannot be answered from the `expire` response instead. `expire` only reports on hashes we already
+        /// hold, whereas levelness is precisely "is there something on the swarm we haven't merged" - unknowable from a
+        /// liveness check on known hashes. `retrieve` is the only instrument that answers it.
+        ///
+        /// The "answered" half is not a formality. A failed retrieve is dropped from the response entirely, so a poll
+        /// whose sub-requests all errored is indistinguishable *by count* from a poll of a swarm that genuinely holds nothing.
+        /// Keying off "no messages came back" alone would treat a total failure as proof we're up to date, which is the same
+        /// hazard the precondition exists to prevent, just approached from the other side
+        let requestedConfigNamespaces: Set<Network.StorageServer.Namespace> = Set(namespaces.filter { $0.isConfigNamespace })
+        let answeredNamespaces: Set<Network.StorageServer.Namespace> = Set(response.keys)
+
+        /// Computed once and used by BOTH markers below, deliberately.
+        ///
+        /// There are two places this poll can conclude we are level - one for a poll that returned no config messages, one for
+        /// a poll whose config messages all merged - and they are far enough apart in this function that they were not
+        /// obviously the same decision. Only the first was gated on coverage, so a poll where one config namespace's retrieve
+        /// failed *and* another returned a mergeable message took the second and marked the swarm level - claiming we are
+        /// level with a swarm we did not fully hear back from. Sharing the value is what stops them drifting apart again
+        let allConfigNamespacesAnswered: Bool = requestedConfigNamespaces.isSubset(of: answeredNamespaces)
+
+        /// Whether this poll established levelness, as opposed to some earlier poll having done so
+        ///
+        /// The store's own predicate is session-sticky by design, which is right for deciding whether a re-store may run and
+        /// wrong for authorising a rekey. This is the freshness signal, and it is deliberately local to one poll
+
+        if
+            allConfigNamespacesAnswered,
+            !sortedMessages.contains(where: { $0.namespace.isConfigNamespace && !$0.messages.isEmpty })
+        {
+            await dependencies[singleton: .configRecovery]
+                .markLocalStateLevelWithSwarm(swarmPublicKey: destination.target, token: pollToken)
+        }
+
         /// No need to do anything if there are no messages
         guard rawMessageCount > 0 else {
-            return PollResult(response: [])
+            return (PollResult(response: []), detectionReport, pollToken)
         }
         
         /// Process the response
@@ -131,12 +330,31 @@ extension SwarmPollerType {
                 ignoreDedupeFiles: false,
                 forceSynchronousProcessing: forceSynchronousProcessing,
                 sortedMessages: sortedMessages,
+                onConfigMergeOutcome: { configMergeWasComplete = $0 },
                 using: dependencies
             )
         }
+
+        /// A merge which lost messages must not leave the swarm looking level. A config message which parsed but didn't merge
+        /// has already had its `lastHash` advanced past it, so it will never be offered again - meaning the *next* poll returns
+        /// no config messages and would otherwise read as "level with the swarm"
+        switch configMergeWasComplete {
+            case .none: break
+            case .some(true):
+                /// A complete merge of a partial answer is not levelness. Taking in everything we were given says nothing
+                /// about the namespace whose retrieve failed, so this needs the same coverage gate as the marker above
+                if allConfigNamespacesAnswered {
+                    await dependencies[singleton: .configRecovery]
+                        .markLocalStateLevelWithSwarm(swarmPublicKey: destination.target, token: pollToken)
+                }
+
+            case .some(false):
+                await dependencies[singleton: .configRecovery]
+                    .markMergeIncompleteForSwarm(swarmPublicKey: destination.target)
+        }
         
         /// If we don't want to forcible process the response synchronously then just finish immediately
-        guard forceSynchronousProcessing else { return processedResponse.pollResult }
+        guard forceSynchronousProcessing else { return (processedResponse.pollResult, detectionReport, pollToken) }
         
         /// We want to try to handle the receive jobs immediately in the background
         await withThrowingTaskGroup(of: Void.self) { [dependencies] group in
@@ -156,7 +374,7 @@ extension SwarmPollerType {
             }
         }
         
-        return processedResponse.pollResult
+        return (processedResponse.pollResult, detectionReport, pollToken)
     }
 }
 
@@ -177,6 +395,7 @@ public enum SwarmPoller {
         ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)],
+        onConfigMergeOutcome: ((Bool) -> Void)? = nil,
         using dependencies: Dependencies
     ) -> ([Job], [Job], PollResult<SwarmPoller.PollResponse>) {
         /// No need to do anything if there are no messages
@@ -347,7 +566,9 @@ public enum SwarmPoller {
                                 }
                             }
 
-                            try dependencies.mutate(cache: .libSession) {
+                            /// Reported out rather than applied here - config recovery's state lives on an actor, which this
+                            /// synchronous database write cannot reach
+                            let tookInEverything: Bool = try dependencies.mutate(cache: .libSession) {
                                 try $0.handleConfigMessages(
                                     db,
                                     swarmPublicKey: swarmPublicKey,
@@ -356,6 +577,7 @@ public enum SwarmPoller {
                                         .messages
                                 )
                             }
+                            onConfigMergeOutcome?(tookInEverything)
 
                             return .commit
                         }
