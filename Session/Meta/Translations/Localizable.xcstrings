@@ -39798,12 +39798,6 @@
             "value" : "إغلاق خيارات المرفق"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Qoşma seçimlərini yığcamlaşdır"
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -79054,12 +79048,6 @@
             "value" : "صلاحيات الاتصال مطلوبة"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zəng icazələri tələb olunur"
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -79539,12 +79527,6 @@
             "value" : "يمكن تفعيل صَلاحِيَة \"المكالمات الصوتية والمرئية\" في إعدادات الخصوصية."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gizlilik Ayarlarında \"Səsli və görüntülü zənglər\" icazəsini fəallaşdıra bilərsiniz."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -80010,12 +79992,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "يمكن تمكين إذن \"المكالمات الصوتية والفيديو\" في إعدادات الأذونات."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İcazə Ayarlarında \"Səsli və görüntülü zənglər\"i fəallaşdıra bilərsiniz."
           }
         },
         "ca" : {
@@ -84238,12 +84214,6 @@
             "value" : "لقد فاتتكم مكالمة من <b>{name}</b> لأنكم لم تمكنوا <b>المكالمات الصوتية والمرئية</b> في إعدادات الخصوصية."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gizlilik Ayarlarında <b>Səsli və görüntülü zənglər</b> seçimini fəallaşdırmadığınız üçün <b>{name}</b> etdiyi bir zəngi buraxdınız."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -84878,12 +84848,6 @@
             "value" : "للسماح بالوصول إلى الكاميرا، افتحوا الإعدادات وفعّلوا صلاحية الكاميرا."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kamera erişiminə icazə vermək üçün ayarları aç və Kamera icazəsini işə sal."
-          }
-        },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
@@ -85049,12 +85013,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "أثناء مكالمتكم الأخيرة، حاولتم استخدام الفيديو لكن لم تتمكنوا من ذلك لأنه تم رفض الوصول إلى الكاميرا من قبل. للسماح بالوصول، افتحوا الإعدادات وفعّلوا صلاحية الكاميرا."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Son zəng zamanı, görüntünü istifadə etməyə çalışdınız, ancaq kamera erişiminə daha əvvəl rədd cavabı verildiyi üçün edə bilmədiniz. Kamera erişiminə icazə vermək üçün ayarları açıb Kamera icazəsini işə salın."
           }
         },
         "cs" : {
@@ -86844,12 +86802,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session يحتاج إذن الوصول إلى الكاميرا لالتقاط الصور ومقاطع الفيديو، ولكن تم رفضه نهائيًا. يرجى الانتقال إلى إعدادات التطبيق، و اختيار \"الأذونات\"، وتفعيل \"الكاميرا\"."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session foto və video çəkmək üçün kameraya erişməlidir, ancaq bu erişimə həmişəlik rədd cavabı verilib. Lütfən tətbiq ayarlarına gedib \"İcazələr\"i seçin və \"Kamera\"nı fəallaşdırın."
           }
         },
         "bal" : {
@@ -89685,12 +89637,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تغيير كلمة المرور لـ Session. سيتم إعادة تشفير البيانات المخزنة محليًا باستخدام كلمة المرور الجديدة."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session üçün parolunuzu dəyişdirin. Daxili olaraq saxlanılmış verilər, yeni parolunuzla təkrar şifrələnəcək."
           }
         },
         "cs" : {
@@ -98182,7 +98128,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cihazı Təmizlə və Bərpa Et"
+            "value" : "Cihazı Təmizlə və Bərpa et"
           }
         },
         "ca" : {
@@ -113156,6 +113102,12 @@
             "state" : "translated",
             "value" : "Вы модератор (а не администратор) и не можете управлять ролями других пользователей."
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir moderatör olarak, kullanıcıların rollerini değiştiremezsiniz. Bu yetki yalnızca adminlerde bulunur."
+          }
         }
       }
     },
@@ -119150,7 +119102,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "İstifadəçi detalları"
+            "value" : "İstifadəçi məlumatları"
           }
         },
         "bal" : {
@@ -136490,6 +136442,12 @@
             "state" : "translated",
             "value" : "Текущая роль"
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mevcut rol"
+          }
         }
       }
     },
@@ -147365,12 +147323,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ليس لديكم صلاحيات حذف رسائل الآخرين"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Başqalarının mesajlarını silmə icazəniz yoxdur"
           }
         },
         "bal" : {
@@ -176165,12 +176117,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "{name} يستخدم عميل قديم. قد لا تعمل الرسائل المختفية على النحو المتوقع."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "{name} köhnəlmiş bir client istifadə edir. Yox olan mesajlar gözlənildiyi kimi işləməyə bilər."
           }
         },
         "bal" : {
@@ -241581,6 +241527,12 @@
             "state" : "translated",
             "value" : "Группа только для чтения"
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu gruptakileri yalnızca okuyabilirsiniz"
+          }
         }
       }
     },
@@ -254890,12 +254842,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "شاركوا بعض التفاصيل لمساعدتنا في حل مشكلتكم. صدّروا السجلات الخاصة بكم، ثم حمّلوا الملف عبر مكتب المساعدة الخاص بـ Session."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Probleminizi həll etməyimizə kömək olması üçün bəzi detalları bizimlə paylaşın. Jurnalınızı xaricə köçürün, daha sonra Session Kömək Masası üzərindən faylı göndərin."
           }
         },
         "bal" : {
@@ -323705,6 +323651,12 @@
             "state" : "translated",
             "value" : "{name} — <b>модератор</b> этого сообщества."
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{name}, Bu topluluğun bir <b>moderatörüdür</b>."
+          }
         }
       }
     },
@@ -352989,12 +352941,6 @@
             "value" : "الخصوصية في جيبك."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cibinizdəki gizlilik."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -355387,7 +355333,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gizlilik Siyasəti"
+            "value" : "Məxfilik Siyasəti"
           }
         },
         "bal" : {
@@ -356340,12 +356286,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "باستخدام هذه الخدمة، أنتم توافقون على <b>شروط الخدمة</b> و <b>سياسة الخصوصية</b>"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bu xidməti istifadə edərək, <b>Xidmət Şərtləri</b> və <b>Gizlilik Siyasətimiz</b> ilə razılaşırsınız"
           }
         },
         "bal" : {
@@ -374134,12 +374074,6 @@
             "value" : "تغيير الصَّلاحِيَة"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İcazəni dəyişdir"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -374353,12 +374287,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "يحتاج Session إذن الوصول إلى الموسيقى والصوت من أجل إرسال الملفات والموسيقى والصوت، ولكن تم رفضه نهائيًا. يجب النقر على الإعدادات ثم الأذونات، وتفعيل \"الموسيقى والصوت\"."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fayl, musiqi və səs göndərə bilməyiniz üçün Session musiqi və səslərə erişməlidir, ancaq bu erişimə birdəfəlik rədd cavabı verilib. Ayarlar → \"İcazələr\"ə toxunun və \"Musiqi və səs\"i işə salın."
           }
         },
         "bal" : {
@@ -376271,12 +376199,6 @@
             "value" : "مطلوب الوصول إلى الكاميرا لإجراء مكالمات فيديو. فعّلوا إذن \"الكاميرا\" في الإعدادات للمتابعة."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Görüntülü zəng etmək üçün kameraya erişim tələb olunur. Davam etmək üçün Ayarlarda \"Kamera\" icazəsini işə salın."
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -376466,12 +376388,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الوصول إلى الكاميرا مفعل حاليا. لتعطيله، قم ب تعطيل إذن الكاميرا في الإعدادات."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kamera erişimi hazırda fəaldır. Onu sıradan çıxartmaq üçün Ayarlarda \"Kamera\" icazəsini söndürün."
           }
         },
         "ca" : {
@@ -376681,12 +376597,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "يحتاج Session إذن الوصول إلى الكاميرا لالتقاط الصور ومقاطع الفيديو، ولكن تم رفضه نهائيًا. يجب النقر على الإعدادات ثم الأذونات، وتفعيل \"الكاميرا\"."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Foto və video göndərə bilməyiniz üçün Session kameraya erişməlidir, ancaq bu icazəyə birdəfəlik rədd cavabı verilib. Ayarlar → \"İcazələr\"ə toxunun və \"Kamera\"nı işə salın."
           }
         },
         "bal" : {
@@ -378981,12 +378891,6 @@
             "value" : "مطلوب الوصول إلى الشبكة المحلية لتسهيل المكالمات. فعّلوا إذن \"الشبكة المحلية\" من الإعدادات للمتابعة."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zəngləri asanlaşdırmaq üçün Lokal şəbəkə erişimi tələb olunur. Davam etmək üçün Ayarlarda \"Lokal şəbəkə\" icazəsini işə salın."
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -379385,12 +379289,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تم تمكين الوصول إلى الشبكة المحلية حالياً. لتعطيله، يجب إيقاف إذن \"الشبكة المحلية\" من الإعدادات."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lokal şəbəkə erişimi hazırda fəaldır. Onu sıradan çıxartmaq üçün Ayarlarda \"Lokal şəbəkə\" icazəsini söndürün."
           }
         },
         "ca" : {
@@ -380487,12 +380385,6 @@
             "value" : "Session يحتاج إذن الوصول إلى الميكروفون لإجراء المكالمات وإرسال الرسائل الصوتية، ولكن تم رفضه نهائيًا. يرجى الانتقال إلى الإعدادات ثم الأذونات، وتفعيل \"الميكروفون\"."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session, zəng etmək və səsli mesaj göndərmək üçün mikrofona erişməlidir, ancaq bu erişimə həmişəlik rədd cavabı verilib. Ayarlara → İcazələr bölməsinə gedin və \"Mikrofon\"u işə salın."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -380954,12 +380846,6 @@
             "value" : "مطلوب الوصول إلى الميكروفون لإجراء المكالمات وتسجيل الرسائل الصوتية. فعّلوا إذن \"الميكروفون\" في الإعدادات للمتابعة."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zəng etmək və səsli mesajları yazmaq üçün mikrofona erişim tələb olunur. Davam etmək üçün Ayarlarda \"Mikrofon\" icazəsini işə salın."
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -381155,12 +381041,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "يمكن تفعيل الوصول للميكروفون في إعدادات الخصوصية في Session"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session gizlilik ayarlarında mikrofona erişimi fəallaşdıra bilərsiniz"
           }
         },
         "bal" : {
@@ -382113,12 +381993,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الوصول إلى الميكروفون مفعل حاليا. لتعطيله، يرجى تعطيل إذن \"الميكروفون\" في الإعدادات."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mikrofon erişimi hazırda fəaldır. Onu sıradan çıxartmaq üçün Ayarlarda \"Mikrofon\" icazəsini söndürün."
           }
         },
         "ca" : {
@@ -383946,12 +383820,6 @@
             "value" : "يحتاج Session إذن الوصول إلى مكتبة الصور لإرسال الصور ومقاطع الفيديو، ولكن تم رفضه نهائيًا. يجب النقر على الإعدادات ثم الأذونات، وتفعيل \"الصور ومقاطع الفيديو\"."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Foto və video göndərə bilməyiniz üçün Session foto kitabxanasına erişməlidir, ancaq bu erişimə birdəfəlik rədd cavabı verilib. Ayarlar → \"İcazələr\"ə toxunun və \"Foto və videolar\"ı işə salın."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -384413,12 +384281,6 @@
             "value" : "يحتاج Session إذن الوصول إلى التخزين لإرسال وحفظ المرفقات. يجب النقر على الإعدادات ثم الأذونات، وتفعيل \"التخزين\"."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session, qoşmaları göndərə və saxlaya bilməyiniz üçün anbara erişməlidir. Ayarlar → İcazələr bölməsinə gedin və \"Anbar\"ı işə salın."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -384878,12 +384740,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session يحتاج إذن الوصول إلى التخزين لحفظ المرفقات والوسائط."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session qoşmaları və medianı saxlamaq üçün anbara erişməlidir."
           }
         },
         "bal" : {
@@ -385365,12 +385221,6 @@
             "value" : "Session يحتاج إذن الوصول إلى التخزين لحفظ الصور ومقاطع الفيديو، ولكن تم رفضه نهائيًا. يرجى الانتقال إلى إعدادات التطبيق، واختيار \"الأذونات\"، وتفعيل \"التخزين\"."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session foto və videoları saxlamaq üçün anbara erişməlidir, ancaq bu erişimə həmişəlik rədd cavabı verilib. Lütfən tətbiq ayarlarına gedin, \"İcazələr\"i seçin və \"Anbar\" icazəsini fəallaşdırın."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -385850,12 +385700,6 @@
             "value" : "Session يحتاج إذن الوصول إلى التخزين لإرسال الصور ومقاطع الفيديو."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session foto və videoları göndərmək üçün anbara erişməlidir."
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -386327,12 +386171,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ليس لديكم صلاحيات الكتابة في هذا المجتمع"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bu icmada yazma icazəniz yoxdur"
           }
         },
         "ca" : {
@@ -426635,12 +426473,6 @@
             "value" : "يسعدنا أنكم تستمتعون بتجربة استخدام Session. إذا كان لديكم بعض الوقت، فإن تقييمكم لنا على {storevariant} يساعد الآخرين على اكتشاف المراسلة الخاصة والآمنة!"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Çox şad olduq ki, Session tətbiqindən həzz alırsınız. Bircə dəqiqəniz varsa, bizi {storevariant} üzərində qiymətləndirin, çünki bu, başqalarının şəxsi və təhlükəsiz mesajlaşmanı kəşf etməsinə kömək edir!"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -427535,6 +427367,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Läs mer"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daha fazla oku"
           }
         },
         "zh-CN" : {
@@ -441523,6 +441361,34 @@
             }
           }
         },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@arg1@"
+          },
+          "substitutions" : {
+            "arg1" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Üyeyi kaldır"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Üyeleri Kaldır"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "zh-CN" : {
           "stringUnit" : {
             "state" : "translated",
@@ -442882,12 +442748,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "إزالة كلمة المرور الحالية لـ Session. سيتم إعادة تشفير البيانات المخزّنة محليًا باستخدام مفتاح يتم إنشاؤه عشوائيًا وتخزينه على جهازكم."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session üçün hazırkı parolunuzu silin. Daxili olaraq saxlanılmış verilər, cihazınızda saxlanılan təsadüfi yaradılmış açarla təkrar şifrələnəcək."
           }
         },
         "cs" : {
@@ -471549,7 +471409,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gizlilik"
+            "value" : "Məxfilik"
           }
         },
         "bal" : {
@@ -473877,12 +473737,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تعيين كلمة مرور لـ Session. سيتم تشفير البيانات المخزنة محليًا باستخدام هذه الكلمة. سيُطلب منكم إدخال هذه الكلمة في كل مرة يبدأ فيها Session."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session üçün bir parol təyin edin. Daxili olaraq saxlanılmış verilər, bu parolla şifrələnəcək. Session tətbiqini hər başlatdıqda, sizdən bu parolu daxil etməyiniz istənəcək."
           }
         },
         "cs" : {
@@ -480321,6 +480175,12 @@
             "state" : "translated",
             "value" : "Пропустить"
           }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atla"
+          }
         }
       }
     },
@@ -484327,6 +484187,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Это сообщество"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu Topluluk"
           }
         }
       }
@@ -499334,6 +499200,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Обновите Ваш доступ к Pro, используя {platform_account}, с которым Вы регистрировались, с помощью <b><span>{platform_store} веб-сайта</span></b>."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kayıt olurken kullandığınız {platform_account} hesabını kullanarak Pro erişiminizi <b><span>{platform_store} web sitesi</span></b> üzerinden güncelleyin."
           }
         }
       }
