@@ -684,6 +684,7 @@
 		FD37EA0D28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0C28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift */; };
 		FD37EA0F28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0E28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift */; };
 		FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1428AB42CB003AE748 /* IdentitySpec.swift */; };
+		FDA1000030000002000000A1 /* MnemonicSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000001000000A1 /* MnemonicSpec.swift */; };
 		FD37EA1728AC5605003AE748 /* NotificationContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1628AC5605003AE748 /* NotificationContentViewModel.swift */; };
 		FD37EA1928AC5CCA003AE748 /* NotificationSoundViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */; };
 		FD39352C28F382920084DADA /* VersionFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39352B28F382920084DADA /* VersionFooterView.swift */; };
@@ -986,6 +987,7 @@
 		FDA10000202608120000001B /* KeychainAccessGroupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */; };
 		FDA10000202608120000002B /* KeychainAccessGroupMigrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */; };
 		FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608130000004A /* KeychainStorageSpec.swift */; };
+		FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */; };
 		FDA10000202608130000005B /* StorageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608130000005A /* StorageSpec.swift */; };
 		FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */; };
 		FDA1E0052F0A11B000A11B05 /* CryptoAttachmentsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */; };
@@ -2428,6 +2430,7 @@
 		FD37EA0C28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_FixDeletedMessageReadState.swift; sourceTree = "<group>"; };
 		FD37EA0E28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _014_FixHiddenModAdminSupport.swift; sourceTree = "<group>"; };
 		FD37EA1428AB42CB003AE748 /* IdentitySpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentitySpec.swift; sourceTree = "<group>"; };
+		FDA1000030000001000000A1 /* MnemonicSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicSpec.swift; sourceTree = "<group>"; };
 		FD37EA1628AC5605003AE748 /* NotificationContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentViewModel.swift; sourceTree = "<group>"; };
 		FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSoundViewModel.swift; sourceTree = "<group>"; };
 		FD39352B28F382920084DADA /* VersionFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionFooterView.swift; sourceTree = "<group>"; };
@@ -2644,6 +2647,7 @@
 		FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigration.swift; sourceTree = "<group>"; };
 		FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigrationSpec.swift; sourceTree = "<group>"; };
 		FDA10000202608130000004A /* KeychainStorageSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorageSpec.swift; sourceTree = "<group>"; };
+		FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicWordSetSpec.swift; sourceTree = "<group>"; };
 		FDA10000202608130000005A /* StorageSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSpec.swift; sourceTree = "<group>"; };
 		FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrlSpec.swift; sourceTree = "<group>"; };
 		FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoAttachmentsSpec.swift; sourceTree = "<group>"; };
@@ -4965,6 +4969,14 @@
 			path = Database;
 			sourceTree = "<group>";
 		};
+		FDA1000030000003000000A1 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1000030000001000000A1 /* MnemonicSpec.swift */,
+			);
+			path = Crypto;
+			sourceTree = "<group>";
+		};
 		FD37EA1328AB42C1003AE748 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -5259,11 +5271,20 @@
 			path = "Disposable Views";
 			sourceTree = "<group>";
 		};
+		FDA1000030000006000000A1 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */,
+			);
+			path = Crypto;
+			sourceTree = "<group>";
+		};
 		FD71160A28D00BAE00B47552 /* SessionTests */ = {
 			isa = PBXGroup;
 			children = (
 				FDC0F00B2C04100E002CBFB9 /* Session.xctestplan */,
 				FD71161228D00D5300B47552 /* Conversations */,
+				FDA1000030000006000000A1 /* Crypto */,
 				FD19363D2ACA66CF004BCF0F /* Database */,
 				FD52CB582E12166500A4DA70 /* Onboarding */,
 				FD71161828D00E0100B47552 /* Settings */,
@@ -5448,6 +5469,7 @@
 				FD0150252CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan */,
 				FDEF30782F2971120004C5BD /* _TestUtilities */,
 				FD37EA1228AB3F60003AE748 /* Database */,
+				FDA1000030000003000000A1 /* Crypto */,
 				FD83B9B927CF20A5005E1583 /* General */,
 				FDDF074829DAB35200E5E8B5 /* JobRunner */,
 				FDC289482C881C5500020BC2 /* LibSession */,
@@ -8230,6 +8252,7 @@
 				FDEF307F2F2971920004C5BD /* MockAppContext.swift in Sources */,
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */,
+				FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FDEF30872F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
@@ -8284,6 +8307,7 @@
 				FDEF30942F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
+				FDA1000030000002000000A1 /* MnemonicSpec.swift in Sources */,
 				FDA10000202608130000005B /* StorageSpec.swift in Sources */,
 				FDEF309B2F2974220004C5BD /* MockKeychain.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,

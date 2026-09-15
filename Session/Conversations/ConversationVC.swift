@@ -91,7 +91,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, UISearch
         return margin <= ConversationVC.scrollToBottomMargin
     }
 
-    lazy var mnemonic: String = { ((try? Identity.mnemonic(using: viewModel.dependencies)) ?? "") }()
+    /// `nil` when the recovery phrase cannot be produced, in which case the warning on the send path is skipped
+    /// rather than blocking the send — a user who cannot send anything at all is the worse outcome
+    lazy var mnemonic: String? = { try? Identity.mnemonic(using: viewModel.dependencies) }()
 
     lazy var recordVoiceMessageActivity = AudioActivity(
         audioDescription: "Voice message",  // stringlint:ignore

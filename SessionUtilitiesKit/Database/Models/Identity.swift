@@ -140,6 +140,6 @@ public extension Identity {
 
         // Our account is generated with a 16-byte seed where the second 16-bytes are just padding so
         // only use the first 16 bytes to generate the mnemonic
-        return Mnemonic.encode(hexEncodedString: Data(seedData[0..<16]).toHexString())
+        return try Mnemonic.encode(hexEncodedString: Data(seedData[0..<16]).toHexString())
     }
 }
