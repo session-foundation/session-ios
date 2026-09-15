@@ -309,8 +309,7 @@ public struct QuoteView_SwiftUI: View {
                 }
                 
                 if viewModel.quotedInfo != nil {
-                    AttributedLabel(viewModel.attributedText)
-                        .lineLimit(2)
+                    AttributedLabel(viewModel.attributedText, numberOfLines: 2)
                 } else {
                     Text("messageErrorOriginal".localized())
                         .font(.system(size: Values.smallFontSize))
