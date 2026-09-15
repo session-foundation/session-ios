@@ -770,12 +770,16 @@ struct MessageBubble: View {
                         textColor: bodyLabelTextColor,
                         searchText: nil
                     ) {
-                        AttributedLabel(bodyText, maxWidth: maxWidth)
+                        /// The cap has to be the label's own line limit: a `maxHeight` frame constrains the layout
+                        /// proposal without clipping, so a label that sizes itself taller just draws past it - and
+                        /// the "Read more" gate below would be measuring something the user never sees
+                        AttributedLabel(
+                            bodyText,
+                            numberOfLines: (isExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation),
+                            maxWidth: maxWidth
+                        )
                             .padding(.horizontal, Self.inset)
                             .padding(.top, Self.inset)
-                            .frame(
-                                maxHeight: (isExpanded ? .infinity : maxHeight)
-                            )
                     }
                     
                     if (maxHeight < height && !isExpanded) {

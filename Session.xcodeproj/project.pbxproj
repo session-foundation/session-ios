@@ -854,6 +854,7 @@
 		FD71160428C95B5600B47552 /* PhotoCollectionPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71160328C95B5600B47552 /* PhotoCollectionPickerViewModel.swift */; };
 		FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161428D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift */; };
 		FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161628D00DA400B47552 /* ThreadSettingsViewModelSpec.swift */; };
+		A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */; };
 		FD71161A28D00E1100B47552 /* NotificationContentViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161928D00E1100B47552 /* NotificationContentViewModelSpec.swift */; };
 		FD71161E28D9772700B47552 /* UIViewController+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161D28D9772700B47552 /* UIViewController+OWS.swift */; };
 		FD71162028D97ABC00B47552 /* UIImage+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161F28D97ABC00B47552 /* UIImage+Utilities.swift */; };
@@ -2531,6 +2532,7 @@
 		FD71160928D00BAE00B47552 /* SessionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD71161428D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadDisappearingMessagesViewModelSpec.swift; sourceTree = "<group>"; };
 		FD71161628D00DA400B47552 /* ThreadSettingsViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSettingsViewModelSpec.swift; sourceTree = "<group>"; };
+		A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoTruncationSpec.swift; sourceTree = "<group>"; };
 		FD71161928D00E1100B47552 /* NotificationContentViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentViewModelSpec.swift; sourceTree = "<group>"; };
 		FD71161D28D9772700B47552 /* UIViewController+OWS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+OWS.swift"; sourceTree = "<group>"; };
 		FD71161F28D97ABC00B47552 /* UIImage+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Utilities.swift"; sourceTree = "<group>"; };
@@ -5275,6 +5277,7 @@
 			isa = PBXGroup;
 			children = (
 				FD71161328D00D5D00B47552 /* Settings */,
+				A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */,
 			);
 			path = Conversations;
 			sourceTree = "<group>";
@@ -8225,6 +8228,7 @@
 				FDF0DF762F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
+				A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */,
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FDEF307F2F2971920004C5BD /* MockAppContext.swift in Sources */,
