@@ -267,6 +267,7 @@
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
 		A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4D17A0652C000A904E /* AddressBook.framework */; };
 		AA01F0011000000000000002 /* ProStatsReaderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01F0011000000000000001 /* ProStatsReaderSpec.swift */; };
+		AA01F0021000000000000002 /* ProBadgeFirstProofSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */; };
 		B66DBF4A19D5BBC8006EA940 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B66DBF4919D5BBC8006EA940 /* Images.xcassets */; };
 		B67EBF5D19194AC60084CCFD /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = B67EBF5C19194AC60084CCFD /* Settings.bundle */; };
 		B6B226971BE4B7D200860F4D /* ContactsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6B226961BE4B7D200860F4D /* ContactsUI.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
@@ -2035,6 +2036,7 @@
 		A1FDCBEE16DAA6C300868894 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = _053_RenameProColumnsForWireFormat.swift; sourceTree = "<group>"; };
 		AA01F0011000000000000001 /* ProStatsReaderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProStatsReaderSpec.swift; path = SessionMessagingKitTests/SessionPro/ProStatsReaderSpec.swift; sourceTree = SOURCE_ROOT; };
+		AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProBadgeFirstProofSpec.swift; path = SessionMessagingKitTests/SessionPro/ProBadgeFirstProofSpec.swift; sourceTree = SOURCE_ROOT; };
 		B60EDE031A05A01700D73516 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		B657DDC91911A40500F45B0C /* Signal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Signal.entitlements; sourceTree = "<group>"; };
 		B66DBF4919D5BBC8006EA940 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
@@ -5919,6 +5921,7 @@
 				FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */,
 				FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */,
 				AA01F0011000000000000001 /* ProStatsReaderSpec.swift */,
+				AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */,
 				FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */,
 			);
 			path = "Sending & Receiving";
@@ -8396,6 +8399,7 @@
 				FD481A902CAD16F100ECC4CF /* LibSessionGroupInfoSpec.swift in Sources */,
 				FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */,
 				AA01F0011000000000000002 /* ProStatsReaderSpec.swift in Sources */,
+				AA01F0021000000000000002 /* ProBadgeFirstProofSpec.swift in Sources */,
 				FDF0DF772F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FDEF30852F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,
