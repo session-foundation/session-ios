@@ -41,7 +41,9 @@ public class MediaGalleryViewModel {
     
     public var interactionIdBefore: [Int64: Int64] { cachedInteractionIdBefore }
     public var interactionIdAfter: [Int64: Int64] { cachedInteractionIdAfter }
-    public private(set) var albumData: [Int64: [Item]] = [:]
+    /// `prefetchAdjacentAlbums` writes this from a `Task.detached`, which inherits no actor, while the album
+    /// observation callback writes it on the main actor - so the isolation here is load-bearing
+    @MainActor public private(set) var albumData: [Int64: [Item]] = [:]
     public private(set) var pagedDataObserver: PagedDatabaseObserver<Attachment, Item>?
     
     /// This value is the current state of a gallery view
@@ -458,7 +460,7 @@ public class MediaGalleryViewModel {
         guard let newAlbumInfo: AlbumInfo = maybeAlbumInfo else { return [] }
         
         // Cache the album info for the new interactionId
-        self.updateAlbumData(newAlbumInfo.albumData, for: interactionId)
+        await self.updateAlbumData(newAlbumInfo.albumData, for: interactionId)
         self._cachedInteractionIdBefore.performUpdate {
             $0.setting(interactionId, newAlbumInfo.interactionIdBefore)
         }
@@ -469,7 +471,7 @@ public class MediaGalleryViewModel {
         return newAlbumInfo.albumData
     }
     
-    public func prefetchAdjacentAlbums(for interactionId: Int64, in threadId: String) {
+    @MainActor public func prefetchAdjacentAlbums(for interactionId: Int64, in threadId: String) {
         let idBefore: Int64? = cachedInteractionIdBefore[interactionId]
         let idAfter: Int64? = cachedInteractionIdAfter[interactionId]
         
@@ -489,7 +491,7 @@ public class MediaGalleryViewModel {
         self.observableAlbumData = self.buildAlbumObservation(for: interactionId)
     }
     
-    public func updateAlbumData(_ updatedData: [Item], for interactionId: Int64) {
+    @MainActor public func updateAlbumData(_ updatedData: [Item], for interactionId: Int64) {
         self.albumData[interactionId] = updatedData
     }
     
@@ -580,14 +582,14 @@ public class MediaGalleryViewModel {
         await viewModel.loadAndCacheAlbumData(for: interactionId, in: threadId)
         viewModel.replaceAlbumObservation(toObservationFor: interactionId)
         
-        guard
-            !viewModel.albumData.isEmpty,
-            let initialItem: Item = viewModel.albumData[interactionId]?.first(where: { item -> Bool in
-                item.attachment.id == selectedAttachmentId
-            })
-        else { return nil }
-        
-        return await MainActor.run {
+        return await MainActor.run { () -> UIViewController? in
+            guard
+                !viewModel.albumData.isEmpty,
+                let initialItem: Item = viewModel.albumData[interactionId]?.first(where: { item -> Bool in
+                    item.attachment.id == selectedAttachmentId
+                })
+            else { return nil }
+            
             let pageViewController: MediaPageViewController = MediaPageViewController(
                 viewModel: viewModel,
                 initialItem: initialItem,
