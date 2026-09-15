@@ -721,6 +721,7 @@
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
 		FD52090528B4915F006098F6 /* PrivacySettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */; };
 		FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */; };
+		FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */; };
 		FD52CB5B2E123FBC00A4DA70 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
 		FD52CB5C2E12536400A4DA70 /* MockExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */; };
 		FD52CB632E13B61700A4DA70 /* ObservableKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52CB622E13B61700A4DA70 /* ObservableKey.swift */; };
@@ -2469,6 +2470,7 @@
 		FD52090628B49738006098F6 /* ConfirmationModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationModal.swift; sourceTree = "<group>"; };
 		FD52090828B59411006098F6 /* ScreenLockWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockWindow.swift; sourceTree = "<group>"; };
 		FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSpec.swift; sourceTree = "<group>"; };
+		FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryViewModelSpec.swift; sourceTree = "<group>"; };
 		FD52CB622E13B61700A4DA70 /* ObservableKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableKey.swift; sourceTree = "<group>"; };
 		FD52CB642E13B6E600A4DA70 /* ObservationBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationBuilder.swift; sourceTree = "<group>"; };
 		FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+Utilities.swift"; sourceTree = "<group>"; };
@@ -4997,6 +4999,14 @@
 			path = Onboarding;
 			sourceTree = "<group>";
 		};
+		FDA1B3032F0000030000AAAA /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */,
+			);
+			path = Media;
+			sourceTree = "<group>";
+		};
 		FD52CB5D2E13B5D600A4DA70 /* Observations */ = {
 			isa = PBXGroup;
 			children = (
@@ -5265,6 +5275,7 @@
 				FDC0F00B2C04100E002CBFB9 /* Session.xctestplan */,
 				FD71161228D00D5300B47552 /* Conversations */,
 				FD19363D2ACA66CF004BCF0F /* Database */,
+				FDA1B3032F0000030000AAAA /* Media */,
 				FD52CB582E12166500A4DA70 /* Onboarding */,
 				FD71161828D00E0100B47552 /* Settings */,
 			);
@@ -8224,6 +8235,7 @@
 				FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */,
 				FDF0DF762F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
+				FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
