@@ -84,6 +84,9 @@ extension SwarmPollerType {
                 cache.activeHashes(for: destination.target)
             }
         }()
+        /// Read before the cursors, so a reset that lands at any point after this - while the retrieve is in flight, or before
+        /// the write that stores the new cursor - stops this poll storing one
+        let cursorResetGeneration: UInt64 = dependencies[cache: .snodeCursorResets].generation(for: destination.target)
         let lastHashes: [Network.StorageServer.Namespace: String] = try await dependencies[singleton: .storage].read { [namespaces, dependencies] db in
             try namespaces.reduce(into: [:]) { result, namespace in
                 result[namespace] = try SnodeReceivedMessageInfo.fetchLastNotExpired(
@@ -131,6 +134,7 @@ extension SwarmPollerType {
                 ignoreDedupeFiles: false,
                 forceSynchronousProcessing: forceSynchronousProcessing,
                 sortedMessages: sortedMessages,
+                cursorResetGeneration: cursorResetGeneration,
                 using: dependencies
             )
         }
@@ -177,6 +181,7 @@ public enum SwarmPoller {
         ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)],
+        cursorResetGeneration: UInt64? = nil,
         using dependencies: Dependencies
     ) -> ([Job], [Job], PollResult<SwarmPoller.PollResponse>) {
         /// No need to do anything if there are no messages
@@ -239,7 +244,7 @@ public enum SwarmPoller {
                             ),
                             using: dependencies
                         )
-                        hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
+                        hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db, unlessResetSince: cursorResetGeneration, using: dependencies) == true)
                         
                         /// Insert the deduplication record (ignoring dedupe files if needed)
                         ///
@@ -265,7 +270,7 @@ public enum SwarmPoller {
                     catch {
                         /// For some error cases we want to update the last hash so do so
                         if (error as? MessageError)?.shouldUpdateLastHash == true {
-                            hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
+                            hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db, unlessResetSince: cursorResetGeneration, using: dependencies) == true)
                         }
                         
                         switch error {

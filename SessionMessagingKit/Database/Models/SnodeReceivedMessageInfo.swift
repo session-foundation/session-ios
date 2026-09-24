@@ -7,6 +7,19 @@ import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
+// MARK: - Cache
+
+public extension Cache {
+    static let snodeCursorResets: CacheConfig<SnodeCursorResetsCacheType, SnodeCursorResetsImmutableCacheType> = Dependencies.create(
+        identifier: "snodeCursorResets",
+        createInstance: { _, _ in SnodeReceivedMessageInfo.CursorResets() },
+        mutableInstance: { $0 },
+        immutableInstance: { $0 }
+    )
+}
+
+// MARK: - SnodeReceivedMessageInfo
+
 public struct SnodeReceivedMessageInfo: Codable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "snodeReceivedMessageInfo" }
     
@@ -177,4 +190,100 @@ public extension SnodeReceivedMessageInfo {
         }
         catch { return false }
     }
+
+    /// Store this message's hash as the swarm's cursor, unless the cursor was reset after `resetGeneration` was read
+    ///
+    /// A poll reads the generation before it reads its cursors, and passes it here. A reset that lands while that poll's
+    /// retrieve is in flight would otherwise be undone the moment the poll stores the newest hash it received, and the history
+    /// the reset asked for is never fetched. The check runs in the same write transaction as the insert, and every reset
+    /// bumps the generation inside its own write transaction, so no reset can land between the two.
+    ///
+    /// `nil` means the caller is not a poll and has no generation to hold the write to
+    func storeUpdatedLastHash(
+        _ db: ObservingDatabase,
+        unlessResetSince resetGeneration: UInt64?,
+        using dependencies: Dependencies
+    ) -> Bool {
+        if
+            let resetGeneration: UInt64 = resetGeneration,
+            dependencies[cache: .snodeCursorResets].generation(for: swarmPublicKey) != resetGeneration
+        { return false }
+
+        return storeUpdatedLastHash(db)
+    }
+
+    /// Make the next poll of `swarmPublicKey` fetch `namespace` from the beginning, keeping the records so the hashes still
+    /// deduplicate what comes back
+    static func invalidateCursor(
+        _ db: ObservingDatabase,
+        swarmPublicKey: String,
+        namespace: Network.StorageServer.Namespace,
+        using dependencies: Dependencies
+    ) throws {
+        try SnodeReceivedMessageInfo
+            .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == swarmPublicKey)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == namespace.rawValue)
+            .updateAllAndConfig(
+                db,
+                SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
+                using: dependencies
+            )
+        dependencies.mutate(cache: .snodeCursorResets) { $0.recordReset(for: swarmPublicKey) }
+    }
+
+    /// Make the next poll of `swarmPublicKey` fetch every namespace from the beginning, dropping the records entirely
+    static func deleteCursor(
+        _ db: ObservingDatabase,
+        swarmPublicKey: String,
+        using dependencies: Dependencies
+    ) throws {
+        try SnodeReceivedMessageInfo
+            .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == swarmPublicKey)
+            .deleteAll(db)
+        dependencies.mutate(cache: .snodeCursorResets) { $0.recordReset(for: swarmPublicKey) }
+    }
+
+    /// Make the next poll of every swarm fetch from the beginning
+    static func deleteAllCursors(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        _ = try SnodeReceivedMessageInfo.deleteAll(db)
+        dependencies.mutate(cache: .snodeCursorResets) { $0.recordResetOfEverySwarm() }
+    }
+}
+
+// MARK: - SnodeReceivedMessageInfo.CursorResets
+
+public extension SnodeReceivedMessageInfo {
+    /// How many times each swarm's cursor has been reset this process
+    ///
+    /// A count rather than the cursor's value, because the value cannot tell a reset apart from no change: a cursor that was
+    /// already empty reads the same after a reset as before it. In memory, since the only thing it has to outlast is a poll
+    /// in flight, and a relaunch leaves none
+    final class CursorResets: SnodeCursorResetsCacheType {
+        private var resets: [String: UInt64] = [:]
+        private var resetsOfEverySwarm: UInt64 = 0
+
+        public func generation(for swarmPublicKey: String) -> UInt64 {
+            return resets[swarmPublicKey, default: 0] &+ resetsOfEverySwarm
+        }
+
+        public func recordReset(for swarmPublicKey: String) {
+            resets[swarmPublicKey, default: 0] &+= 1
+        }
+
+        public func recordResetOfEverySwarm() {
+            resetsOfEverySwarm &+= 1
+        }
+    }
+}
+
+// MARK: - SnodeCursorResetsCacheType
+
+public protocol SnodeCursorResetsImmutableCacheType: ImmutableCacheType {
+    /// Changes whenever the swarm's cursor is reset
+    func generation(for swarmPublicKey: String) -> UInt64
+}
+
+public protocol SnodeCursorResetsCacheType: SnodeCursorResetsImmutableCacheType, MutableCacheType {
+    func recordReset(for swarmPublicKey: String)
+    func recordResetOfEverySwarm()
 }

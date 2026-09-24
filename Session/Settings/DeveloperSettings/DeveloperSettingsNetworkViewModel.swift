@@ -1400,7 +1400,7 @@ class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType,
             try? await dependencies[singleton: .storage].write { [dependencies] db in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 
-                _ = try SnodeReceivedMessageInfo.deleteAll(db)
+                try SnodeReceivedMessageInfo.deleteAllCursors(db, using: dependencies)
                 _ = try SessionThread.deleteAll(db)
                 _ = try MessageDeduplication.deleteAll(db)
                 _ = try ClosedGroup.deleteAll(db)
