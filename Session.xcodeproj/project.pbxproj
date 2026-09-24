@@ -1167,6 +1167,8 @@
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
 		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
+		FDCF0100000000000000000A /* UpdateExpiryRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000009 /* UpdateExpiryRequestSpec.swift */; };
+		FDCF01000000000000000042 /* ExpirationUpdateJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF01000000000000000041 /* ExpirationUpdateJobSpec.swift */; };
 		FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */; };
 		FDE754B12C9B96B4002A2623 /* TurnServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */; };
 		FDE754B22C9B96B4002A2623 /* WebRTC+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */; };
@@ -2827,6 +2829,8 @@
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
 		FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMetadataSpec.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000009 /* UpdateExpiryRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateExpiryRequestSpec.swift; sourceTree = "<group>"; };
+		FDCF01000000000000000041 /* ExpirationUpdateJobSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpirationUpdateJobSpec.swift; sourceTree = "<group>"; };
 		FDE754AD2C9B96B3002A2623 /* WebRTCSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebRTCSession.swift; sourceTree = "<group>"; };
 		FDE754AE2C9B96B4002A2623 /* TurnServerInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TurnServerInfo.swift; sourceTree = "<group>"; };
 		FDE754AF2C9B96B4002A2623 /* WebRTC+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "WebRTC+Utilities.swift"; sourceTree = "<group>"; };
@@ -5583,6 +5587,7 @@
 			children = (
 				FD3FAB662AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift */,
 				FD96F3A429DBC3DC00401309 /* MessageSendJobSpec.swift */,
+				FDCF01000000000000000041 /* ExpirationUpdateJobSpec.swift */,
 				FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */,
 			);
 			path = Jobs;
@@ -5636,6 +5641,7 @@
 			isa = PBXGroup;
 			children = (
 				FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */,
+				FDCF01000000000000000009 /* UpdateExpiryRequestSpec.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -8349,6 +8355,7 @@
 				FDEF30932F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FDEF30762F296D310004C5BD /* FixtureBase.swift in Sources */,
 				FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */,
+				FDCF0100000000000000000A /* UpdateExpiryRequestSpec.swift in Sources */,
 				FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -8360,6 +8367,7 @@
 				FD72BDA72BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift in Sources */,
 				FDEF307C2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
+				FDCF01000000000000000042 /* ExpirationUpdateJobSpec.swift in Sources */,
 				FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */,
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
 				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
