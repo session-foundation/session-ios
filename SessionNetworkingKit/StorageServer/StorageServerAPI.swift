@@ -400,6 +400,8 @@ public extension Network.StorageServer {
         let request: Network.PreparedRequest<UpdateExpiryResponse> = try prepareUpdateExpiryRequest(
             serverHashes: serverHashes,
             updatedExpiryMs: updatedExpiryMs,
+            shortenOnly: shortenOnly,
+            extendOnly: extendOnly,
             authMethod: authMethod,
             using: dependencies
         )
