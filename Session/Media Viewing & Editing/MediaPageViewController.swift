@@ -356,7 +356,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                 viewModel.observableAlbumData,
                 onError:  { _ in },
                 onChange: { [weak self] albumData in
-                    // The default scheduler emits changes on the main thread
                     self?.handleUpdates(albumData)
                 }
             )
