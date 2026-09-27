@@ -267,6 +267,7 @@
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
 		A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4D17A0652C000A904E /* AddressBook.framework */; };
 		AA01F0011000000000000002 /* ProStatsReaderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01F0011000000000000001 /* ProStatsReaderSpec.swift */; };
+		AA01F0021000000000000002 /* ProBadgeFirstProofSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */; };
 		B66DBF4A19D5BBC8006EA940 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B66DBF4919D5BBC8006EA940 /* Images.xcassets */; };
 		B67EBF5D19194AC60084CCFD /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = B67EBF5C19194AC60084CCFD /* Settings.bundle */; };
 		B6B226971BE4B7D200860F4D /* ContactsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6B226961BE4B7D200860F4D /* ContactsUI.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
@@ -684,6 +685,7 @@
 		FD37EA0D28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0C28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift */; };
 		FD37EA0F28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA0E28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift */; };
 		FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1428AB42CB003AE748 /* IdentitySpec.swift */; };
+		FDA1000030000002000000A1 /* MnemonicSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000001000000A1 /* MnemonicSpec.swift */; };
 		FD37EA1728AC5605003AE748 /* NotificationContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1628AC5605003AE748 /* NotificationContentViewModel.swift */; };
 		FD37EA1928AC5CCA003AE748 /* NotificationSoundViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */; };
 		FD39352C28F382920084DADA /* VersionFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD39352B28F382920084DADA /* VersionFooterView.swift */; };
@@ -721,6 +723,7 @@
 		FD52090328B4680F006098F6 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090228B4680F006098F6 /* RadioButton.swift */; };
 		FD52090528B4915F006098F6 /* PrivacySettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52090428B4915F006098F6 /* PrivacySettingsViewModel.swift */; };
 		FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */; };
+		FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */; };
 		FD52CB5B2E123FBC00A4DA70 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
 		FD52CB5C2E12536400A4DA70 /* MockExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCC2DC81ABB00564172 /* MockExtensionHelper.swift */; };
 		FD52CB632E13B61700A4DA70 /* ObservableKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD52CB622E13B61700A4DA70 /* ObservableKey.swift */; };
@@ -854,6 +857,7 @@
 		FD71160428C95B5600B47552 /* PhotoCollectionPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71160328C95B5600B47552 /* PhotoCollectionPickerViewModel.swift */; };
 		FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161428D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift */; };
 		FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161628D00DA400B47552 /* ThreadSettingsViewModelSpec.swift */; };
+		A1B2C3D40002E5F600A00002 /* VisibleMessageCellSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */; };
 		A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */; };
 		FD71161A28D00E1100B47552 /* NotificationContentViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161928D00E1100B47552 /* NotificationContentViewModelSpec.swift */; };
 		FD71161E28D9772700B47552 /* UIViewController+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71161D28D9772700B47552 /* UIViewController+OWS.swift */; };
@@ -987,6 +991,7 @@
 		FDA10000202608120000001B /* KeychainAccessGroupMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */; };
 		FDA10000202608120000002B /* KeychainAccessGroupMigrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */; };
 		FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608130000004A /* KeychainStorageSpec.swift */; };
+		FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */; };
 		FDA10000202608130000005B /* StorageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608130000005A /* StorageSpec.swift */; };
 		FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */; };
 		FDA1E0052F0A11B000A11B05 /* CryptoAttachmentsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */; };
@@ -2036,6 +2041,7 @@
 		A1FDCBEE16DAA6C300868894 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = _053_RenameProColumnsForWireFormat.swift; sourceTree = "<group>"; };
 		AA01F0011000000000000001 /* ProStatsReaderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProStatsReaderSpec.swift; path = SessionMessagingKitTests/SessionPro/ProStatsReaderSpec.swift; sourceTree = SOURCE_ROOT; };
+		AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProBadgeFirstProofSpec.swift; path = SessionMessagingKitTests/SessionPro/ProBadgeFirstProofSpec.swift; sourceTree = SOURCE_ROOT; };
 		B60EDE031A05A01700D73516 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		B657DDC91911A40500F45B0C /* Signal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Signal.entitlements; sourceTree = "<group>"; };
 		B66DBF4919D5BBC8006EA940 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
@@ -2429,6 +2435,7 @@
 		FD37EA0C28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _013_FixDeletedMessageReadState.swift; sourceTree = "<group>"; };
 		FD37EA0E28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _014_FixHiddenModAdminSupport.swift; sourceTree = "<group>"; };
 		FD37EA1428AB42CB003AE748 /* IdentitySpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentitySpec.swift; sourceTree = "<group>"; };
+		FDA1000030000001000000A1 /* MnemonicSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicSpec.swift; sourceTree = "<group>"; };
 		FD37EA1628AC5605003AE748 /* NotificationContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentViewModel.swift; sourceTree = "<group>"; };
 		FD37EA1828AC5CCA003AE748 /* NotificationSoundViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSoundViewModel.swift; sourceTree = "<group>"; };
 		FD39352B28F382920084DADA /* VersionFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionFooterView.swift; sourceTree = "<group>"; };
@@ -2470,6 +2477,7 @@
 		FD52090628B49738006098F6 /* ConfirmationModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationModal.swift; sourceTree = "<group>"; };
 		FD52090828B59411006098F6 /* ScreenLockWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockWindow.swift; sourceTree = "<group>"; };
 		FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSpec.swift; sourceTree = "<group>"; };
+		FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryViewModelSpec.swift; sourceTree = "<group>"; };
 		FD52CB622E13B61700A4DA70 /* ObservableKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableKey.swift; sourceTree = "<group>"; };
 		FD52CB642E13B6E600A4DA70 /* ObservationBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationBuilder.swift; sourceTree = "<group>"; };
 		FD559DF42A7368CB00C7C62A /* DispatchQueue+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchQueue+Utilities.swift"; sourceTree = "<group>"; };
@@ -2532,6 +2540,7 @@
 		FD71160928D00BAE00B47552 /* SessionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD71161428D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadDisappearingMessagesViewModelSpec.swift; sourceTree = "<group>"; };
 		FD71161628D00DA400B47552 /* ThreadSettingsViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSettingsViewModelSpec.swift; sourceTree = "<group>"; };
+		A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisibleMessageCellSpec.swift; sourceTree = "<group>"; };
 		A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoTruncationSpec.swift; sourceTree = "<group>"; };
 		FD71161928D00E1100B47552 /* NotificationContentViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContentViewModelSpec.swift; sourceTree = "<group>"; };
 		FD71161D28D9772700B47552 /* UIViewController+OWS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+OWS.swift"; sourceTree = "<group>"; };
@@ -2646,6 +2655,7 @@
 		FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigration.swift; sourceTree = "<group>"; };
 		FDA10000202608120000002A /* KeychainAccessGroupMigrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigrationSpec.swift; sourceTree = "<group>"; };
 		FDA10000202608130000004A /* KeychainStorageSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorageSpec.swift; sourceTree = "<group>"; };
+		FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicWordSetSpec.swift; sourceTree = "<group>"; };
 		FDA10000202608130000005A /* StorageSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSpec.swift; sourceTree = "<group>"; };
 		FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrlSpec.swift; sourceTree = "<group>"; };
 		FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoAttachmentsSpec.swift; sourceTree = "<group>"; };
@@ -4967,6 +4977,14 @@
 			path = Database;
 			sourceTree = "<group>";
 		};
+		FDA1000030000003000000A1 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1000030000001000000A1 /* MnemonicSpec.swift */,
+			);
+			path = Crypto;
+			sourceTree = "<group>";
+		};
 		FD37EA1328AB42C1003AE748 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -4997,6 +5015,14 @@
 				FD52CB592E12166D00A4DA70 /* OnboardingSpec.swift */,
 			);
 			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		FDA1B3032F0000030000AAAA /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */,
+			);
+			path = Media;
 			sourceTree = "<group>";
 		};
 		FD52CB5D2E13B5D600A4DA70 /* Observations */ = {
@@ -5261,12 +5287,22 @@
 			path = "Disposable Views";
 			sourceTree = "<group>";
 		};
+		FDA1000030000006000000A1 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */,
+			);
+			path = Crypto;
+			sourceTree = "<group>";
+		};
 		FD71160A28D00BAE00B47552 /* SessionTests */ = {
 			isa = PBXGroup;
 			children = (
 				FDC0F00B2C04100E002CBFB9 /* Session.xctestplan */,
 				FD71161228D00D5300B47552 /* Conversations */,
+				FDA1000030000006000000A1 /* Crypto */,
 				FD19363D2ACA66CF004BCF0F /* Database */,
+				FDA1B3032F0000030000AAAA /* Media */,
 				FD52CB582E12166500A4DA70 /* Onboarding */,
 				FD71161828D00E0100B47552 /* Settings */,
 			);
@@ -5277,6 +5313,7 @@
 			isa = PBXGroup;
 			children = (
 				FD71161328D00D5D00B47552 /* Settings */,
+				A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */,
 				A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */,
 			);
 			path = Conversations;
@@ -5451,6 +5488,7 @@
 				FD0150252CA23D5B005B08A1 /* SessionUtilitiesKit.xctestplan */,
 				FDEF30782F2971120004C5BD /* _TestUtilities */,
 				FD37EA1228AB3F60003AE748 /* Database */,
+				FDA1000030000003000000A1 /* Crypto */,
 				FD83B9B927CF20A5005E1583 /* General */,
 				FDDF074829DAB35200E5E8B5 /* JobRunner */,
 				FDC289482C881C5500020BC2 /* LibSession */,
@@ -5922,6 +5960,7 @@
 				FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */,
 				FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */,
 				AA01F0011000000000000001 /* ProStatsReaderSpec.swift */,
+				AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */,
 				FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */,
 			);
 			path = "Sending & Receiving";
@@ -8227,13 +8266,16 @@
 				FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */,
 				FDF0DF762F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
+				FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
+				A1B2C3D40002E5F600A00002 /* VisibleMessageCellSpec.swift in Sources */,
 				A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */,
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FDEF307F2F2971920004C5BD /* MockAppContext.swift in Sources */,
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */,
+				FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FDEF30872F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
@@ -8288,6 +8330,7 @@
 				FDEF30942F2973340004C5BD /* MockJobRunner.swift in Sources */,
 				FD5973202F760DBA00DB345A /* _051_AddUniqueJobConstraintBack.swift in Sources */,
 				FD37EA1528AB42CB003AE748 /* IdentitySpec.swift in Sources */,
+				FDA1000030000002000000A1 /* MnemonicSpec.swift in Sources */,
 				FDA10000202608130000005B /* StorageSpec.swift in Sources */,
 				FDEF309B2F2974220004C5BD /* MockKeychain.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
@@ -8400,6 +8443,7 @@
 				FD481A902CAD16F100ECC4CF /* LibSessionGroupInfoSpec.swift in Sources */,
 				FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */,
 				AA01F0011000000000000002 /* ProStatsReaderSpec.swift in Sources */,
+				AA01F0021000000000000002 /* ProBadgeFirstProofSpec.swift in Sources */,
 				FDF0DF772F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FDEF30852F29719F0004C5BD /* MockCrypto.swift in Sources */,
 				FD3FAB672AF0C47000DC5421 /* DisplayPictureDownloadJobSpec.swift in Sources */,

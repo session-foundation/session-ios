@@ -3,6 +3,8 @@
 import Foundation
 import Combine
 import GRDB
+import UIKit
+import SessionUIKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 import SessionNetworkingKit
@@ -53,6 +55,14 @@ public enum Onboarding {
         case devSettings
     }
     
+    public enum RegistrationError: Swift.Error {
+        /// Registration was asked to write an identity into a database which already contains user data
+        ///
+        /// Not recoverable by retrying: it means the "do I have an account?" decision was answered wrongly, and
+        /// whatever it missed is still on disk
+        case userDataAlreadyPresent
+    }
+    
     enum SeedSource {
         case qrCode
         case mnemonic
@@ -63,6 +73,54 @@ public enum Onboarding {
                 case .mnemonic: "recoveryPasswordErrorMessageGeneric".localized()
             }
         }
+    }
+}
+
+// MARK: - Onboarding + User data detection
+
+extension Onboarding {
+    /// Answers "is there data?" rather than "is there an account?" - threads and interactions count alongside the
+    /// identity rows because the state this exists to catch is a database whose identity could not be read, where the
+    /// rows can be absent while everything the user cares about is still there
+    ///
+    /// **Callers rely on this being `false` for a database which has run its migrations and has no registered
+    /// user.** Anything which creates a thread or an interaction before registration completes breaks that, and the
+    /// symptom is every new registration being refused rather than anything failing here
+    static func databaseContainsUserData(_ db: ObservingDatabase) throws -> Bool {
+        if try Identity.hasStoredIdentity(db) { return true }
+        if try SessionThread.fetchCount(db) > 0 { return true }
+        
+        return (try Interaction.fetchCount(db) > 0)
+    }
+    
+    /// Restarting is the whole remedy: the identity is on disk and the read which missed it runs again on the next
+    /// launch, so the account comes back on its own. Exporting the logs is the other half, since a user who hits this
+    /// is the only available source of evidence for it
+    ///
+    /// **Nothing here may suggest reinstalling, restoring or clearing data**, including via the message text. A
+    /// user who reaches this has no recovery password - that is why they were being offered registration - so the copy
+    /// on disk is the only one there is, and any of those three destroys it
+    @MainActor static func showRegistrationRefusedAlert(using dependencies: Dependencies) {
+        let alert: UIAlertController = UIAlertController(
+            title: Constants.app_name,
+            message: "shareExtensionDatabaseError".localized(),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "helpReportABugExportLogs".localized(), style: .default) { _ in
+            HelpViewModel.shareLogs(viewControllerToDismiss: alert, using: dependencies)
+        })
+        alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
+            Log.flush()
+            exit(0)
+        })
+        
+        /// Onboarding runs inside a pushed navigation stack and `present` on a controller which is already presenting
+        /// is silently dropped, so this has to resolve to whatever is actually frontmost
+        let presenter: UIViewController? = (
+            dependencies[singleton: .appContext].frontMostViewController ??
+            dependencies[singleton: .appContext].mainWindow?.rootViewController
+        )
+        presenter?.present(alert, animated: true, completion: nil)
     }
 }
 
@@ -185,6 +243,25 @@ extension Onboarding {
                 
                 return .completed
             }()
+            
+            /// `.noUser` is the state which offers account creation, and creating one writes over whatever is already
+            /// in the database. Reaching it with data on disk is therefore never a legitimate new user, and this is the
+            /// last point in the chain where the evidence still exists: once a new identity is written there is nothing
+            /// left to say what was there before
+            if expectedState == .noUser {
+                do {
+                    let databaseContainsUserData: Bool = try await dependencies[singleton: .storage].read { db in
+                        try Onboarding.databaseContainsUserData(db)
+                    }
+                    
+                    if databaseContainsUserData {
+                        Log.critical(.onboarding, "No user found in memory but the database contains user data.")
+                    }
+                }
+                catch {
+                    Log.critical(.onboarding, "No user found in memory and could not check the database: \(error)")
+                }
+            }
             
             /// Update the cached values depending on the `initialState`
             switch expectedState {
@@ -357,7 +434,28 @@ extension Onboarding {
             self.userProfileConfigMessage = userProfileConfigMessage
         }
         
-        func completeRegistration() async {
+        func completeRegistration() async throws {
+            /// Registration stores the identity with `upsert` and deletes nothing else, so registering into a database
+            /// which already has one replaces that identity in place and leaves its conversations, contacts and messages
+            /// behind a new Session ID - with no copy of the overwritten key and no database backup to go back to. A
+            /// `register` flow reaching a database which already contains user data means the "do I have an account?"
+            /// decision was answered wrongly, so refuse instead of completing it
+            ///
+            /// A read which fails has to refuse as well: "I could not tell" is not "it is empty", and confusing those
+            /// two is the failure this whole guard exists to catch
+            ///
+            /// This runs before anything else because every step below is a side effect
+            if initialFlow == .register {
+                let databaseContainsUserData: Bool = try await dependencies[singleton: .storage].read { db in
+                    try Onboarding.databaseContainsUserData(db)
+                }
+                
+                guard !databaseContainsUserData else {
+                    Log.critical(.onboarding, "Refusing to register into a database which already contains user data.")
+                    throw Onboarding.RegistrationError.userDataAlreadyPresent
+                }
+            }
+            
             /// Cache the users session id (so we don't need to fetch it from the database every time)
             dependencies.mutate(cache: .general) {
                 $0.setSecretKey(ed25519SecretKey: ed25519KeyPair.secretKey)
@@ -559,5 +657,8 @@ public protocol OnboardingManagerType: Actor {
     
     /// Complete the registration process storing the created/updated user state in the database and creating
     /// the `libSession` state if needed
-    func completeRegistration() async
+    ///
+    /// - Throws: `Onboarding.RegistrationError.userDataAlreadyPresent` if the database already contains user data, or
+    /// the underlying error if that could not be determined - in both cases nothing has been written
+    func completeRegistration() async throws
 }

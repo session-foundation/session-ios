@@ -1,6 +1,7 @@
 // Copyright © 2026 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UserNotifications
 import SessionUIKit
 import SessionUtilitiesKit
 import TestUtilities
@@ -1432,6 +1433,50 @@ class NotificationsManagerSpec: AsyncSpec {
                         )
                     }
                     .wasCalled(exactly: 1)
+            }
+        }
+        
+        // MARK: - a NotificationsManager - Notification Sound
+        
+        describe("a NotificationsManager when resolving the sound for a notification") {
+            // MARK: -- returns no sound when the user selected none
+            it("returns no sound when the user selected none") {
+                expect(Preferences.Sound.none.notificationSound(isQuiet: false)).to(beNil())
+                expect(Preferences.Sound.none.notificationSound(isQuiet: true)).to(beNil())
+            }
+            
+            // MARK: -- returns the system sound for the default case rather than an empty named sound
+            it("returns the system sound for the default case rather than an empty named sound") {
+                /// An empty name resolves to no file, so getting this wrong produces a silent notification rather than
+                /// a crash or a visibly wrong sound
+                expect(Preferences.Sound.default.notificationSound(isQuiet: false))
+                    .to(equal(UNNotificationSound.default))
+                expect(Preferences.Sound.default.notificationSound(isQuiet: true))
+                    .to(equal(UNNotificationSound.default))
+            }
+            
+            // MARK: -- returns a named sound for a selected sound
+            it("returns a named sound for a selected sound") {
+                let result: UNNotificationSound? = Preferences.Sound.note.notificationSound(isQuiet: false)
+                
+                expect(result).toNot(beNil())
+                expect(result).toNot(equal(UNNotificationSound.default))
+            }
+            
+            // MARK: -- attaches the sound to the content only when it should play
+            it("attaches the sound to the content only when it should play") {
+                let content: NotificationContent = NotificationContent(
+                    threadId: threadId,
+                    threadVariant: .contact,
+                    identifier: "TestId",
+                    category: .incomingMessage,
+                    groupingIdentifier: .threadId(threadId),
+                    sound: .note,
+                    applicationState: .background
+                )
+                
+                expect(content.toMutableContent(shouldPlaySound: true).sound).toNot(beNil())
+                expect(content.toMutableContent(shouldPlaySound: false).sound).to(beNil())
             }
         }
     }

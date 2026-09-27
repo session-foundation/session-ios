@@ -48,9 +48,9 @@ struct LoadingScreen: View {
             }
         }
         
-        fileprivate func completeRegistration() async {
+        fileprivate func completeRegistration() async throws {
             let shouldSyncPushTokens: Bool = await dependencies[singleton: .onboarding].useAPNS
-            await dependencies[singleton: .onboarding].completeRegistration()
+            try await dependencies[singleton: .onboarding].completeRegistration()
             
             /// Trigger the `SyncPushTokensJob` directly as we don't want to wait for paths to build before
             /// requesting the permission from the user
@@ -153,7 +153,16 @@ struct LoadingScreen: View {
         
         Task(priority: .userInitiated) {
             try? await Task.sleep(for: .milliseconds(500))
-            await viewModel.completeRegistration()
+            
+            do { try await viewModel.completeRegistration() }
+            catch {
+                /// Nothing was written, so the account that registration refused to overwrite is still intact - don't
+                /// navigate to the home screen, which would present it as if the registration had worked
+                return await MainActor.run { [viewModel] in
+                    Onboarding.showRegistrationRefusedAlert(using: viewModel.dependencies)
+                }
+            }
+            
             await MainActor.run {
                 // Go to the home screen
                 let homeVC: HomeVC = HomeVC(using: viewModel.dependencies)
