@@ -777,7 +777,12 @@ extension ConversationVC:
         // If we have no content then do nothing
         guard !processedText.isEmpty || !attachments.isEmpty else { return }
 
-        if processedText.contains(mnemonic) && !viewModel.state.threadInfo.isNoteToSelf && !hasPermissionToSendSeed {
+        if
+            let mnemonic: String = mnemonic,
+            processedText.contains(mnemonic),
+            !viewModel.state.threadInfo.isNoteToSelf,
+            !hasPermissionToSendSeed
+        {
             // Warn the user if they're about to send their seed to someone
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
