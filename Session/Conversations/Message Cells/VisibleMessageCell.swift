@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 import SessionMessagingKit
 
 final class VisibleMessageCell: MessageCell {
-    private static let maxNumberOfLinesAfterTruncation: Int = 25
+    static let maxNumberOfLinesAfterTruncation: Int = 25
     private static let linkDetector: NSDataDetector? = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     
     private var isHandlingLongPress: Bool = false
