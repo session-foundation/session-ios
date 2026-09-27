@@ -2942,8 +2942,10 @@ extension ConversationVC:
             return cancelVoiceMessageRecording()
         }
         
-        // Limit voice messages to a minute
-        audioTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: false, block: { [weak self] _ in
+        // Capped so the attachment stays inside the 10MB upload limit (Network.maxFileSize), which is
+        // enforced against the encrypted size. At the AAC settings above - 44.1kHz stereo, 128kbps, so
+        // 16KB/s - 300s is ~4.9MB, leaving room for the padding applied before encryption
+        audioTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: false, block: { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
                 self?.snInputView.hideVoiceMessageUI()
                 self?.endVoiceMessageRecording()
