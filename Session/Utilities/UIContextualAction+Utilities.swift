@@ -260,6 +260,7 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler in
                             if
+                                dependencies[feature: .sessionProEnabled],
                                 !isCurrentlyPinned,
                                 /// **The gate reads ACCESS**; the prompt it raises below reads DISPLAY, and that split is enforced
                                 /// inside `showSessionProCTAIfNeeded` rather than here - so this one read doing both jobs is

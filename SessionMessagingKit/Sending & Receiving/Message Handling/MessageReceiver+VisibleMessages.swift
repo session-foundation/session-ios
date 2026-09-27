@@ -788,8 +788,9 @@ extension MessageReceiver {
         /// A scalar view cannot be indexed into the middle of a surrogate pair, so this also replaces the
         /// boundary-walking the UTF-16 version needed.
         let scalars: String.UnicodeScalarView = text.unicodeScalars
+        /// With Pro switched off nothing is restricted for lacking it, so the Pro limit applies to every sender
         let characterLimit: Int = (
-            proIsEntitled ?
+            !dependencies[feature: .sessionProEnabled] || proIsEntitled ?
                 SessionPro.ProCharacterLimit :
                 SessionPro.CharacterLimit
         )

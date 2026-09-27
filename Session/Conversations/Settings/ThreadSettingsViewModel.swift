@@ -2386,7 +2386,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > LibSession.visiblePriority)
         
         /// The pin limit is an entitlement, so it's gated on Pro **access** rather than on the displayed plan status
-        if !isCurrentlyPinned && !dependencies[singleton: .sessionProManager].currentUserHasProAccess {
+        if
+            dependencies[feature: .sessionProEnabled] &&
+            !isCurrentlyPinned &&
+            !dependencies[singleton: .sessionProManager].currentUserHasProAccess
+        {
             /// Only used to pick the CTA's wording, which follows the *displayed* status
             let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
                 .state

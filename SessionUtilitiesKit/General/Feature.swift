@@ -105,6 +105,12 @@ public extension FeatureStorage {
         identifier: "updatedGroupsDeleteAttachmentsBeforeNow"
     )
     
+    /// Master gate for Session Pro. Off, this account can neither use nor buy Pro and nothing is restricted for lacking it,
+    /// while other people's Pro (badges, longer messages, animated avatars) is still honoured.
+    static let sessionProEnabled: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "sessionPro"
+    )
+
     static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
         identifier: "proBadgeEverywhere"
     )
