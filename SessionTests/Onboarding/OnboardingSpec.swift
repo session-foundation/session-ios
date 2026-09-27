@@ -646,7 +646,7 @@ class OnboardingSpec: AsyncSpec {
                     .when { $0.ed25519SecretKey }
                     .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
                 
-                await manager.completeRegistration()
+                try await manager.completeRegistration()
             }
             
             // MARK: -- stores the ed25519 secret key in the general cache
@@ -848,7 +848,7 @@ class OnboardingSpec: AsyncSpec {
                 )
                 try await manager.loadInitialState()
                 await manager.setDisplayName("TestCompleteName")
-                await manager.completeRegistration()
+                try await manager.completeRegistration()
                 
                 await expect(dependencies[cache: .libSession]?.get(.hasViewedSeed))
                     .toEventually(beTrue())
@@ -876,6 +876,13 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- emits the complete status
             it("emits the complete status") {
+                /// The fixture has already registered, and a second registration into a populated database is refused,
+                /// so put the database back into the state a real registration starts from
+                try await mockStorage.write { db in
+                    _ = try Identity.deleteAll(db)
+                    _ = try SessionThread.deleteAll(db)
+                }
+                
                 /// Need to set `mockLibSessionCache` again as it would have been cleared by the first creation
                 /// of the `Onboarding.Manager`
                 dependencies.set(cache: .libSession, to: mockLibSessionCache)
@@ -887,9 +894,129 @@ class OnboardingSpec: AsyncSpec {
                 try await manager.loadInitialState()
                 await expect { await manager.state.first() }.toEventuallyNot(equal(.completed))
                 await manager.setDisplayName("TestCompleteName")
-                await manager.completeRegistration()
+                try await manager.completeRegistration()
                 
                 await expect { await manager.state.first() }.toEventually(equal(.completed))
+            }
+        }
+        
+        // MARK: - an Onboarding Cache - Registering over an existing account
+        describe("an Onboarding Cache when registering into a database which holds an account") {
+            justBeforeEach {
+                try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                
+                /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
+                /// distant future value to force the update logic to trigger
+                dependencies.dateNow = Date(timeIntervalSince1970: 9876543210)
+            }
+            
+            // MARK: -- refuses to register when the identity rows are present
+            it("refuses to register when the identity rows are present") {
+                let existingSecretKey: Data = Data([1, 2, 3, 4])
+                try await mockStorage.write { db in
+                    try Identity(variant: .ed25519SecretKey, data: existingSecretKey).insert(db)
+                }
+                
+                manager = Onboarding.Manager(flow: .register, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+                
+                await expect { try await manager.completeRegistration() }
+                    .to(throwError { error in
+                        switch error {
+                            case Onboarding.RegistrationError.userDataAlreadyPresent: break
+                            default: fail("Expected userDataAlreadyPresent, got \(error)")
+                        }
+                    })
+                
+                /// Overwriting this row is the data loss the refusal exists to prevent, so assert on the row itself
+                /// rather than only on the thrown error
+                let storedSecretKey: Data? = try await mockStorage.read { db in
+                    try Identity.fetchOne(db, id: .ed25519SecretKey)?.data
+                }
+                expect(storedSecretKey).to(equal(existingSecretKey))
+                
+                await mockGeneralCache
+                    .verify { $0.setSecretKey(ed25519SecretKey: .any) }
+                    .wasNotCalled()
+            }
+            
+            // MARK: -- refuses to register when the identity is gone but the conversations remain
+            ///
+            /// The reported failure leaves everything except a readable identity, so this is the state a second
+            /// registration actually finds - and an identity-only check would pass it straight through
+            it("refuses to register when the identity is gone but the conversations remain") {
+                manager = Onboarding.Manager(flow: .register, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+                try await manager.completeRegistration()
+                
+                try await mockStorage.write { db in
+                    _ = try Identity.deleteAll(db)
+                }
+                await expect {
+                    try await mockStorage.read { db in try SessionThread.fetchCount(db) }
+                }
+                .to(beGreaterThan(0))
+                
+                /// Need to set `mockLibSessionCache` again as it would have been cleared by the first creation
+                /// of the `Onboarding.Manager`
+                dependencies.set(cache: .libSession, to: mockLibSessionCache)
+                
+                manager = Onboarding.Manager(flow: .register, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+                
+                await expect { try await manager.completeRegistration() }
+                    .to(throwError { error in
+                        switch error {
+                            case Onboarding.RegistrationError.userDataAlreadyPresent: break
+                            default: fail("Expected userDataAlreadyPresent, got \(error)")
+                        }
+                    })
+            }
+            
+            // MARK: -- treats a freshly migrated database as containing no user data
+            ///
+            /// The refusal is only safe while a database with the migrations run and nobody registered holds no user
+            /// data. If default content is ever seeded before registration - by a migration or otherwise - this fails
+            /// here rather than by refusing every new registration in the field.
+            ///
+            /// It does not catch everything: `_027_SessionUtilChanges` skips its `thread` insert when
+            /// `XCTestConfigurationFilePath` is set, so a future migration copying that pattern would seed content in
+            /// the field and still pass here
+            it("treats a freshly migrated database as containing no user data") {
+                let containsUserData: Bool = try await mockStorage.read { db in
+                    try Onboarding.databaseContainsUserData(db)
+                }
+                
+                expect(containsUserData).to(beFalse())
+            }
+            
+            // MARK: -- still registers into an empty database
+            it("still registers into an empty database") {
+                manager = Onboarding.Manager(flow: .register, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+                
+                await expect { try await manager.completeRegistration() }.toNot(throwError())
+                await expect { await manager.state.first() }.toEventually(equal(.completed))
+            }
+            
+            // MARK: -- does not refuse a restore
+            ///
+            /// A restore into a populated database is the user asking for exactly that; it is registration that can
+            /// only get there by mistake
+            it("does not refuse a restore") {
+                try await mockStorage.write { db in
+                    try Identity(variant: .ed25519SecretKey, data: Data([1, 2, 3, 4])).insert(db)
+                }
+                
+                manager = Onboarding.Manager(flow: .restore, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+                
+                await expect { try await manager.completeRegistration() }.toNot(throwError())
             }
         }
         
@@ -908,10 +1035,10 @@ class OnboardingSpec: AsyncSpec {
                 )
                 try await manager.loadInitialState()
                 await expect { await manager.state.first() }.toEventuallyNot(equal(.completed))
-                await manager.completeRegistration()
+                try await manager.completeRegistration()
                 try await manager.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
                 await expect { await manager.displayName.first() }.toEventually(equal("TestPolledName"))
-                await manager.completeRegistration()
+                try await manager.completeRegistration()
             }
             
             beforeEach {

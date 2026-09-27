@@ -81,7 +81,7 @@ public enum SessionNetworkAPI {
         }()
         
         guard
-            let userEdKeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db),
+            let userEdKeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db),
             let blinded07KeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .versionBlinded07KeyPair(ed25519SecretKey: userEdKeyPair.secretKey)
             ),

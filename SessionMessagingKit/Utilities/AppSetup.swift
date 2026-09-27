@@ -71,8 +71,11 @@ public enum AppSetup {
             dumpSessionIds: Set<SessionId>,
             unreadCount: Int?
         )
-        let userInfo: UserInfo? = try? await dependencies[singleton: .storage].read { db -> UserInfo? in
-            guard let ed25519KeyPair: KeyPair = Identity.fetchUserEd25519KeyPair(db) else {
+        /// This read is what decides whether the user has an account: an empty result sends the caller to the onboarding
+        /// flow. A failure to read must therefore surface as a failure rather than as an empty result, because a
+        /// registration started from a misread database overwrites the identity it failed to see, keeping no copy
+        let userInfo: UserInfo? = try await dependencies[singleton: .storage].read { db -> UserInfo? in
+            guard let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) else {
                 return nil
             }
             
