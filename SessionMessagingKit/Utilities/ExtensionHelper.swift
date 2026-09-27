@@ -1146,7 +1146,7 @@ public class ExtensionHelper: ExtensionHelperType {
             }
         }
         
-        Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
+        Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(successConfigCount + failureConfigCount) config messages.")
     }
     
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
