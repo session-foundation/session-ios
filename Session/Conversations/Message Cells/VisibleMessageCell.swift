@@ -19,6 +19,7 @@ final class VisibleMessageCell: MessageCell {
     var documentView: DocumentView?
     var bodyLabel: LinkHighlightingLabel?
     var bodyLabelHeight: CGFloat = 0
+    var bodyLabelHeightConstraint: NSLayoutConstraint?
     var bodyContainerStackView: UIStackView?
     var voiceMessageView: VoiceMessageView?
     var audioStateChanged: ((TimeInterval, Bool) -> ())?
@@ -555,7 +556,6 @@ final class VisibleMessageCell: MessageCell {
                         stackView.spacing = 2
                         bubbleView.addSubview(stackView)
                         stackView.pin(to: bubbleView)
-                        self.bodyContainerStackView = stackView
                         snContentView.addArrangedSubview(bubbleBackgroundView)
                         
                         let linkPreviewView: LinkPreviewView = LinkPreviewView()
@@ -585,13 +585,12 @@ final class VisibleMessageCell: MessageCell {
                         self.bodyLabelHeight = bodyTappableInfo.height
                         
                         let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
-                        
-                        /// Truncation has to be expressed as `numberOfLines` in every body branch - the shared tap
-                        /// handler expands the body by setting `numberOfLines = 0`, so it can't undo a cap expressed
-                        /// any other way
-                        bodyTappableInfo.label.numberOfLines = (shouldExpanded ?
-                            0 :
-                            VisibleMessageCell.maxNumberOfLinesAfterTruncation
+                        self.bodyLabelHeightConstraint = bodyTappableInfo.label.set(
+                            .height,
+                            to: (shouldExpanded ?
+                                bodyTappableInfo.height :
+                                min(bodyTappableInfo.height, maxHeight)
+                            )
                         )
                         
                         if ((bodyTappableInfo.height - maxHeight >= lineHeight) && !shouldExpanded) {
@@ -953,7 +952,7 @@ final class VisibleMessageCell: MessageCell {
         documentView = nil
         bodyLabel = nil
         bodyLabelHeight = 0
-        bodyContainerStackView = nil
+        bodyLabelHeightConstraint = nil
         
         viewsToMoveForReply.forEach { $0.transform = .identity }
         replyButton.alpha = 0
