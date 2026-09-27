@@ -1094,14 +1094,35 @@ public actor SessionProManager: SessionProManagerType {
         await reconcileProofRenewal()
     }
 
+    /// Whether config carries no sign this account has ever held Pro: no proof, no access expiry `E`, and no
+    /// profile features.
+    ///
+    /// `E` is the one doing the work. It outlives the proof of a lapsed subscription, so it is what separates a
+    /// returning subscriber from a first-time one, while the profile features cover a subscriber who has only
+    /// ever been Pro on another device.
+    ///
+    /// Reads live config, so it must be called inside the caller's `mutate(cache:)` and before that block writes
+    /// the proof or `E`.
+    internal static func hasNeverHeldPro(_ cache: LibSessionCacheType) -> Bool {
+        return (
+            cache.proConfig == nil &&
+            cache.proAccessExpiryTimestampSeconds == 0 &&
+            cache.profile.proFeatures == .none
+        )
+    }
+
     /// success: monotonic upgrade of the proof (replace iff it extends coverage) + `E` co-write, all inside
     /// one atomic mutation so the current-expiry read can't race the write.
     private func applyProofSuccess(
         _ response: Network.SessionPro.GenerateProProofResponse,
         rotatingKeyPair: KeyPair
     ) async {
-        try? await dependencies[singleton: .storage].write { [dependencies] db in
-            try dependencies.mutate(cache: .libSession) { cache in
+        /// Whether this is the account's first-ever proof, which the profile-feature write at the end needs.
+        let isFirstEverProof: Bool = ((try? await dependencies[singleton: .storage].write { [dependencies] db -> Bool in
+            try dependencies.mutate(cache: .libSession) { cache -> Bool in
+                /// Must be read before the writes below, two of which are values it asks about.
+                let neverHeldPro: Bool = SessionProManager.hasNeverHeldPro(cache)
+
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     let currentExpiry: UInt64 = (cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0)
 
@@ -1136,8 +1157,10 @@ public actor SessionProManager: SessionProManagerType {
                         cache.updateProAutoRenewing(renewalInfo.autoRenewing)
                     }
                 }
+
+                return neverHeldPro
             }
-        }
+        }) ?? false)
 
         /// A proof response is a response, so it owns the display triple too.
         ///
@@ -1162,7 +1185,17 @@ public actor SessionProManager: SessionProManagerType {
         /// not carry `E`/`G`/`A` any more, which is why they are written explicitly above.
         await updateWithLatestFromUserConfig()
 
-        try? await Profile.updateLocal(proFeatures: syncState.state.profileFeatures, using: dependencies)
+        /// First-ever proof: turn the pro badge on. It is off by default because being visible as a subscriber is
+        /// the user's own choice, which is also why the condition is "has never held Pro" rather than "holds Pro
+        /// now" — the latter re-enables the badge at every renewal for a subscriber who turned it off, leaving
+        /// them no way to make it stick.
+        try? await Profile.updateLocal(
+            proFeatures: (isFirstEverProof ?
+                syncState.state.profileFeatures.inserting(.proBadge) :
+                syncState.state.profileFeatures
+            ),
+            using: dependencies
+        )
     }
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
