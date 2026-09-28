@@ -145,6 +145,90 @@ class SwarmPollerSpec: AsyncSpec {
                 }
             }
         }
+
+        // MARK: - a swarm poll refreshing config TTLs
+        describe("a swarm poll refreshing config TTLs") {
+            beforeEach {
+                try await fixture.stubPollResponses()
+            }
+
+            // MARK: -- sends one extension for two polls inside the cooldown
+            it("sends one extension for two polls inside the cooldown") {
+                try await fixture.poll(swarm: fixture.userSessionId)
+                fixture.advanceTime(by: 30 * 60)
+                try await fixture.poll(swarm: fixture.userSessionId)
+
+                expect(fixture.sentPollCount).to(equal(2))
+                expect(fixture.sentExtensionCount).to(equal(1))
+            }
+
+            // MARK: -- sends another extension once the cooldown has passed
+            it("sends another extension once the cooldown has passed") {
+                try await fixture.poll(swarm: fixture.userSessionId)
+                fixture.advanceTime(by: Network.StorageServer.ConfigTtlExtensionThrottle.cooldown - 1)
+                try await fixture.poll(swarm: fixture.userSessionId)
+                fixture.advanceTime(by: 1)
+                try await fixture.poll(swarm: fixture.userSessionId)
+
+                expect(fixture.sentPollCount).to(equal(3))
+                expect(fixture.sentExtensionCount).to(equal(2))
+            }
+
+            // MARK: -- does not start the cooldown when the extension fails
+            it("does not start the cooldown when the extension fails") {
+                fixture.extensionResponseCode = 500
+                try await fixture.poll(swarm: fixture.userSessionId)
+                fixture.advanceTime(by: 1)
+                try await fixture.poll(swarm: fixture.userSessionId)
+                expect(fixture.sentExtensionCount).to(equal(2))
+
+                /// Positive control: once one succeeds the next poll is throttled, so the retries above are retries rather
+                /// than a throttle that never engages
+                fixture.extensionResponseCode = 200
+                try await fixture.poll(swarm: fixture.userSessionId)
+                try await fixture.poll(swarm: fixture.userSessionId)
+                expect(fixture.sentExtensionCount).to(equal(3))
+            }
+
+            // MARK: -- does not start the cooldown when the extension response cannot be parsed
+            it("does not start the cooldown when the extension response cannot be parsed") {
+                fixture.extensionResponseBody = "\"not an expire response\""
+                try await fixture.poll(swarm: fixture.userSessionId)
+                try await fixture.poll(swarm: fixture.userSessionId)
+
+                expect(fixture.sentExtensionCount).to(equal(2))
+            }
+
+            // MARK: -- does not start the cooldown when the whole poll fails
+            it("does not start the cooldown when the whole poll fails") {
+                fixture.failWholeRequest = true
+                await expect { try await fixture.poll(swarm: fixture.userSessionId) }.to(throwError())
+
+                fixture.failWholeRequest = false
+                try await fixture.poll(swarm: fixture.userSessionId)
+                expect(fixture.sentExtensionCount).to(equal(2))
+            }
+
+            // MARK: -- does not hold the cooldown open when the clock moves backwards
+            it("does not hold the cooldown open when the clock moves backwards") {
+                try await fixture.poll(swarm: fixture.userSessionId)
+                fixture.advanceTime(by: -(24 * 60 * 60))
+                try await fixture.poll(swarm: fixture.userSessionId)
+
+                expect(fixture.sentExtensionCount).to(equal(2))
+            }
+
+            // MARK: -- tracks the cooldown per swarm
+            it("tracks the cooldown per swarm") {
+                try await fixture.poll(swarm: fixture.groupId)
+                try await fixture.poll(swarm: fixture.otherGroupId)
+                try await fixture.poll(swarm: fixture.userSessionId)
+                try await fixture.poll(swarm: fixture.groupId)
+
+                expect(fixture.sentPollCount).to(equal(4))
+                expect(fixture.sentExtensionCount).to(equal(3))
+            }
+        }
     }
 }
 
@@ -160,10 +244,15 @@ private class SwarmPollerTestFixture: FixtureBase {
     var mockExtensionHelper: MockExtensionHelper { mock(for: .extensionHelper) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
+    var mockNetwork: MockNetwork { mock(for: .network) }
 
     let groupId: SessionId = SessionId(
         .group,
         hex: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece"
+    )
+    let otherGroupId: SessionId = SessionId(
+        .group,
+        hex: "03aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     )
     let userSessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
     let snode: LibSession.Snode = LibSession.Snode(
@@ -180,6 +269,78 @@ private class SwarmPollerTestFixture: FixtureBase {
         try await fixture.applyBaselineStubs()
 
         return fixture
+    }
+
+    // MARK: - Config TTL refresh
+
+    var extensionResponseCode: Int = 200
+    var extensionResponseBody: String = #"{"swarm":{},"hf":[2,11],"t":1234567890000}"#
+    var failWholeRequest: Bool = false
+    @ThreadSafeObject private var sentBatchBodies: [Data] = []
+
+    var sentPollCount: Int { sentBatchBodies.count }
+    var sentExtensionCount: Int {
+        sentBatchBodies.filter { body in
+            guard
+                let json: [String: Any] = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+                let requests: [[String: Any]] = json["requests"] as? [[String: Any]]
+            else { return false }
+
+            return requests.contains { ($0["method"] as? String) == Network.StorageServer.Endpoint.expire.path }
+        }.count
+    }
+
+    func advanceTime(by interval: TimeInterval) {
+        dependencies.dateNow = dependencies.dateNow.addingTimeInterval(interval)
+    }
+
+    func poll(swarm: SessionId) async throws {
+        _ = try await Network.StorageServer.poll(
+            namespaces: [.configUserProfile],
+            lastHashes: [:],
+            refreshingConfigHashes: ["TestConfigHash1", "TestConfigHash2"],
+            updateExpiryDates: { _, _ in },
+            from: snode,
+            authMethod: SignedAuthenticationMethod(info: .standard(sessionId: swarm, ed25519PublicKey: [1, 2, 3])),
+            using: dependencies
+        )
+    }
+
+    func stubPollResponses() async throws {
+        try await mockNetwork.defaultInitialSetup(using: dependencies)
+        await mockNetwork.removeRequestMocks()
+        try await mockNetwork
+            .when {
+                try await $0.send(
+                    endpoint: MockEndpoint.any,
+                    destination: .any,
+                    body: .any,
+                    category: .any,
+                    requestTimeout: .any,
+                    overallTimeout: .any
+                )
+            }
+            .thenReturn { [weak self] args -> (info: ResponseInfoType, value: Data?) in
+                guard let self, let body: Data = args[2] as? Data else {
+                    return (MockResponseInfo.mock, nil)
+                }
+
+                self._sentBatchBodies.performUpdate { $0 + [body] }
+
+                if self.failWholeRequest {
+                    return (MockResponseInfo(requestData: .mock, code: 502, headers: [:]), nil)
+                }
+
+                let getMessagesResponse: String = #"{"code":200,"body":{"messages":[],"more":false,"hf":[2,11],"t":1234567890000}}"#
+                let includesExtension: Bool = String(data: body, encoding: .utf8)?
+                    .contains(#""method":"\#(Network.StorageServer.Endpoint.expire.path)""#) == true
+                let subResponses: [String] = (includesExtension ?
+                    [#"{"code":\#(self.extensionResponseCode),"body":\#(self.extensionResponseBody)}"#, getMessagesResponse] :
+                    [getMessagesResponse]
+                )
+
+                return (MockResponseInfo.mock, "[\(subResponses.joined(separator: ","))]".data(using: .utf8))
+            }
     }
 
     // MARK: - Convenience
@@ -261,5 +422,16 @@ private class SwarmPollerTestFixture: FixtureBase {
         try await mockLibSessionCache
             .when { try $0.handleConfigMessages(.any, swarmPublicKey: .any, messages: .any) }
             .thenThrow(TestError.mock)
+    }
+}
+
+// MARK: - SignedAuthenticationMethod
+
+/// Signs with fixed bytes so a poll can be built without stubbing crypto; nothing in these specs verifies the signature
+private struct SignedAuthenticationMethod: AuthenticationMethod {
+    let info: Authentication.Info
+
+    func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
+        return .standard(signature: Array(repeating: 1, count: 64))
     }
 }
