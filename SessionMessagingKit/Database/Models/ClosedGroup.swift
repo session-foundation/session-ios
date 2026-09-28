@@ -361,9 +361,7 @@ public extension ClosedGroup {
             /// Also want to delete the `SnodeReceivedMessageInfo` so if the member gets re-invited to the group with
             /// historic access they can re-download and process all of the old messages
             try threadIds.forEach { threadId in
-                try SnodeReceivedMessageInfo
-                    .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == threadId)
-                    .deleteAll(db)
+                try SnodeReceivedMessageInfo.deleteCursor(db, swarmPublicKey: threadId, using: dependencies)
             }
         }
         
