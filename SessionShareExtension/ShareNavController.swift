@@ -175,12 +175,11 @@ final class ShareNavController: UINavigationController {
     deinit {
         processPendingAttachmentsTask?.cancel()
         NotificationCenter.default.removeObserver(self)
-        Log.flush()
 
         // Share extensions reside in a process that may be reused between usages.
         // That isn't safe; the codebase is full of statics (e.g. singletons) which
         // we can't easily clean up.
-        exit(0)
+        Log.flushAndTerminate()
     }
     
     // MARK: - Updating

@@ -110,8 +110,7 @@ extension Onboarding {
             HelpViewModel.shareLogs(viewControllerToDismiss: alert, using: dependencies)
         })
         alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
-            Log.flush()
-            exit(0)
+            Log.flushAndTerminate()
         })
         
         /// Onboarding runs inside a pushed navigation stack and `present` on a controller which is already presenting

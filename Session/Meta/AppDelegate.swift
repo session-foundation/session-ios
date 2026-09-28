@@ -494,8 +494,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
-            Log.flush()
-            exit(0)
+            Log.flushAndTerminate()
         })
         
         Log.info(.cat, "Showing startup alert due to error: \(error.description)")
@@ -537,8 +536,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UNUserNotificationCenter.current().add(notificationRequest, withCompletionHandler: nil)
         UIApplication.shared.applicationIconBadgeNumber = 1
         
-        Log.flush()
-        exit(0)
+        Log.flushAndTerminate()
     }
 
     public func handleActivation() {
