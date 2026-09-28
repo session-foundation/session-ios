@@ -169,9 +169,8 @@ public class SessionApp: SessionAppType {
         /// Remove any log files (don't want to keep them around in case they contain sensitive info)
         Log.resetAndClearCache()
         
-        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes triggering logs)
         DispatchQueue.main.async {
-            exit(0)
+            Log.flushAndTerminate()
         }
     }
     
