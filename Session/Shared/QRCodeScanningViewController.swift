@@ -22,8 +22,10 @@ protocol QRScannerDelegate: AnyObject {
 class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     public weak var scanDelegate: QRScannerDelegate?
     
-    private let captureQueue: DispatchQueue = DispatchQueue.global(qos: .default)
-    private var capture: AVCaptureSession?
+    /// `startCapture` is called repeatedly (on every SwiftUI update, for one) and configuring a second session for the same
+    /// camera corrupts AVFoundation's state, so this queue **must** be serial and `capture` must only be accessed on it
+    private let captureQueue: DispatchQueue = DispatchQueue(label: "QRCodeScanningViewController.captureQueue")
+    nonisolated(unsafe) private var capture: AVCaptureSession?
     private var captureLayer: AVCaptureVideoPreviewLayer?
     private var captureEnabled: Bool = false
     private var shouldResumeCapture: Bool = false
@@ -109,88 +111,87 @@ class QRCodeScanningViewController: UIViewController, AVCaptureMetadataOutputObj
         // this will prevent us from trying to start a session on the simulator
         #if targetEnvironment(simulator)
         #else
-            if self.capture == nil {
-                self.captureQueue.async { [weak self] in
-                    let maybeDevice: AVCaptureDevice? = {
-                        if let result = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back) {
-                            return result
-                        }
-                        
-                        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
-                    }()
-                    
-                    // Set the input device to autoFocus (since we don't have the interaction setup for
-                    // doing it manually)
-                    do {
-                        try maybeDevice?.lockForConfiguration()
-                        maybeDevice?.focusMode = .continuousAutoFocus
-                        maybeDevice?.unlockForConfiguration()
-                    }
-                    catch {}
-                    
-                    // Device input
-                    guard
-                        let device: AVCaptureDevice = maybeDevice,
-                        let input: AVCaptureInput = try? AVCaptureDeviceInput(device: device)
-                    else {
-                        return Log.error(.cat, "Failed to retrieve the device for enabling the QRCode scanning camera")
-                    }
-                    
-                    // Image output
-                    let output: AVCaptureVideoDataOutput = AVCaptureVideoDataOutput()
-                    output.alwaysDiscardsLateVideoFrames = true
-                    
-                    // Metadata output the session
-                    let metadataOutput: AVCaptureMetadataOutput = AVCaptureMetadataOutput()
-                    metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-                    
-                    let capture: AVCaptureSession = AVCaptureSession()
-                    capture.beginConfiguration()
-                    if capture.canAddInput(input) { capture.addInput(input) }
-                    if capture.canAddOutput(output) { capture.addOutput(output) }
-                    if capture.canAddOutput(metadataOutput) { capture.addOutput(metadataOutput) }
-                    
-                    guard !capture.inputs.isEmpty && capture.outputs.count == 2 else {
-                        return Log.error(.cat, "Failed to attach the input/output to the capture session")
-                    }
-                    
-                    guard metadataOutput.availableMetadataObjectTypes.contains(.qr) else {
-                        return Log.error(.cat, "The output is unable to process QR codes")
-                    }
-                    
-                    /// Specify that we want to capture QR Codes (Needs to be done after being added to the session,
-                    /// `'availableMetadataObjectTypes` is empty beforehand)
-                    ///
-                    /// **Note:** The `metadataObjectTypes` value **IS NOT** thread safe so must be modified on the
-                    /// main thread otherwise it can crash
-                    DispatchQueue.main.sync {
-                        metadataOutput.metadataObjectTypes = [.qr]
-                    }
-                    
-                    capture.commitConfiguration()
-                    
-                    // Create the layer for rendering the camera video
-                    let layer: AVCaptureVideoPreviewLayer = AVCaptureVideoPreviewLayer(session: capture)
-                    layer.videoGravity = AVLayerVideoGravity.resizeAspectFill
-
-                    // Start running the capture session
-                    capture.startRunning()
-
-                    DispatchQueue.main.async {
-                        layer.frame = (self?.view.bounds ?? .zero)
-                        self?.view.layer.addSublayer(layer)
-                        
-                        if let maskingView: UIView = self?.maskingView {
-                            self?.view.bringSubviewToFront(maskingView)
-                        }
-                    
-                        self?.capture = capture
-                        self?.captureLayer = layer
-                    }
+            self.captureQueue.async { [weak self] in
+                if let capture: AVCaptureSession = self?.capture {
+                    return capture.startRunning()
                 }
-            }
-            else {
-                self.capture?.startRunning()
+                
+                let maybeDevice: AVCaptureDevice? = {
+                    if let result = AVCaptureDevice.default(.builtInDualCamera, for: .video, position: .back) {
+                        return result
+                    }
+                    
+                    return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+                }()
+                
+                // Set the input device to autoFocus (since we don't have the interaction setup for
+                // doing it manually)
+                do {
+                    try maybeDevice?.lockForConfiguration()
+                    maybeDevice?.focusMode = .continuousAutoFocus
+                    maybeDevice?.unlockForConfiguration()
+                }
+                catch {}
+                
+                // Device input
+                guard
+                    let device: AVCaptureDevice = maybeDevice,
+                    let input: AVCaptureInput = try? AVCaptureDeviceInput(device: device)
+                else {
+                    return Log.error(.cat, "Failed to retrieve the device for enabling the QRCode scanning camera")
+                }
+                
+                // Image output
+                let output: AVCaptureVideoDataOutput = AVCaptureVideoDataOutput()
+                output.alwaysDiscardsLateVideoFrames = true
+                
+                // Metadata output the session
+                let metadataOutput: AVCaptureMetadataOutput = AVCaptureMetadataOutput()
+                metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+                
+                let capture: AVCaptureSession = AVCaptureSession()
+                capture.beginConfiguration()
+                if capture.canAddInput(input) { capture.addInput(input) }
+                if capture.canAddOutput(output) { capture.addOutput(output) }
+                if capture.canAddOutput(metadataOutput) { capture.addOutput(metadataOutput) }
+                
+                guard !capture.inputs.isEmpty && capture.outputs.count == 2 else {
+                    return Log.error(.cat, "Failed to attach the input/output to the capture session")
+                }
+                
+                guard metadataOutput.availableMetadataObjectTypes.contains(.qr) else {
+                    return Log.error(.cat, "The output is unable to process QR codes")
+                }
+                
+                /// Specify that we want to capture QR Codes (Needs to be done after being added to the session,
+                /// `'availableMetadataObjectTypes` is empty beforehand)
+                ///
+                /// **Note:** The `metadataObjectTypes` value **IS NOT** thread safe so must be modified on the
+                /// main thread otherwise it can crash
+                DispatchQueue.main.sync {
+                    metadataOutput.metadataObjectTypes = [.qr]
+                }
+                
+                capture.commitConfiguration()
+                
+                // Create the layer for rendering the camera video
+                let layer: AVCaptureVideoPreviewLayer = AVCaptureVideoPreviewLayer(session: capture)
+                layer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+
+                // Start running the capture session
+                capture.startRunning()
+                self?.capture = capture
+
+                DispatchQueue.main.async {
+                    layer.frame = (self?.view.bounds ?? .zero)
+                    self?.view.layer.addSublayer(layer)
+                    
+                    if let maskingView: UIView = self?.maskingView {
+                        self?.view.bringSubviewToFront(maskingView)
+                    }
+                
+                    self?.captureLayer = layer
+                }
             }
         #endif
     }
