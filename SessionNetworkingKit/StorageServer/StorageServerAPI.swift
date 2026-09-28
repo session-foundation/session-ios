@@ -28,16 +28,20 @@ public extension Network.StorageServer {
         var requests: [any ErasedPreparedRequest] = []
         let namespaceMaxSizeMap: [Namespace: Int64] = Namespace.maxSizeMap(for: namespaces)
         let fallbackSize: Int64 = (namespaceMaxSizeMap.values.min() ?? 1)
+        let swarmPublicKey: String = try authMethod.swarmPublicKey
+        let configTtlExtensionThrottle: ConfigTtlExtensionThrottle = dependencies[singleton: .configTtlExtensionThrottle]
+        let extensionIsDue: Bool = await configTtlExtensionThrottle.isDue(swarmPublicKey: swarmPublicKey)
+        let hashesToExtend: [String] = (extensionIsDue ? refreshingConfigHashes : [])
         
         /// If we have any config hashes to refresh TTLs then add those requests first
-        if !refreshingConfigHashes.isEmpty {
+        if !hashesToExtend.isEmpty {
             let updatedExpiryMs: Int64 = await (
                 dependencies.networkOffsetTimestampMs() +
                 (30 * 24 * 60 * 60 * 1000) // 30 days
             )
             requests.append(
                 try StorageServer.prepareUpdateExpiryRequest(
-                    serverHashes: refreshingConfigHashes,
+                    serverHashes: hashesToExtend,
                     updatedExpiryMs: updatedExpiryMs,
                     extendOnly: true,
                     authMethod: authMethod,
@@ -66,28 +70,34 @@ public extension Network.StorageServer {
             requests: requests,
             requireAllBatchResponses: true,
             snode: snode,
-            swarmPublicKey: try authMethod.swarmPublicKey,
+            swarmPublicKey: swarmPublicKey,
             using: dependencies
         )
         let batchResponse: Network.BatchResponse = try await request.send(using: dependencies)
         
         /// Process the `updateExpiry` response first
-        let maybeUpdateExpiryResponse: UpdateExpiryResponse? = batchResponse
+        let maybeUpdateExpirySubResponse: Network.BatchSubResponse<UpdateExpiryResponse>? = batchResponse
             .compactMap { $0 as? Network.BatchSubResponse<UpdateExpiryResponse> }
-            .filter { !$0.failedToParseBody }
-            .compactMap { $0.body }
             .first
         
-        if let response: UpdateExpiryResponse = maybeUpdateExpiryResponse {
+        if
+            let subResponse: Network.BatchSubResponse<UpdateExpiryResponse> = maybeUpdateExpirySubResponse,
+            !subResponse.failedToParseBody,
+            let response: UpdateExpiryResponse = subResponse.body
+        {
             try await StorageServer.processUpdateExpiryResponse(
                 response: response,
-                serverHashes: refreshingConfigHashes,
+                serverHashes: hashesToExtend,
                 ignoreValidationFailure: true,
                 explicitTargetNode: snode,
                 updateExpiryDates: updateExpiryDates,
                 authMethod: authMethod,
                 using: dependencies
             )
+            
+            if (200..<300).contains(subResponse.code) {
+                await configTtlExtensionThrottle.recordSuccessfulExtension(swarmPublicKey: swarmPublicKey)
+            }
         }
         
         /// Then extract and return the message responses

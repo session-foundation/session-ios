@@ -1374,6 +1374,7 @@
 		FDF8488929405B27007DCAE5 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */; };
 		FDF8489129405C13007DCAE5 /* StorageServerNamespace.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */; };
 		FDF848CC29405C5B007DCAE5 /* StorageServerMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */; };
+		C7A11E102F8A40D100A1B2C3 /* ConfigTtlExtensionThrottle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A11E0F2F8A40D100A1B2C3 /* ConfigTtlExtensionThrottle.swift */; };
 		FDF848E629405D6E007DCAE5 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848E129405D6E007DCAE5 /* Destination.swift */; };
 		FDF848F129406A30007DCAE5 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F029406A30007DCAE5 /* Format.swift */; };
 		FDF848F329413DB0007DCAE5 /* ImagePickerHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */; };
@@ -2968,6 +2969,7 @@
 		FDF8487E29405994007DCAE5 /* HTTPQueryParam+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPQueryParam+SOGS.swift"; sourceTree = "<group>"; };
 		FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerNamespace.swift; sourceTree = "<group>"; };
 		FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerMessage.swift; sourceTree = "<group>"; };
+		C7A11E0F2F8A40D100A1B2C3 /* ConfigTtlExtensionThrottle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTtlExtensionThrottle.swift; sourceTree = "<group>"; };
 		FDF848E029405D6E007DCAE5 /* StorageServerError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerError.swift; sourceTree = "<group>"; };
 		FDF848E129405D6E007DCAE5 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
 		FDF848F029406A30007DCAE5 /* Format.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Format.swift; path = "SessionUIKit/Style Guide/Format.swift"; sourceTree = SOURCE_ROOT; };
@@ -5122,6 +5124,7 @@
 			children = (
 				FD47E0B42AA6D7AA00A55E41 /* Request+StorageServer.swift */,
 				FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */,
+				C7A11E0F2F8A40D100A1B2C3 /* ConfigTtlExtensionThrottle.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -7603,6 +7606,7 @@
 				FD6B92A32E77A18B004463B5 /* StorageServerAPI.swift in Sources */,
 				FDAE2DC12F5A5CEB00E6FB80 /* PreparedRequest.swift in Sources */,
 				FDF848CC29405C5B007DCAE5 /* StorageServerMessage.swift in Sources */,
+				C7A11E102F8A40D100A1B2C3 /* ConfigTtlExtensionThrottle.swift in Sources */,
 				FD6B92E22E77C21D004463B5 /* PushNotificationAPI.swift in Sources */,
 				FD2272AF2C33E337004D8A6C /* JSON.swift in Sources */,
 				FD2272D62C34ED6A004D8A6C /* RetryWithDependencies.swift in Sources */,
