@@ -3,6 +3,7 @@
 import UIKit
 
 public protocol SessionProUIManagerType: Actor {
+    nonisolated var isSessionProEnabled: Bool { get }
     nonisolated var characterLimit: Int { get }
     nonisolated var pinnedConversationLimit: Int { get }
     nonisolated var currentUserHasProAccess: Bool { get }
@@ -62,6 +63,7 @@ public extension SessionProUIManagerType {
 
 internal actor NoopSessionProUIManager: SessionProUIManagerType {
     private let isPro: Bool
+    nonisolated public var isSessionProEnabled: Bool { true }
     nonisolated public let characterLimit: Int
     nonisolated public let pinnedConversationLimit: Int
     nonisolated public let currentUserHasProAccess: Bool
