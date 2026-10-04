@@ -139642,6 +139642,12 @@
             "state" : "translated",
             "value" : "Debug mode disabled"
           }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Режим отладки выключен"
+          }
         }
       }
     },
@@ -139652,6 +139658,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Debug mode enabled"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Режим отладки включён"
           }
         }
       }
@@ -160848,13 +160860,13 @@
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "Bi ser neket ku peyama jê derbike."
+                      "value" : "Bi ser neket ku peyamê jê bibe"
                     }
                   },
                   "other" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "Bi ser neket ku peyaman jê bibe."
+                      "value" : "Bi ser neket ku peyaman jê bibe"
                     }
                   }
                 }
@@ -177808,7 +177820,7 @@
         "ku-TR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "<b>{name}</b> peyamên xwe xwe winda dibin {time} piştî ku ew {disappearing_messages_type} kirin."
+            "value" : "<b>{name}</b> peyamên xwe xwe winda dibin {time} piştî ku ew kirin {disappearing_messages_type}."
           }
         },
         "lg" : {
@@ -391764,7 +391776,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Currently, Pro access can only be purchased and renewed via support platforms:{pro_stores}<br/>Because you are using Session Desktop, you're not able to renew here.<br/><br/>Session developers are working hard on alternative payment options to allow users to purchase Pro access outside of the above platforms. <b>Pro Roadmap</b> {icon}"
+            "value" : "Currently, Pro access can only be purchased and renewed via one of our supported platforms:{pro_stores}<br/>Because you are using Session Desktop, you're not able to renew here.<br/><br/>Session developers are working hard on alternative payment options to allow users to purchase Pro access outside of the above platforms. <b>Pro Roadmap</b> {icon}"
           }
         }
       }
@@ -404103,6 +404115,12 @@
             "state" : "translated",
             "value" : "Want to use Session to its fullest potential?<br/>Upgrade to Session Pro Beta to get access to exclusive features and help support the project."
           }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хотите использовать Session в полной мере?<br/>Обновитесь до Session Pro Beta, чтобы получить доступ к эксклюзивным функциям и помочь поддержать проект."
+          }
         }
       }
     },
@@ -415590,7 +415608,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renew your Pro access from the Session Pro settings on a linked device with Session installed via one of the support platforms:{pro_stores}"
+            "value" : "Renew your Pro access from the Session Pro settings on a linked device with Session installed via one of the supported platforms:{pro_stores}"
           }
         }
       }
@@ -415768,7 +415786,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Currently, Pro access can only be purchased and renewed via one the supported platforms:{pro_stores}<br/>Because you installed Session using the {build_variant}, you're not able to renew here.<br/><br/>Session developers are working hard on alternative payment options to allow users to purchase Pro access outside of the platforms listed above.<b> Pro Roadmap</b> {icon}"
+            "value" : "Currently, Pro access can only be purchased and renewed via one of the supported platforms:{pro_stores}<br/>Because you installed Session using the {build_variant}, you're not able to renew here.<br/><br/>Session developers are working hard on alternative payment options to allow users to purchase Pro access outside of the platforms listed above.<b> Pro Roadmap</b> {icon}"
           }
         }
       }
@@ -421271,7 +421289,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Upgrade to Pro from the Session Pro settings on a linked device with Session installed via the our of our supported platforms:{pro_stores}"
+            "value" : "Upgrade to Pro from the Session Pro settings on a linked device with Session installed via one of our supported platforms:{pro_stores}"
           }
         }
       }
