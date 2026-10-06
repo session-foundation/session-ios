@@ -232,7 +232,7 @@ private extension Collection where Element == ThemedAttributedString.HTMLTag {
                     result[.font] = fontWith(font, traits: [.traitBold, .traitItalic])
                 
                 case .bold where self.contains(.icon), .icon where self.contains(.bold):
-                    result[.font] = fontWith(Lucide.font(ofSize: (font.pointSize + 1)), traits: [.traitBold])
+                    result[.font] = fontWith(Lucide.uiFont(ofSize: (font.pointSize + 1)), traits: [.traitBold])
                     result[.baselineOffset] = Lucide.defaultBaselineOffset
 
                 case .bold: result[.font] = fontWith(font, traits: [.traitBold])
@@ -241,7 +241,7 @@ private extension Collection where Element == ThemedAttributedString.HTMLTag {
                 case .strikethrough: result[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
                 case .primaryTheme: result[.themeForegroundColor] = ThemeValue.sessionButton_text
                 case .icon:
-                    result[.font] = fontWith(Lucide.font(ofSize: (font.pointSize + 1)), traits: [])
+                    result[.font] = fontWith(Lucide.uiFont(ofSize: (font.pointSize + 1)), traits: [])
                     result[.baselineOffset] = Lucide.defaultBaselineOffset
                 case .warningTheme: result[.themeForegroundColor] = ThemeValue.warning
                 case .dangerTheme: result[.themeForegroundColor] = ThemeValue.danger
