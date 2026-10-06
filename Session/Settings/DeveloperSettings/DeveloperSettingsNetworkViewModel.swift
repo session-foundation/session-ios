@@ -323,8 +323,6 @@ class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType,
                             description: .htmlTagged("""
                             The routing method which should be used when making network requests.
 
-                            The Session Router option does not work with Devnet.
-
                             <b>Current:</b> <span>\(state.pendingState.router.title)</span>
                             """),
                             trailingAccessory: .icon(.squarePen)
