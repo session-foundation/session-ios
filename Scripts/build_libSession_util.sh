@@ -274,6 +274,10 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   echo "- Generating modulemap for SPM artifact slice"
   modmap_path="${COMPILE_DIR}/Headers/module.modulemap"
   echo "module SessionUtil {" >"$modmap_path"
+  # libunistring (via gnutls -> libidn2) calls iconv, which session-deps takes from the system on
+  # Apple rather than bundling, so the consumer has to link it -- autolinked from the module, as
+  # libsession's own ios.sh does for the SPM artifact.
+  echo "  link \"iconv\"" >>"$modmap_path"
   echo "  module capi {" >>"$modmap_path"
   for x in $(cd "${COMPILE_DIR}/Headers" && find session -name '*.h'); do
   echo "    header \"$x\"" >>"$modmap_path"
