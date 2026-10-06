@@ -21,9 +21,18 @@ public enum Router: Int, Sendable, FeatureOption, CaseIterable {
     case sessionRouter = 2
     case direct = 3
     
+    /// Session Router is incomplete on this client, and a libSession build without session-router support throws when it
+    /// is requested. Marking it invalid both hides it from `allCases` and makes a previously stored selection read back as
+    /// `defaultOption`, so anyone who already chose it is moved off it rather than left on a router that can't work.
+    /// Re-enabling needs a libSession build with session-router support and a working client implementation, not just
+    /// this check removed.
+    public static var allCases: [Router] { [.onionRequests, .sessionRouter, .direct].filter { $0.isValidOption } }
+    
     // MARK: - Feature Option
     
     public static var defaultOption: Router = .onionRequests
+    
+    public var isValidOption: Bool { self != .sessionRouter }
     
     public var title: String {
         switch self {

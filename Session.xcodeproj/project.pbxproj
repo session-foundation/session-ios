@@ -631,6 +631,7 @@
 		FD336F712CABB97800C0B51B /* DestinationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD11E22F2CA4F498001BAF58 /* DestinationSpec.swift */; };
 		FD336F722CABB97800C0B51B /* BatchResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01502E2CA24310005B08A1 /* BatchResponseSpec.swift */; };
 		FD336F732CABB97800C0B51B /* HeaderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01502F2CA24310005B08A1 /* HeaderSpec.swift */; };
+		13DAD934377A8C5691707E30 /* RouterSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C12EB4C8ED0161EAF2C125 /* RouterSpec.swift */; };
 		FD336F742CABB97800C0B51B /* PreparedRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150302CA24310005B08A1 /* PreparedRequestSpec.swift */; };
 		FD336F752CABB97800C0B51B /* RequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150312CA24310005B08A1 /* RequestSpec.swift */; };
 		FD336F762CABB97800C0B51B /* BencodeResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD383722AFDD6D7001367F2 /* BencodeResponseSpec.swift */; };
@@ -2232,6 +2233,7 @@
 		FD01502D2CA24310005B08A1 /* BatchRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRequestSpec.swift; sourceTree = "<group>"; };
 		FD01502E2CA24310005B08A1 /* BatchResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchResponseSpec.swift; sourceTree = "<group>"; };
 		FD01502F2CA24310005B08A1 /* HeaderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSpec.swift; sourceTree = "<group>"; };
+		26C12EB4C8ED0161EAF2C125 /* RouterSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouterSpec.swift; sourceTree = "<group>"; };
 		FD0150302CA24310005B08A1 /* PreparedRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedRequestSpec.swift; sourceTree = "<group>"; };
 		FD0150312CA24310005B08A1 /* RequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestSpec.swift; sourceTree = "<group>"; };
 		FD01503D2CA2433D005B08A1 /* BencodeDecoderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeDecoderSpec.swift; sourceTree = "<group>"; };
@@ -4868,6 +4870,7 @@
 				FDD383722AFDD6D7001367F2 /* BencodeResponseSpec.swift */,
 				FD11E22F2CA4F498001BAF58 /* DestinationSpec.swift */,
 				FD01502F2CA24310005B08A1 /* HeaderSpec.swift */,
+				26C12EB4C8ED0161EAF2C125 /* RouterSpec.swift */,
 				FD0150302CA24310005B08A1 /* PreparedRequestSpec.swift */,
 				FDB5DB052A981C67002C8721 /* PreparedRequestSendingSpec.swift */,
 				FD0150312CA24310005B08A1 /* RequestSpec.swift */,
@@ -8391,6 +8394,7 @@
 				FD336F712CABB97800C0B51B /* DestinationSpec.swift in Sources */,
 				FD336F722CABB97800C0B51B /* BatchResponseSpec.swift in Sources */,
 				FD336F732CABB97800C0B51B /* HeaderSpec.swift in Sources */,
+				13DAD934377A8C5691707E30 /* RouterSpec.swift in Sources */,
 				FD336F742CABB97800C0B51B /* PreparedRequestSpec.swift in Sources */,
 				FD336F752CABB97800C0B51B /* RequestSpec.swift in Sources */,
 				FD336F762CABB97800C0B51B /* BencodeResponseSpec.swift in Sources */,
