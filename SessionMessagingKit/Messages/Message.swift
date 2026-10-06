@@ -284,6 +284,7 @@ public extension Message {
         case groupUpdateInviteResponse
         case groupUpdateDeleteMemberContent
         case libSessionMessage
+        case unsupportedMessage
         
         init?(from type: Message) {
             switch type {
@@ -304,6 +305,7 @@ public extension Message {
                 case is GroupUpdateInviteResponseMessage: self = .groupUpdateInviteResponse
                 case is GroupUpdateDeleteMemberContentMessage: self = .groupUpdateDeleteMemberContent
                 case is LibSessionMessage: self = .libSessionMessage
+                case is UnsupportedMessage: self = .unsupportedMessage
                 default: return nil
             }
         }
@@ -327,6 +329,7 @@ public extension Message {
                 case .groupUpdateInviteResponse: return GroupUpdateInviteResponseMessage.self
                 case .groupUpdateDeleteMemberContent: return GroupUpdateDeleteMemberContentMessage.self
                 case .libSessionMessage: return LibSessionMessage.self
+                case .unsupportedMessage: return UnsupportedMessage.self
             }
         }
         
@@ -350,7 +353,8 @@ public extension Message {
                 .messageRequestResponse,
                 .visibleMessage,
                 .callMessage,
-                .libSessionMessage
+                .libSessionMessage,
+                .unsupportedMessage
             ]
             
             return (priorities.firstIndex(of: self) ?? priorities.count)
@@ -396,6 +400,7 @@ public extension Message {
                     return try container.decode(GroupUpdateDeleteMemberContentMessage.self, forKey: key)
                     
                 case .libSessionMessage: return try container.decode(LibSessionMessage.self, forKey: key)
+                case .unsupportedMessage: return try container.decode(UnsupportedMessage.self, forKey: key)
             }
         }
     }
@@ -674,6 +679,14 @@ public extension Interaction.Variant {
             case is GroupUpdateInfoChangeMessage: self = .infoGroupInfoUpdated
             case is GroupUpdateMemberChangeMessage: self = .infoGroupMembersUpdated
             case is GroupUpdateMemberLeftNotificationMessage: self = .infoGroupMembersUpdated
+            
+            case let message as UnsupportedMessage:
+                switch message.placement {
+                    case .none: return nil
+                    case .incoming: self = .standardIncomingUnsupported
+                    case .outgoing: self = .standardOutgoingUnsupported
+                }
+                
             default: return nil
         }
     }

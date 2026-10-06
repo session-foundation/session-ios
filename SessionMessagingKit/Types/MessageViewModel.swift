@@ -876,7 +876,10 @@ private extension MessageViewModel {
         interaction: Interaction,
         attachments: [Attachment]?
     ) -> MessageViewModel.CellType {
-        guard !interaction.variant.isDeletedMessage else { return .textOnlyMessage }
+        guard
+            !interaction.variant.isDeletedMessage &&
+            !interaction.variant.isUnsupportedMessage
+        else { return .textOnlyMessage }
         guard let attachment: Attachment = attachments?.first else {
             switch interaction.variant {
                 case .infoCall: return .call
@@ -888,6 +891,9 @@ private extension MessageViewModel {
                     return .infoMessage
                     
                 case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardOutgoingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
+                    return .textOnlyMessage /// Should be handled above
+                
+                case .standardIncomingUnsupported, .standardOutgoingUnsupported:
                     return .textOnlyMessage /// Should be handled above
                     
                 case .standardOutgoing, .standardIncoming: return .textOnlyMessage

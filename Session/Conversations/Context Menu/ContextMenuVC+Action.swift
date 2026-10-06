@@ -207,7 +207,8 @@ extension ContextMenuVC {
     ) -> [Action]? {
         switch cellViewModel.variant {
             case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardIncomingDeletedLocally,
-                .standardOutgoingDeleted, .standardOutgoingDeletedLocally, .infoCall,
+                .standardOutgoingDeleted, .standardOutgoingDeletedLocally,
+                .standardIncomingUnsupported, .standardOutgoingUnsupported, .infoCall,
                 .infoScreenshotNotification, .infoMediaSavedNotification, .infoLegacyGroupCreated,
                 .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft, .infoGroupCurrentUserLeaving,
                 .infoGroupCurrentUserErrorLeaving, .infoMessageRequestAccepted,

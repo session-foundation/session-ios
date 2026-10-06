@@ -115,6 +115,17 @@ public class HomeViewModel: NavigatableStateHolder {
         let appWasInstalledPriorToAppReviewRelease: Bool
         let showVersionSupportBanner: Bool
         let showDonationsCTAModal: Bool
+        let unsupportedMessageBannerTriggeredAtMs: Int64?
+        let unsupportedMessageBannerOtherDeviceTriggeredAtMs: Int64?
+        let unsupportedMessageBannerDismissedAtMs: Int64?
+        
+        var unsupportedMessageBanner: UnsupportedMessageBanner.State {
+            UnsupportedMessageBanner.state(
+                triggeredAtMs: unsupportedMessageBannerTriggeredAtMs,
+                otherDeviceTriggeredAtMs: unsupportedMessageBannerOtherDeviceTriggeredAtMs,
+                dismissedAtMs: unsupportedMessageBannerDismissedAtMs
+            )
+        }
         
         var userProfile: Profile {
             dataCache.profile(for: userSessionId.hexString) ??
@@ -158,6 +169,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .showDonationsCTAModal,
                 .currentUserProState(sessionProManager),
             ]
+            
+            result.insert(contentsOf: Set(UnsupportedMessageBanner.observedKeys.map { .keyValue($0) }))
             
             result.insert(contentsOf: Set(itemCache.values.flatMap { $0.observedKeys }))
             
@@ -210,6 +223,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
                 showVersionSupportBanner: showVersionSupportBanner,
                 showDonationsCTAModal: false,
+                unsupportedMessageBannerTriggeredAtMs: nil,
+                unsupportedMessageBannerOtherDeviceTriggeredAtMs: nil,
+                unsupportedMessageBannerDismissedAtMs: nil,
                 userProState: userProState
             )
         }
@@ -240,6 +256,9 @@ public class HomeViewModel: NavigatableStateHolder {
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
         var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
         var showDonationsCTAModal: Bool = previousState.showDonationsCTAModal
+        var unsupportedMessageBannerTriggeredAtMs: Int64? = previousState.unsupportedMessageBannerTriggeredAtMs
+        var unsupportedMessageBannerOtherDeviceTriggeredAtMs: Int64? = previousState.unsupportedMessageBannerOtherDeviceTriggeredAtMs
+        var unsupportedMessageBannerDismissedAtMs: Int64? = previousState.unsupportedMessageBannerDismissedAtMs
         
         var userProState: SessionPro.State = previousState.userProState
         
@@ -261,6 +280,12 @@ public class HomeViewModel: NavigatableStateHolder {
                 userProfile = libSession.profile
                 showViewedSeedBanner = !libSession.get(.hasViewedSeed)
                 hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
+            }
+            
+            try? await dependencies[singleton: .storage].read { db in
+                unsupportedMessageBannerTriggeredAtMs = db[.unsupportedMessageBannerTriggeredAtMs]
+                unsupportedMessageBannerOtherDeviceTriggeredAtMs = db[.unsupportedMessageBannerOtherDeviceTriggeredAtMs]
+                unsupportedMessageBannerDismissedAtMs = db[.unsupportedMessageBannerDismissedAtMs]
             }
             
             /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -439,6 +464,21 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         }
         
+        changes.forEachEvent(.keyValue, as: Int64.self) { event, updatedValue in
+            switch event.key {
+                case .keyValue(.unsupportedMessageBannerTriggeredAtMs):
+                    unsupportedMessageBannerTriggeredAtMs = updatedValue
+                
+                case .keyValue(.unsupportedMessageBannerOtherDeviceTriggeredAtMs):
+                    unsupportedMessageBannerOtherDeviceTriggeredAtMs = updatedValue
+                
+                case .keyValue(.unsupportedMessageBannerDismissedAtMs):
+                    unsupportedMessageBannerDismissedAtMs = updatedValue
+                    
+                default: break
+            }
+        }
+        
         if let updatedValue: ServiceNetwork = changes.latest(.feature(.serviceNetwork), as: ServiceNetwork.self) {
             serviceNetwork = updatedValue
         }
@@ -528,6 +568,9 @@ public class HomeViewModel: NavigatableStateHolder {
             appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
             showVersionSupportBanner: showVersionSupportBanner,
             showDonationsCTAModal: showDonationsCTAModal,
+            unsupportedMessageBannerTriggeredAtMs: unsupportedMessageBannerTriggeredAtMs,
+            unsupportedMessageBannerOtherDeviceTriggeredAtMs: unsupportedMessageBannerOtherDeviceTriggeredAtMs,
+            unsupportedMessageBannerDismissedAtMs: unsupportedMessageBannerDismissedAtMs,
             userProState: userProState
         )
     }

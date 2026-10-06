@@ -263,6 +263,7 @@
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A12DC004DB3080B5A5ECE8A2 /* _053_RenameProColumnsForWireFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */; };
+		00C255EAE43B5EC0AE47E7E2 /* _054_AddUnsupportedMessageTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F36960EF834258B26C75F08 /* _054_AddUnsupportedMessageTable.swift */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
 		A1B2C3D40002E5F600A00002 /* VisibleMessageCellSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */; };
 		A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */; };
@@ -961,6 +962,7 @@
 		FD97B2402A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */; };
 		FD97B2422A3FEBF30027DD57 /* UnreadMarkerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */; };
 		FD981BC42DC304E600564172 /* MessageDeduplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC32DC304E100564172 /* MessageDeduplication.swift */; };
+		346D74C08D211BBCDE2B23C0 /* UnsupportedMessageRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D58B367903AA34F6AF69D5 /* UnsupportedMessageRecord.swift */; };
 		FD981BC62DC3310B00564172 /* ExtensionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC52DC3310800564172 /* ExtensionHelper.swift */; };
 		FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */; };
 		FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */; };
@@ -1026,6 +1028,7 @@
 		FDAE2DB62F5A5B9B00E6FB80 /* Crypto+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */; };
 		FDAE2DB72F5A5BC400E6FB80 /* NotificationsManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7502807BA56004C14C5 /* NotificationsManagerType.swift */; };
 		FDAE2DB82F5A5BDD00E6FB80 /* FailedAttachmentDownloadsJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22725A2C32911A004D8A6C /* FailedAttachmentDownloadsJob.swift */; };
+		C87B1D61BFDCF214241A99A4 /* ReprocessUnsupportedMessagesJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EBB42B8D5766EBFC62902FD /* ReprocessUnsupportedMessagesJob.swift */; };
 		FDAE2DB92F5A5BF900E6FB80 /* GroupAuthData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB9C2EE3F63400EC7F98 /* GroupAuthData.swift */; };
 		FDAE2DBA2F5A5C0D00E6FB80 /* ObservableKeyEvent+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A55422E179AE6003761E4 /* ObservableKeyEvent+Utilities.swift */; };
 		FDAE2DBB2F5A5C2300E6FB80 /* _003_SUK_YDBToGRDBMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E627F6A16700122BE0 /* _003_SUK_YDBToGRDBMigration.swift */; };
@@ -1175,6 +1178,7 @@
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
 		FDE754A32C9A8FD1002A2623 /* SwarmPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A22C9A8FD1002A2623 /* SwarmPoller.swift */; };
 		FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */; };
+		66F9D00A815E13185A0A29CA /* UnsupportedMessageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F076A64618A6B2D2856220 /* UnsupportedMessageSpec.swift */; };
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
 		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
@@ -1373,7 +1377,9 @@
 		FDF6FF522F217CBB00F6AD15 /* SwarmDrainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF512F217CB800F6AD15 /* SwarmDrainer.swift */; };
 		FDF6FF542F22CE7F00F6AD15 /* JobDependencyInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF6FF532F22CE7A00F6AD15 /* JobDependencyInfo.swift */; };
 		FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */; };
+		9C459FA809A8EBDE5B073415 /* UnsupportedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 782FB3015D777B2573CE7107 /* UnsupportedMessage.swift */; };
 		FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */; };
+		068AF46907FF71685C464A2D /* MessageReceiver+UnsupportedMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF1B11594ABCBDF53E94995 /* MessageReceiver+UnsupportedMessages.swift */; };
 		FDF8488929405B27007DCAE5 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFD645A27F26D4600808CA1 /* Data+Utilities.swift */; };
 		FDF8489129405C13007DCAE5 /* StorageServerNamespace.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */; };
 		FDF848CC29405C5B007DCAE5 /* StorageServerMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF848AA29405C5A007DCAE5 /* StorageServerMessage.swift */; };
@@ -2047,6 +2053,7 @@
 		A1C32D4F17A06537000A904E /* AddressBookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBookUI.framework; path = System/Library/Frameworks/AddressBookUI.framework; sourceTree = SDKROOT; };
 		A1FDCBEE16DAA6C300868894 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = _053_RenameProColumnsForWireFormat.swift; sourceTree = "<group>"; };
+		8F36960EF834258B26C75F08 /* _054_AddUnsupportedMessageTable.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = _054_AddUnsupportedMessageTable.swift; sourceTree = "<group>"; };
 		AA01F0011000000000000001 /* ProStatsReaderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProStatsReaderSpec.swift; path = SessionMessagingKitTests/SessionPro/ProStatsReaderSpec.swift; sourceTree = SOURCE_ROOT; };
 		AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ProBadgeFirstProofSpec.swift; path = SessionMessagingKitTests/SessionPro/ProBadgeFirstProofSpec.swift; sourceTree = SOURCE_ROOT; };
 		A33C14719672DE03093F72B4 /* SessionProGateSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SessionProGateSpec.swift; path = SessionMessagingKitTests/SessionPro/SessionProGateSpec.swift; sourceTree = SOURCE_ROOT; };
@@ -2328,6 +2335,7 @@
 		FD2272582C32911A004D8A6C /* DisappearingMessagesJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisappearingMessagesJob.swift; sourceTree = "<group>"; };
 		FD2272592C32911A004D8A6C /* MessageReceiveJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageReceiveJob.swift; sourceTree = "<group>"; };
 		FD22725A2C32911A004D8A6C /* FailedAttachmentDownloadsJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FailedAttachmentDownloadsJob.swift; sourceTree = "<group>"; };
+		8EBB42B8D5766EBFC62902FD /* ReprocessUnsupportedMessagesJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReprocessUnsupportedMessagesJob.swift; sourceTree = "<group>"; };
 		FD22725B2C32911B004D8A6C /* ConfigurationSyncJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigurationSyncJob.swift; sourceTree = "<group>"; };
 		FD22725C2C32911B004D8A6C /* ConfigMessageReceiveJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigMessageReceiveJob.swift; sourceTree = "<group>"; };
 		FD22725D2C32911B004D8A6C /* RetrieveDefaultOpenGroupRoomsJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RetrieveDefaultOpenGroupRoomsJob.swift; sourceTree = "<group>"; };
@@ -2635,6 +2643,7 @@
 		FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARC4RandomNumberGenerator.swift; sourceTree = "<group>"; };
 		FD97B2412A3FEBF30027DD57 /* UnreadMarkerCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnreadMarkerCell.swift; sourceTree = "<group>"; };
 		FD981BC32DC304E100564172 /* MessageDeduplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeduplication.swift; sourceTree = "<group>"; };
+		43D58B367903AA34F6AF69D5 /* UnsupportedMessageRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedMessageRecord.swift; sourceTree = "<group>"; };
 		FD981BC52DC3310800564172 /* ExtensionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionHelper.swift; sourceTree = "<group>"; };
 		FD981BC82DC4640D00564172 /* ExtensionHelperSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionHelperSpec.swift; sourceTree = "<group>"; };
 		FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeduplicationSpec.swift; sourceTree = "<group>"; };
@@ -2846,6 +2855,7 @@
 		FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Crypto+OpenGroup.swift"; sourceTree = "<group>"; };
 		FDE754A22C9A8FD1002A2623 /* SwarmPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmPoller.swift; sourceTree = "<group>"; };
 		FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageReceiverGroupsSpec.swift; sourceTree = "<group>"; };
+		94F076A64618A6B2D2856220 /* UnsupportedMessageSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UnsupportedMessageSpec.swift; sourceTree = "<group>"; };
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
 		FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMetadataSpec.swift; sourceTree = "<group>"; };
@@ -2969,7 +2979,9 @@
 		FDF6FF512F217CB800F6AD15 /* SwarmDrainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmDrainer.swift; sourceTree = "<group>"; };
 		FDF6FF532F22CE7A00F6AD15 /* JobDependencyInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobDependencyInfo.swift; sourceTree = "<group>"; };
 		FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionMessage.swift; sourceTree = "<group>"; };
+		782FB3015D777B2573CE7107 /* UnsupportedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedMessage.swift; sourceTree = "<group>"; };
 		FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+LibSession.swift"; sourceTree = "<group>"; };
+		6DF1B11594ABCBDF53E94995 /* MessageReceiver+UnsupportedMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageReceiver+UnsupportedMessages.swift"; sourceTree = "<group>"; };
 		FDF8487D29405993007DCAE5 /* HTTPHeader+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SOGS.swift"; sourceTree = "<group>"; };
 		FDF8487E29405994007DCAE5 /* HTTPQueryParam+SOGS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HTTPQueryParam+SOGS.swift"; sourceTree = "<group>"; };
 		FDF8489029405C13007DCAE5 /* StorageServerNamespace.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StorageServerNamespace.swift; sourceTree = "<group>"; };
@@ -3816,6 +3828,7 @@
 				FDB11A5E2DD5B77800BEF49F /* Message+Origin.swift */,
 				FD2C68602EA09523000B0E37 /* MessageError.swift */,
 				FDF71EA22B072C2800A8D6B5 /* LibSessionMessage.swift */,
+				782FB3015D777B2573CE7107 /* UnsupportedMessage.swift */,
 				FDB11A5C2DD300CF00BEF49F /* SNProtoContent+Utilities.swift */,
 			);
 			path = Messages;
@@ -4097,6 +4110,7 @@
 				FD2272612C32911B004D8A6C /* DisplayPictureDownloadJob.swift */,
 				FD22725E2C32911B004D8A6C /* ExpirationUpdateJob.swift */,
 				FD22725A2C32911A004D8A6C /* FailedAttachmentDownloadsJob.swift */,
+				8EBB42B8D5766EBFC62902FD /* ReprocessUnsupportedMessagesJob.swift */,
 				FD2272562C32911A004D8A6C /* FailedMessageSendsJob.swift */,
 				FDBA8A832D59796F007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift */,
 				FD2272662C32911B004D8A6C /* GarbageCollectionJob.swift */,
@@ -4690,6 +4704,7 @@
 				FD09799A27FFC82D00936362 /* Quote.swift */,
 				FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */,
 				FD981BC32DC304E100564172 /* MessageDeduplication.swift */,
+				43D58B367903AA34F6AF69D5 /* UnsupportedMessageRecord.swift */,
 				FD5C7308285007920029977D /* BlindedIdLookup.swift */,
 				FD09B7E6288670FD00ED0B66 /* Reaction.swift */,
 				FD8ECF7E2934298100C0D1BB /* ConfigDump.swift */,
@@ -4790,6 +4805,7 @@
 				FDD525D32F72515E00DAD12A /* _051_AddUniqueJobConstraintBack.swift */,
 				FD05200000000000000052F0 /* _052_RecoverBrokenCommunityAttachments.swift */,
 				A317FEB1CE6FE9DB7CDB6EEE /* _053_RenameProColumnsForWireFormat.swift */,
+				8F36960EF834258B26C75F08 /* _054_AddUnsupportedMessageTable.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -5421,6 +5437,7 @@
 				FDB5DAE72A95D96C002C8721 /* MessageReceiver+Groups.swift */,
 				FDF2F0212DAE1AEF00491E8A /* MessageReceiver+LegacyClosedGroups.swift */,
 				FDF71EA42B07363500A8D6B5 /* MessageReceiver+LibSession.swift */,
+				6DF1B11594ABCBDF53E94995 /* MessageReceiver+UnsupportedMessages.swift */,
 				FD5C7306284F103B0029977D /* MessageReceiver+MessageRequests.swift */,
 			);
 			path = "Message Handling";
@@ -5972,6 +5989,7 @@
 				FD3F2EE52DE6CC3500FD6849 /* Notifications */,
 				FD336F6A2CAA29BC00C0B51B /* Pollers */,
 				FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */,
+				94F076A64618A6B2D2856220 /* UnsupportedMessageSpec.swift */,
 				FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */,
 				AA01F0011000000000000001 /* ProStatsReaderSpec.swift */,
 				AA01F0021000000000000001 /* ProBadgeFirstProofSpec.swift */,
@@ -7814,6 +7832,7 @@
 				FD981BD72DC9A61A00564172 /* NotificationCategory.swift in Sources */,
 				C300A5D32554B05A00555489 /* TypingIndicator.swift in Sources */,
 				FDF71EA52B07363500A8D6B5 /* MessageReceiver+LibSession.swift in Sources */,
+				068AF46907FF71685C464A2D /* MessageReceiver+UnsupportedMessages.swift in Sources */,
 				FD5972F02F74DDD700DB345A /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD09799927FFC1A300936362 /* Attachment.swift in Sources */,
 				FDF40CDE2897A1BC006A0CC4 /* _011_RemoveLegacyYDB.swift in Sources */,
@@ -7917,6 +7936,7 @@
 				FD99A3A42EBAA6BD00E59F94 /* EnvelopeFlags.swift in Sources */,
 				C3A71D1E25589AC30043A11F /* WebSocketProto.swift in Sources */,
 				FDAE2DB82F5A5BDD00E6FB80 /* FailedAttachmentDownloadsJob.swift in Sources */,
+				C87B1D61BFDCF214241A99A4 /* ReprocessUnsupportedMessagesJob.swift in Sources */,
 				FD184C232EF2100D001089EB /* SessionProError.swift in Sources */,
 				C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
@@ -7971,6 +7991,7 @@
 				94805EC32EB48ED50055EBBC /* SessionProPaymentScreenContent.swift in Sources */,
 				C3A71D1F25589AC30043A11F /* WebSocketResources.pb.swift in Sources */,
 				FD981BC42DC304E600564172 /* MessageDeduplication.swift in Sources */,
+				346D74C08D211BBCDE2B23C0 /* UnsupportedMessageRecord.swift in Sources */,
 				FDF0B74B28061F7A004C14C5 /* InteractionAttachment.swift in Sources */,
 				FD09796E27FA6D0000936362 /* Contact.swift in Sources */,
 				FD5C72F7284F0E560029977D /* MessageReceiver+ReadReceipts.swift in Sources */,
@@ -8019,6 +8040,7 @@
 				FDAB8A852EB2BC37000A6C65 /* MentionSelectionView+SessionMessagingKit.swift in Sources */,
 				FDB5DADA2A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift in Sources */,
 				FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */,
+				9C459FA809A8EBDE5B073415 /* UnsupportedMessage.swift in Sources */,
 				FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */,
 				FDAA36D02EB485F20040603E /* SessionProDecodedStatus.swift in Sources */,
 				FDD23AED2E4590A10057E853 /* _041_RenameTableSettingToKeyValueStore.swift in Sources */,
@@ -8042,6 +8064,7 @@
 				FDE755022C9BB122002A2623 /* _025_AddPendingReadReceipts.swift in Sources */,
 				855B33086CFBDD499937E6A4 /* ProErrorMessage.swift in Sources */,
 				A12DC004DB3080B5A5ECE8A2 /* _053_RenameProColumnsForWireFormat.swift in Sources */,
+				00C255EAE43B5EC0AE47E7E2 /* _054_AddUnsupportedMessageTable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8427,6 +8450,7 @@
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDCF01000000000000000042 /* ExpirationUpdateJobSpec.swift in Sources */,
 				FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */,
+				66F9D00A815E13185A0A29CA /* UnsupportedMessageSpec.swift in Sources */,
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
 				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitySpec.swift in Sources */,

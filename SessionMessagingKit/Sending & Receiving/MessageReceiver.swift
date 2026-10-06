@@ -66,6 +66,14 @@ public enum MessageReceiver {
             )
         }
         
+        if let processedMessage: ProcessedMessage = UnsupportedMessage.processedNewerFormatMessage(
+            data: data,
+            origin: origin,
+            using: dependencies
+        ) {
+            return processedMessage
+        }
+
         /// For all other cases we can just decode the message
         let decodedMessage: DecodedMessage = try dependencies[singleton: .crypto].tryGenerate(
             .decodedMessage(
@@ -73,13 +81,24 @@ public enum MessageReceiver {
                 origin: origin
             )
         )
-        
+
         let threadId: String
         let threadVariant: SessionThread.Variant
         let serverExpirationTimestamp: TimeInterval?
         let uniqueIdentifier: String
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let proto: SNProtoContent = try decodedMessage.decodeProtoContent()
+
+        if let processedMessage: ProcessedMessage = try UnsupportedMessage.processedUnknownTypeMessage(
+            data: data,
+            origin: origin,
+            proto: proto,
+            decodedMessage: decodedMessage,
+            using: dependencies
+        ) {
+            return processedMessage
+        }
+
         let message: Message = try Message.createMessageFrom(proto, decodedMessage: decodedMessage, using: dependencies)
         message.sender = decodedMessage.sender.hexString
         message.sentTimestampMs = decodedMessage.sentTimestampMs
@@ -337,6 +356,16 @@ public enum MessageReceiver {
                     decodedMessage: decodedMessage,
                     using: dependencies
                 )
+                
+            case let message as UnsupportedMessage:
+                interactionInfo = try MessageReceiver.handleUnsupportedMessage(
+                    db,
+                    threadId: threadId,
+                    threadVariant: threadVariant,
+                    message: message,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    using: dependencies
+                )
             
             default: throw MessageError.unknownMessage(decodedMessage)
         }
@@ -396,6 +425,9 @@ public enum MessageReceiver {
             
                 /// Currently this is just for handling the `groupKicked` message which is sent to a group so the same rules as above apply
                 case is LibSessionMessage: return false
+                
+                /// Only a placeholder in an existing conversation is something to show
+                case is UnsupportedMessage: return (insertedInteractionInfo != nil)
                     
                 default: return true
             }
@@ -517,6 +549,9 @@ public enum MessageReceiver {
         switch (threadVariant, message) {
             case (_, is ReadReceipt): return /// No visible artifact created so better to keep for more reliable read states
             case (_, is UnsendRequest): return /// We should always process the removal of messages just in case
+            
+            /// The raw message is always retained (the handler decides whether there is a conversation to show it in)
+            case (_, is UnsupportedMessage): return
             
             /// These group update messages update the group state so should be processed even if they were old
             case (.group, is GroupUpdateInviteResponseMessage): return

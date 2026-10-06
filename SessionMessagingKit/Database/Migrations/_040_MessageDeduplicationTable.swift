@@ -351,7 +351,8 @@ internal extension _040_MessageDeduplicationTable {
             switch variant {
                 case .standardOutgoing, .standardIncoming, ._legacyStandardIncomingDeleted,
                     .standardIncomingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeleted,
-                    .standardOutgoingDeletedLocally, .infoLegacyGroupCreated:
+                    .standardOutgoingDeletedLocally, .infoLegacyGroupCreated,
+                    .standardIncomingUnsupported, .standardOutgoingUnsupported:
                     return .visibleMessageDedupe
                     
                 case .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft: return .legacyGroupControlMessage

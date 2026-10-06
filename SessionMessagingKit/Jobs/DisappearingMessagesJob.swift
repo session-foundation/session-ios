@@ -39,11 +39,16 @@ public enum DisappearingMessagesJob: JobExecutor {
         try await SessionBackgroundTask.run(label: #function, using: dependencies) {
             let timestampNowMs: Double = await dependencies.networkOffsetTimestampMs()
             let numDeleted: Int = try await dependencies[singleton: .storage].write { db in
-                try Interaction.deleteWhere(
+                let numDeleted: Int = try Interaction.deleteWhere(
                     db,
                     .filter(Interaction.Columns.expiresStartedAtMs != nil),
                     .filter((Interaction.Columns.expiresStartedAtMs + (Interaction.Columns.expiresInSeconds * 1000)) <= timestampNowMs)
                 )
+                
+                /// Retained unsupported messages without a placeholder have their own expiry
+                try UnsupportedMessageRecord.enforceLimits(db, using: dependencies)
+                
+                return numDeleted
             }
             
             try Task.checkCancellation()

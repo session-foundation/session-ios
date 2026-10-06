@@ -516,8 +516,8 @@ final class VisibleMessageCell: MessageCell {
             cellViewModel.cellType != .unreadMarker
         else { return }
         
-        /// Handle the deleted state first (it's much simpler than the others)
-        guard !cellViewModel.variant.isDeletedMessage else {
+        /// Handle the deleted and unsupported states first (they're much simpler than the others)
+        guard !cellViewModel.variant.isDeletedMessage && !cellViewModel.variant.isUnsupportedMessage else {
             let inset: CGFloat = 12
             let deletedMessageView: DeletedMessageView = DeletedMessageView(
                 textColor: bodyLabelTextColor,
