@@ -12524,7 +12524,7 @@
 			repositoryURL = "https://github.com/session-foundation/session-lucide.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.468.0;
+				minimumVersion = 0.473.4;
 			};
 		};
 		FDEFDC712E8B9F3300EBCD81 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */ = {

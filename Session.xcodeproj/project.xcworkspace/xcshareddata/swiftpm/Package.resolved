@@ -141,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-lucide.git",
       "state" : {
-        "revision" : "43efda6bc6f116ac620810e8955796be6c4c0e1d",
-        "version" : "0.473.2"
+        "revision" : "4961b37339b0ae201ba27269936f33a5777ca68e",
+        "version" : "0.473.4"
       }
     },
     {
