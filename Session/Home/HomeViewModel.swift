@@ -635,6 +635,7 @@ public class HomeViewModel: NavigatableStateHolder {
         ///
         /// Nothing re-arms afterwards, and nothing needs to: leaving the screen puts Home back on screen, and this runs
         /// on that appearance.
+        guard dependencies[feature: .sessionProEnabled] else { return }
         guard !aProSettingsScreenIsOpen else { return }
 
         guard let info = await dependencies[singleton: .sessionProManager].sessionProExpiringCTAInfo() else {

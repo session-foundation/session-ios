@@ -81,6 +81,8 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
     }
     
     public enum ListItem: Hashable, Differentiable, CaseIterable {
+        case enableSessionPro
+        
         case mockCurrentUserSessionProBuildVariant
         case mockCurrentUserSessionProBackendStatus
         case mockCurrentUserSessionProLoadingState
@@ -113,6 +115,8 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         
         public var differenceIdentifier: String {
             switch self {
+                case .enableSessionPro: return "enableSessionPro"
+                    
                 case .mockCurrentUserSessionProBuildVariant: return "mockCurrentUserSessionProBuildVariant"
                 case .mockCurrentUserSessionProBackendStatus: return "mockCurrentUserSessionProBackendStatus"
                 case .mockCurrentUserSessionProLoadingState: return "mockCurrentUserSessionProLoadingState"
@@ -147,7 +151,9 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         
         public static var allCases: [ListItem] {
             var result: [ListItem] = []
-            switch ListItem.mockCurrentUserSessionProBuildVariant {
+            switch ListItem.enableSessionPro {
+                case .enableSessionPro: result.append(.enableSessionPro); fallthrough
+                
                 case .mockCurrentUserSessionProBuildVariant: result.append(.mockCurrentUserSessionProBuildVariant); fallthrough
                 case .mockCurrentUserSessionProBackendStatus: result.append(.mockCurrentUserSessionProBackendStatus); fallthrough
                 case .mockCurrentUserSessionProLoadingState: result.append(.mockCurrentUserSessionProLoadingState); fallthrough
@@ -189,6 +195,8 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
     // MARK: - Content
     
     public struct State: Equatable, ObservableKeyProvider {
+        let sessionProEnabled: Bool
+        
         let mockCurrentUserSessionProBuildVariant: MockableFeature<BuildVariant>
         let mockCurrentUserSessionProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
         let mockCurrentUserSessionProLoadingState: MockableFeature<SessionPro.LoadingState>
@@ -226,6 +234,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         }
         
         public let observedKeys: Set<ObservableKey> = [
+            .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBuildVariant),
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.mockCurrentUserSessionProLoadingState),
@@ -244,6 +253,8 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
+                sessionProEnabled: dependencies[feature: .sessionProEnabled],
+                
                 mockCurrentUserSessionProBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
@@ -333,6 +344,7 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         }
         
         return State(
+            sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
@@ -364,6 +376,33 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
         previousState: State,
         viewModel: DeveloperSettingsProViewModel
     ) -> [SectionModel] {
+        let general: SectionModel = SectionModel(
+            model: .general,
+            elements: [
+                SessionListScreenContent.ListItemInfo(
+                    id: .enableSessionPro,
+                    variant: .cell(
+                        info: ListItemCell.Info(
+                            title: SessionListScreenContent.TextInfo("Enable Session Pro", font: .Body.largeBold),
+                            description: .htmlTagged("""
+                            Enable Post Pro Release mode.
+                            Turning on this Settings will show Pro badge and CTA if needed.
+                            """),
+                            trailingAccessory: .toggle(
+                                state.sessionProEnabled,
+                                oldValue: previousState.sessionProEnabled
+                            )
+                        )
+                    ),
+                    onTap: { [weak viewModel] in
+                        viewModel?.updateSessionProEnabled(current: state.sessionProEnabled)
+                    }
+                )
+            ]
+        )
+        
+        guard state.sessionProEnabled else { return [general] }
+        
         // MARK: - Mockable Features
         
         let features: SectionModel = SectionModel(
@@ -903,13 +942,14 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
             ]
         )
         
-        return [proBackendServer, features, subscriptions, proBackend]
+        return [general, proBackendServer, features, subscriptions, proBackend]
     }
     
     // MARK: - Functions
     
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
+            .sessionProEnabled,
             .proBadgeEverywhere,
             .fakeAppleSubscriptionForDev,
             .forceMessageFeatureProBadge,
@@ -933,6 +973,18 @@ class DeveloperSettingsProViewModel: SessionListScreenContent.ViewModelType, Nav
     }
     
     // MARK: - Internal Functions
+    
+    private func updateSessionProEnabled(current: Bool) {
+        dependencies.set(feature: .sessionProEnabled, to: !current)
+        
+        if dependencies.hasSet(feature: .proBadgeEverywhere) {
+            dependencies.reset(feature: .proBadgeEverywhere)
+        }
+        
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            dependencies.reset(feature: .mockCurrentUserSessionProBackendStatus)
+        }
+    }
     
     // MARK: - Custom Pro Backend
 

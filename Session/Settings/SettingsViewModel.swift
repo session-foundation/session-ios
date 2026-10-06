@@ -370,6 +370,8 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             font: Fonts.Headings.H4,
                             themeForegroundColor: .textPrimary,
                             imageAttachment: {
+                                guard state.proState.sessionProEnabled else { return nil }
+                                
                                 switch state.proState.status {
                                     case .never, .unknown: return nil
                                     case .active:
@@ -542,6 +544,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     }
                 )
             ]
+            .filter { $0.differenceIdentifier != .sessionPro || state.proState.sessionProEnabled }
         )
         donationAndNetwork = SectionModel(
             model: .donationAndNetwork,
@@ -929,6 +932,8 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
             trailingIcon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
+                guard proState.sessionProEnabled else { return nil }
+                
                 switch proState.status {
                     case .active:
                         return SessionListScreenContent.TextInfo(
@@ -1039,7 +1044,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 var ctaOutcome: ProCTAOutcome = .suppressedPlanActive
                                 
-                                if isAnimatedImage && proState.status != .active {
+                                if isAnimatedImage && proState.sessionProEnabled && proState.status != .active {
                                     ctaOutcome = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                         .animatedProfileImage(
                                             isSessionProActivated: (proState.status == .active),

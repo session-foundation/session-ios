@@ -153,6 +153,13 @@ extension DeveloperSettingsViewModel {
             /// **Value:** Seconds since epoch
             case customFirstInstallDateTime
             
+            /// Controls whether Session Pro should be enabled
+            ///
+            /// **Value:** `true`/`false` (default: `false`)
+            ///
+            /// **Note:** This is the master gate - the `mockCurrentUser…` values below are only reflected in the UI when this is `true`
+            case sessionPro
+            
             /// Controls the url which is used for the Session Pro backend
             ///
             /// **Value:** Valid url string
@@ -499,6 +506,9 @@ extension DeveloperSettingsViewModel {
                     }
                     
                     dependencies.set(feature: .customFirstInstallDateTime, to: value)
+                    
+                case .sessionPro:
+                    dependencies.set(feature: .sessionProEnabled, to: (value == "true"))
                     
                 case .mockCurrentUserSessionProBackendStatus:
                     guard

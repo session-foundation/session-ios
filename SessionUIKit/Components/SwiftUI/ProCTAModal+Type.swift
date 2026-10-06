@@ -24,6 +24,10 @@ public enum ProCTAOutcome: Equatable {
     /// what the fix looks like - it explains the refusal without offering a purchase. Do NOT "fix" this by
     /// reinstating the upsell; that is the bug this state exists to prevent.
     case suppressedPlanActive
+
+    /// Suppressed because Session Pro is switched off, so there is nothing to sell. The caller carries on with whatever
+    /// it offers non-Pro users instead of the upsell.
+    case suppressedProDisabled
 }
 
 // MARK: - SessionProCTAManagerType
