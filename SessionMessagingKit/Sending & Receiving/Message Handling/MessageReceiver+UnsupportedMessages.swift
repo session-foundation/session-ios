@@ -24,12 +24,18 @@ extension MessageReceiver {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let serverExpiryMs: Int64? = serverExpirationTimestamp.map { Int64($0 * 1000) }
 
-        /// Never create a conversation (or message request) for something we can't show, the record is still retained either way
+        /// Never create, or un-hide, a conversation for something we can't show (un-hiding is config-synced so would affect every
+        /// device), the record is still retained either way
         let placeholderVariant: Interaction.Variant? = try {
             switch message.placement {
                 case .none: return nil
                 case .incoming, .outgoing:
-                    guard try SessionThread.exists(db, id: threadId) else { return nil }
+                    guard
+                        try SessionThread
+                            .filter(id: threadId)
+                            .filter(SessionThread.Columns.shouldBeVisible == true)
+                            .isNotEmpty(db)
+                    else { return nil }
 
                     return (message.placement == .outgoing ? .standardOutgoingUnsupported : .standardIncomingUnsupported)
             }
@@ -90,6 +96,8 @@ extension MessageReceiver {
             swarmPublicKey: message.swarmPublicKey,
             namespace: message.namespace.rawValue,
             hash: serverHash,
+            sender: (message.kind == .newerFormat ? nil : message.sender),
+            sentTimestampMs: (message.kind == .newerFormat ? nil : message.sentTimestampMs.map { Int64($0) }),
             serverTimestampMs: message.serverTimestampMs,
             serverExpiryMs: serverExpiryMs,
             data: message.rawData,

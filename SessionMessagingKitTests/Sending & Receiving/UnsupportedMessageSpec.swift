@@ -256,6 +256,66 @@ class UnsupportedMessageSpec: AsyncSpec {
                     expect(threadCount).to(equal(0))
                 }
 
+                // MARK: ---- does not add a placeholder to a hidden conversation
+                it("does not add a placeholder to a hidden conversation") {
+                    try await fixture.createThread(id: fixture.otherSessionId.hexString, visible: false)
+                    try await fixture.stubDecoded(content: try fixture.content(body: nil, unknownFieldNumber: 19))
+                    try await fixture.handle(
+                        try MessageReceiver.parse(
+                            data: fixture.encryptedData,
+                            origin: fixture.origin(namespace: .default),
+                            using: fixture.dependencies
+                        )
+                    )
+                    
+                    let (records, interactionCount, isVisible) = try await fixture.mockStorage.read { db in
+                        (
+                            try UnsupportedMessageRecord.fetchAll(db),
+                            try Interaction.fetchCount(db),
+                            try SessionThread.fetchOne(db, id: fixture.otherSessionId.hexString)?.shouldBeVisible
+                        )
+                    }
+                    expect(records.count).to(equal(1))
+                    expect(records.first?.placeholderMessageId).to(beNil())
+                    expect(interactionCount).to(equal(0))
+                    expect(isVisible).to(beFalse())
+                }
+                
+                // MARK: ---- is removed by an unsend request from its sender
+                it("is removed by an unsend request from its sender") {
+                    try await fixture.stubDecoded(content: try fixture.content(body: nil, unknownFieldNumber: 19))
+                    try await fixture.handle(
+                        try MessageReceiver.parse(
+                            data: fixture.encryptedData,
+                            origin: fixture.origin(namespace: .default),
+                            using: fixture.dependencies
+                        )
+                    )
+                    
+                    try await fixture.mockStorage.write { db in
+                        try MessageReceiver.handleUnsendRequest(
+                            db,
+                            threadId: fixture.otherSessionId.hexString,
+                            threadVariant: .contact,
+                            message: UnsendRequest(
+                                timestamp: fixture.sentTimestampMs,
+                                author: fixture.otherSessionId.hexString
+                            ),
+                            decodedMessage: DecodedMessage(
+                                content: Data(),
+                                sender: fixture.otherSessionId,
+                                decodedPro: nil,
+                                decodedEnvelope: nil,
+                                sentTimestampMs: fixture.sentTimestampMs + 1000
+                            ),
+                            using: fixture.dependencies
+                        )
+                    }
+                    
+                    let recordCount: Int = try await fixture.mockStorage.read { db in try UnsupportedMessageRecord.fetchCount(db) }
+                    expect(recordCount).to(equal(0))
+                }
+                
                 // MARK: ---- removes the retained data when the placeholder is deleted
                 it("removes the retained data when the placeholder is deleted") {
                     try await fixture.createThread(id: fixture.otherSessionId.hexString)
@@ -326,6 +386,56 @@ class UnsupportedMessageSpec: AsyncSpec {
                     expect(interactions.map(\.variant)).to(equal([.standardIncoming]))
                     expect(interactions.first?.body).to(equal("Test"))
                     expect(interactions.first?.timestampMs).to(equal(Int64(fixture.sentTimestampMs)))
+                }
+
+                // MARK: ---- keeps the record and placeholder when the replay fails
+                it("keeps the record and placeholder when the replay fails") {
+                    await fixture.mockCrypto.removeMocksFor {
+                        try $0.tryGenerate(.decodedMessage(
+                            encodedMessage: Data.any,
+                            origin: .swarm(
+                                publicKey: .any,
+                                namespace: .default,
+                                serverHash: .any,
+                                serverTimestampMs: .any,
+                                serverExpirationTimestamp: .any
+                            )
+                        ))
+                    }
+                    try await fixture.mockCrypto
+                        .when {
+                            try $0.tryGenerate(.decodedMessage(
+                                encodedMessage: Data.any,
+                                origin: .swarm(
+                                    publicKey: .any,
+                                    namespace: .default,
+                                    serverHash: .any,
+                                    serverTimestampMs: .any,
+                                    serverExpirationTimestamp: .any
+                                )
+                            ))
+                        }
+                        .thenThrow(CryptoError.invalidKey)
+
+                    let result: ReprocessUnsupportedMessagesJob.ReprocessResult? = try await fixture.mockStorage.write { db in
+                        let recordId: Int64? = try UnsupportedMessageRecord.fetchOne(db)?.id
+
+                        return try recordId.map {
+                            try ReprocessUnsupportedMessagesJob.reprocess(
+                                db,
+                                recordId: $0,
+                                currentVersion: "NewVersion",
+                                using: fixture.dependencies
+                            )
+                        }
+                    }
+
+                    let (records, interactions) = try await fixture.mockStorage.read { db in
+                        (try UnsupportedMessageRecord.fetchAll(db), try Interaction.fetchAll(db))
+                    }
+                    expect(result).to(equal(.failed))
+                    expect(records.map(\.lastAttemptVersion)).to(equal(["NewVersion"]))
+                    expect(interactions.map(\.variant)).to(equal([.standardIncomingUnsupported]))
                 }
 
                 // MARK: ---- keeps the placeholder and records the attempt when still unsupported
@@ -521,13 +631,13 @@ private class UnsupportedMessageTestFixture: FixtureBase {
             )
     }
 
-    func createThread(id: String) async throws {
+    func createThread(id: String, visible: Bool = true) async throws {
         try await mockStorage.write { [dependencies] db in
             try SessionThread.upsert(
                 db,
                 id: id,
                 variant: .contact,
-                values: SessionThread.TargetValues(shouldBeVisible: .setTo(true)),
+                values: SessionThread.TargetValues(shouldBeVisible: .setTo(visible)),
                 using: dependencies
             )
         }
@@ -557,6 +667,8 @@ private class UnsupportedMessageTestFixture: FixtureBase {
             swarmPublicKey: userSessionId.hexString,
             namespace: Network.StorageServer.Namespace.default.rawValue,
             hash: hash,
+            sender: nil,
+            sentTimestampMs: nil,
             serverTimestampMs: Int64(sentTimestampMs),
             serverExpiryMs: nil,
             data: newerFormatData,

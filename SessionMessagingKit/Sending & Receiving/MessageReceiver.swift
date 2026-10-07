@@ -426,8 +426,8 @@ public enum MessageReceiver {
                 /// Currently this is just for handling the `groupKicked` message which is sent to a group so the same rules as above apply
                 case is LibSessionMessage: return false
                 
-                /// Only a placeholder in an existing conversation is something to show
-                case is UnsupportedMessage: return (insertedInteractionInfo != nil)
+                /// A placeholder is only ever added to a visible conversation so there's nothing to un-hide
+                case is UnsupportedMessage: return false
                     
                 default: return true
             }

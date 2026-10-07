@@ -22,6 +22,8 @@ public struct UnsupportedMessageRecord: Codable, Equatable, FetchableRecord, Mut
         case swarmPublicKey = "swarm_public_key"
         case namespace
         case hash
+        case sender
+        case sentTimestampMs = "sent_timestamp_ms"
         case serverTimestampMs = "server_timestamp_ms"
         case serverExpiryMs = "server_expiry_ms"
         case data
@@ -46,6 +48,12 @@ public struct UnsupportedMessageRecord: Codable, Equatable, FetchableRecord, Mut
     public let swarmPublicKey: String
     public let namespace: Int
     public let hash: String
+
+    /// The authenticated sender and the sender's sent timestamp, which identify the message for an unsend request (both `nil`
+    /// for a `newerFormat` message as they are inside the encryption)
+    public let sender: String?
+    public let sentTimestampMs: Int64?
+
     public let serverTimestampMs: Int64
     public let serverExpiryMs: Int64?
     public let data: Data
@@ -60,6 +68,8 @@ public struct UnsupportedMessageRecord: Codable, Equatable, FetchableRecord, Mut
         swarmPublicKey: String,
         namespace: Int,
         hash: String,
+        sender: String?,
+        sentTimestampMs: Int64?,
         serverTimestampMs: Int64,
         serverExpiryMs: Int64?,
         data: Data,
@@ -73,6 +83,8 @@ public struct UnsupportedMessageRecord: Codable, Equatable, FetchableRecord, Mut
         self.swarmPublicKey = swarmPublicKey
         self.namespace = namespace
         self.hash = hash
+        self.sender = sender
+        self.sentTimestampMs = sentTimestampMs
         self.serverTimestampMs = serverTimestampMs
         self.serverExpiryMs = serverExpiryMs
         self.data = data

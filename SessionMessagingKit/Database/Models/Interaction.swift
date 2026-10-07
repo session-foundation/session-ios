@@ -69,7 +69,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         case standardOutgoingDeletedLocally
         
         // Placeholders for a message type this client can't display
-        case standardIncomingUnsupported = 7
+        case standardIncomingUnsupported = 100
         case standardOutgoingUnsupported
         
         // Info Message Types (spacing the values out to make it easier to extend)

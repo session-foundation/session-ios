@@ -22,6 +22,8 @@ enum _054_AddUnsupportedMessageTable: Migration {
             t.column("hash", .text)
                 .notNull()
                 .unique()
+            t.column("sender", .text)
+            t.column("sent_timestamp_ms", .integer)
             t.column("server_timestamp_ms", .integer).notNull()
             t.column("server_expiry_ms", .integer)
             t.column("data", .blob).notNull()

@@ -36,10 +36,16 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
         guard dependencies[cache: .general].userExists else { return .success }
 
         let currentVersion: String = UnsupportedMessageRecord.currentVersion(using: dependencies)
-        let recordIds: [Int64] = try await dependencies[singleton: .storage].write { db in
-            try UnsupportedMessageRecord.enforceLimits(db, using: dependencies)
+        /// Failing to enforce the limits shouldn't prevent retained messages from being reprocessed
+        do {
+            try await dependencies[singleton: .storage].write { db in
+                try UnsupportedMessageRecord.enforceLimits(db, using: dependencies)
+            }
+        }
+        catch { Log.error(.cat, "Failed to enforce retained message limits due to error: \(error).") }
 
-            return try UnsupportedMessageRecord
+        let recordIds: [Int64] = try await dependencies[singleton: .storage].read { db in
+            try UnsupportedMessageRecord
                 .select(.id)
                 .filter(UnsupportedMessageRecord.Columns.lastAttemptVersion != currentVersion)
                 .asRequest(of: Int64.self)
@@ -49,7 +55,7 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
         guard !recordIds.isEmpty else { return .success }
 
         var replacedCount: Int = 0
-        var droppedCount: Int = 0
+        var failedCount: Int = 0
 
         for recordId in recordIds {
             try Task.checkCancellation()
@@ -60,19 +66,24 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
 
             switch result {
                 case .replaced: replacedCount += 1
-                case .dropped: droppedCount += 1
-                case .stillUnsupported: break
+                case .failed: failedCount += 1
+                case .stillUnsupported, .missing: break
             }
         }
 
-        Log.info(.cat, "Reprocessed \(recordIds.count) retained message(s): \(replacedCount) replaced, \(droppedCount) dropped.")
+        Log.info(.cat, "Reprocessed \(recordIds.count) retained message(s): \(replacedCount) replaced, \(failedCount) failed.")
         return .success
     }
 
     internal enum ReprocessResult {
         case replaced
         case stillUnsupported
-        case dropped
+
+        /// This version failed to process the message for some other reason, the record is kept for a later version to retry
+        case failed
+
+        /// The record was removed before it could be reprocessed
+        case missing
     }
 
     internal static func reprocess(
@@ -85,7 +96,7 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
             var record: UnsupportedMessageRecord = try UnsupportedMessageRecord
                 .filter(UnsupportedMessageRecord.Columns.id == recordId)
                 .fetchOne(db)
-        else { return .dropped }
+        else { return .missing }
 
         let processedMessage: ProcessedMessage
 
@@ -103,10 +114,7 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
             )
         }
         catch {
-            /// This version can't process the message either and never will (eg. the group keys are gone), so stop retaining the
-            /// bytes but leave any placeholder in place
-            try UnsupportedMessageRecord.filter(UnsupportedMessageRecord.Columns.id == recordId).deleteAll(db)
-            return .dropped
+            return try markFailed(db, record: &record, currentVersion: currentVersion, error: error)
         }
 
         guard
@@ -163,10 +171,25 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
             }
         }
         catch {
-            try UnsupportedMessageRecord.filter(UnsupportedMessageRecord.Columns.id == recordId).deleteAll(db)
-            return .dropped
+            /// The savepoint rolled back so the placeholder and record are both still in place
+            return try markFailed(db, record: &record, currentVersion: currentVersion, error: error)
         }
 
         return .replaced
+    }
+
+    /// A failure might be specific to this version, or unrelated to the message (eg. the sender is now blocked), so the record is
+    /// kept rather than dropped - it's only attempted again by a later version, and the retention limits still bound it
+    private static func markFailed(
+        _ db: ObservingDatabase,
+        record: inout UnsupportedMessageRecord,
+        currentVersion: String,
+        error: Error
+    ) throws -> ReprocessResult {
+        Log.warn(.cat, "Failed to reprocess retained message \(record.hash) due to error: \(error).")
+        record.lastAttemptVersion = currentVersion
+        try record.update(db)
+
+        return .failed
     }
 }
