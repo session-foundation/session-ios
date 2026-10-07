@@ -654,14 +654,14 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             case is VisibleMessage: break
             
-            /// An unknown type from someone else gets a placeholder (and so a notification) in an existing conversation, anything
-            /// else (including a newer-format message, which can't be attributed to anyone) is just saved for the main app
+            /// An unknown type from someone else gets a placeholder (and so a notification) only in an existing, visible conversation,
+            /// anything else (including a newer-format message, which can't be attributed to anyone) is just saved for the main app
             case let unsupportedMessage as UnsupportedMessage
                 where unsupportedMessage.placement == .incoming && dependencies.mutate(cache: .libSession, { cache in
                     cache.conversationInConfig(
                         threadId: threadId,
                         threadVariant: threadVariant,
-                        visibleOnly: false,
+                        visibleOnly: true,
                         openGroupUrlInfo: nil
                     ) == true
                 }):

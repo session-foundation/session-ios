@@ -438,6 +438,46 @@ class UnsupportedMessageSpec: AsyncSpec {
                     expect(interactions.map(\.variant)).to(equal([.standardIncomingUnsupported]))
                 }
 
+                // MARK: ---- rolls back and keeps the placeholder when handling the replay fails
+                it("rolls back and keeps the placeholder when handling the replay fails") {
+                    /// Simulate a newer version which understands the content but rejects the message as outdated
+                    try await fixture.stubDecoded(content: try fixture.content(body: "Test", unknownFieldNumber: 19))
+                    try await fixture.mockLibSessionCache
+                        .when {
+                            $0.conversationInConfig(
+                                threadId: .any,
+                                threadVariant: .any,
+                                visibleOnly: .any,
+                                openGroupUrlInfo: .any
+                            )
+                        }
+                        .thenReturn(false)
+                    try await fixture.mockLibSessionCache
+                        .when { $0.canPerformChange(threadId: .any, threadVariant: .any, changeTimestampMs: .any) }
+                        .thenReturn(false)
+                    
+                    let result: ReprocessUnsupportedMessagesJob.ReprocessResult? = try await fixture.mockStorage.write { db in
+                        let recordId: Int64? = try UnsupportedMessageRecord.fetchOne(db)?.id
+                        
+                        return try recordId.map {
+                            try ReprocessUnsupportedMessagesJob.reprocess(
+                                db,
+                                recordId: $0,
+                                currentVersion: "NewVersion",
+                                using: fixture.dependencies
+                            )
+                        }
+                    }
+                    
+                    let (records, interactions) = try await fixture.mockStorage.read { db in
+                        (try UnsupportedMessageRecord.fetchAll(db), try Interaction.fetchAll(db))
+                    }
+                    expect(result).to(equal(.failed))
+                    expect(records.map(\.lastAttemptVersion)).to(equal(["NewVersion"]))
+                    expect(records.first?.placeholderMessageId).to(equal(interactions.first?.id))
+                    expect(interactions.map(\.variant)).to(equal([.standardIncomingUnsupported]))
+                }
+                
                 // MARK: ---- keeps the placeholder and records the attempt when still unsupported
                 it("keeps the placeholder and records the attempt when still unsupported") {
                     let result: ReprocessUnsupportedMessagesJob.ReprocessResult? = try await fixture.mockStorage.write { db in
