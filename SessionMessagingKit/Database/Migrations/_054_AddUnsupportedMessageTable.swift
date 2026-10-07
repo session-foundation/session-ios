@@ -34,6 +34,42 @@ enum _054_AddUnsupportedMessageTable: Migration {
             t.column("received_at_ms", .integer).notNull()
             t.column("last_attempt_version", .text).notNull()
         }
+        
+        /// A running total kept exact by triggers, so enforcing the retention limits on every insert doesn't need to scan the
+        /// table (a flood of small rows would otherwise make each insert slower than the last)
+        ///
+        /// **Note:** Each row costs `length(data) + 256` against the byte budget, as a tiny row still takes up space on disk
+        try db.execute(sql: """
+            CREATE INDEX unsupported_message_kind_id ON unsupported_message(kind, id);
+            
+            CREATE TABLE unsupported_message_stats (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                newer_format_count INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO unsupported_message_stats (id, total_bytes, newer_format_count) VALUES (1, 0, 0);
+            
+            CREATE TRIGGER unsupported_message_stats_insert AFTER INSERT ON unsupported_message BEGIN
+                UPDATE unsupported_message_stats SET
+                    total_bytes = total_bytes + length(NEW.data) + 256,
+                    newer_format_count = newer_format_count + (NEW.kind = 'newerFormat')
+                WHERE id = 1;
+            END;
+            
+            CREATE TRIGGER unsupported_message_stats_delete AFTER DELETE ON unsupported_message BEGIN
+                UPDATE unsupported_message_stats SET
+                    total_bytes = total_bytes - length(OLD.data) - 256,
+                    newer_format_count = newer_format_count - (OLD.kind = 'newerFormat')
+                WHERE id = 1;
+            END;
+            
+            CREATE TRIGGER unsupported_message_stats_update AFTER UPDATE OF data, kind ON unsupported_message BEGIN
+                UPDATE unsupported_message_stats SET
+                    total_bytes = total_bytes - length(OLD.data) + length(NEW.data),
+                    newer_format_count = newer_format_count - (OLD.kind = 'newerFormat') + (NEW.kind = 'newerFormat')
+                WHERE id = 1;
+            END;
+        """)
 
         MigrationExecution.updateProgress(1)
     }

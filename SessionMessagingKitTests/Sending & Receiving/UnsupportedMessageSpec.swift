@@ -478,6 +478,68 @@ class UnsupportedMessageSpec: AsyncSpec {
                     expect(interactions.map(\.variant)).to(equal([.standardIncomingUnsupported]))
                 }
                 
+                // MARK: ---- replays a group row whose data starts with a zero byte
+                it("replays a group row whose data starts with a zero byte") {
+                    /// Group data is encrypted with a random nonce first, so it can start with any byte - only the kind decides
+                    try await fixture.mockStorage.write { db in
+                        var record: UnsupportedMessageRecord = fixture.record(
+                            hash: "group-row",
+                            kind: .unknownType,
+                            swarmPublicKey: fixture.groupId.hexString,
+                            namespace: .groupMessages,
+                            data: Data([0x00, 0x01, 0x02])
+                        )
+                        try record.insert(db)
+                    }
+                    try await fixture.mockCrypto
+                        .when {
+                            try $0.tryGenerate(.decodedMessage(
+                                encodedMessage: Data.any,
+                                origin: .swarm(
+                                    publicKey: .any,
+                                    namespace: .groupMessages,
+                                    serverHash: .any,
+                                    serverTimestampMs: .any,
+                                    serverExpirationTimestamp: .any
+                                )
+                            ))
+                        }
+                        .thenThrow(CryptoError.invalidKey)
+                    
+                    let result: ReprocessUnsupportedMessagesJob.ReprocessResult? = try await fixture.mockStorage.write { db in
+                        let recordId: Int64? = try UnsupportedMessageRecord
+                            .filter(UnsupportedMessageRecord.Columns.hash == "group-row")
+                            .fetchOne(db)?
+                            .id
+                        
+                        return try recordId.map {
+                            try ReprocessUnsupportedMessagesJob.reprocess(
+                                db,
+                                recordId: $0,
+                                currentVersion: "NewVersion",
+                                using: fixture.dependencies
+                            )
+                        }
+                    }
+                    
+                    /// Decryption was attempted (and failed here), rather than the row being written off as a newer format
+                    expect(result).to(equal(.failed))
+                    await fixture.mockCrypto
+                        .verify {
+                            try $0.tryGenerate(.decodedMessage(
+                                encodedMessage: Data.any,
+                                origin: .swarm(
+                                    publicKey: .any,
+                                    namespace: .groupMessages,
+                                    serverHash: .any,
+                                    serverTimestampMs: .any,
+                                    serverExpirationTimestamp: .any
+                                )
+                            ))
+                        }
+                        .wasCalled()
+                }
+                
                 // MARK: ---- keeps the placeholder and records the attempt when still unsupported
                 it("keeps the placeholder and records the attempt when still unsupported") {
                     let result: ReprocessUnsupportedMessagesJob.ReprocessResult? = try await fixture.mockStorage.write { db in
@@ -504,6 +566,98 @@ class UnsupportedMessageSpec: AsyncSpec {
 
             // MARK: -- when enforcing limits
             context("when enforcing limits") {
+                // MARK: ---- keeps the running totals exact as rows are added and removed
+                it("keeps the running totals exact as rows are added and removed") {
+                    try await fixture.createThread(id: fixture.otherSessionId.hexString)
+                    try await fixture.stubDecoded(content: try fixture.content(body: nil, unknownFieldNumber: 19))
+                    try await fixture.handle(
+                        try MessageReceiver.parse(
+                            data: fixture.encryptedData,
+                            origin: fixture.origin(namespace: .default),
+                            using: fixture.dependencies
+                        )
+                    )
+                    try await fixture.mockStorage.write { db in
+                        var first: UnsupportedMessageRecord = fixture.record(hash: "first")
+                        var second: UnsupportedMessageRecord = fixture.record(hash: "second", data: Data([0x00]))
+                        try first.insert(db)
+                        try second.insert(db)
+                        _ = try UnsupportedMessageRecord.filter(UnsupportedMessageRecord.Columns.hash == "first").deleteAll(db)
+                    }
+                    
+                    var stats = try await fixture.stats()
+                    expect(stats.totalBytes).to(equal(stats.expectedBytes))
+                    expect(stats.newerFormatCount).to(equal(1))
+                    expect(stats.rowCount).to(equal(2))
+                    
+                    /// Deleting the placeholder cascades to its record, which must also be counted
+                    try await fixture.mockStorage.write { db in
+                        try LoggingDatabaseRecordContext.$suppressLogs.withValue(true) {
+                            _ = try Interaction.deleteAll(db)
+                        }
+                    }
+                    
+                    stats = try await fixture.stats()
+                    expect(stats.totalBytes).to(equal(stats.expectedBytes))
+                    expect(stats.rowCount).to(equal(1))
+                    expect(stats.totalBytes).to(equal(1 + 256))
+                }
+                
+                // MARK: ---- caps the number of newer format rows
+                it("caps the number of newer format rows") {
+                    let overflow: Int64 = 5
+                    
+                    try await fixture.mockStorage.write { db in
+                        try db.execute(
+                            sql: """
+                                WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < ?)
+                                INSERT INTO unsupported_message (
+                                    kind, swarm_public_key, namespace, hash, server_timestamp_ms, data, received_at_ms,
+                                    last_attempt_version
+                                )
+                                SELECT 'newerFormat', 'test', 0, 'hash-' || x, x, X'0002', x, 'Test' FROM n
+                            """,
+                            arguments: [UnsupportedMessageRecord.maxNewerFormatCount + overflow]
+                        )
+                        try UnsupportedMessageRecord.enforceLimits(db, using: fixture.dependencies)
+                    }
+                    
+                    let (count, oldestHash, stats) = try await fixture.mockStorage.read { db in
+                        (
+                            try UnsupportedMessageRecord.fetchCount(db),
+                            try String.fetchOne(db, sql: "SELECT hash FROM unsupported_message ORDER BY id ASC LIMIT 1"),
+                            try Int64.fetchOne(db, sql: "SELECT newer_format_count FROM unsupported_message_stats")
+                        )
+                    }
+                    expect(Int64(count)).to(equal(UnsupportedMessageRecord.maxNewerFormatCount))
+                    expect(stats).to(equal(UnsupportedMessageRecord.maxNewerFormatCount))
+                    expect(oldestHash).to(equal("hash-\(overflow + 1)"))
+                }
+                
+                // MARK: ---- evicts newer format rows before unknown type rows when over the byte budget
+                it("evicts newer format rows before unknown type rows when over the byte budget") {
+                    try await fixture.mockStorage.write { db in
+                        for index in 0..<3 {
+                            var newer: UnsupportedMessageRecord = fixture.record(hash: "newer-\(index)")
+                            var unknown: UnsupportedMessageRecord = fixture.record(hash: "unknown-\(index)", kind: .unknownType)
+                            try newer.insert(db)
+                            try unknown.insert(db)
+                        }
+                        
+                        /// Push the running total just over the budget (filling it for real would need 256 MB of data)
+                        try db.execute(
+                            sql: "UPDATE unsupported_message_stats SET total_bytes = ? WHERE id = 1",
+                            arguments: [UnsupportedMessageRecord.maxRetainedBytes + 1]
+                        )
+                        try UnsupportedMessageRecord.enforceLimits(db, using: fixture.dependencies)
+                    }
+                    
+                    let kinds: [UnsupportedMessageRecord.Kind] = try await fixture.mockStorage.read { db in
+                        try UnsupportedMessageRecord.fetchAll(db).map(\.kind)
+                    }
+                    expect(kinds).to(equal([.unknownType, .unknownType, .unknownType]))
+                }
+
                 // MARK: ---- removes expired records
                 it("removes expired records") {
                     let nowMs: Int64 = await fixture.dependencies.networkOffsetTimestampMs()
@@ -701,17 +855,35 @@ private class UnsupportedMessageTestFixture: FixtureBase {
         }
     }
 
-    func record(hash: String, expiresAtMs: Int64?) -> UnsupportedMessageRecord {
+    func stats() async throws -> (totalBytes: Int64, newerFormatCount: Int64, expectedBytes: Int64, rowCount: Int64) {
+        return try await mockStorage.read { db in
+            let row: Row? = try Row.fetchOne(db, sql: "SELECT total_bytes, newer_format_count FROM unsupported_message_stats WHERE id = 1")
+            let expected: Row? = try Row.fetchOne(db, sql: """
+                SELECT IFNULL(SUM(length(data) + 256), 0) AS bytes, COUNT(*) AS count FROM unsupported_message
+            """)
+            
+            return (row?["total_bytes"] ?? 0, row?["newer_format_count"] ?? 0, expected?["bytes"] ?? 0, expected?["count"] ?? 0)
+        }
+    }
+    
+    func record(
+        hash: String,
+        expiresAtMs: Int64? = nil,
+        kind: UnsupportedMessageRecord.Kind = .newerFormat,
+        swarmPublicKey: String? = nil,
+        namespace: Network.StorageServer.Namespace = .default,
+        data: Data? = nil
+    ) -> UnsupportedMessageRecord {
         return UnsupportedMessageRecord(
-            kind: .newerFormat,
-            swarmPublicKey: userSessionId.hexString,
-            namespace: Network.StorageServer.Namespace.default.rawValue,
+            kind: kind,
+            swarmPublicKey: (swarmPublicKey ?? userSessionId.hexString),
+            namespace: namespace.rawValue,
             hash: hash,
             sender: nil,
             sentTimestampMs: nil,
             serverTimestampMs: Int64(sentTimestampMs),
             serverExpiryMs: nil,
-            data: newerFormatData,
+            data: (data ?? newerFormatData),
             placeholderMessageId: nil,
             expiresAtMs: expiresAtMs,
             receivedAtMs: Int64(sentTimestampMs),

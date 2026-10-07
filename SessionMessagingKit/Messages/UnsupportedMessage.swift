@@ -123,6 +123,17 @@ public final class UnsupportedMessage: Message, NotProtoConvertible {
 // MARK: - Detection
 
 internal extension UnsupportedMessage {
+    /// How a protobuf field's value is encoded, taken from the low 3 bits of the field's key (the field number is the rest of the
+    /// key, so this is unrelated to which field it is)
+    private enum WireType: UInt64 {
+        case varint = 0
+        case fixed64 = 1
+        case lengthDelimited = 2
+        case startGroup = 3     /// Deprecated proto2 groups, which Session has never used
+        case endGroup = 4
+        case fixed32 = 5
+    }
+    
     /// Returns the field numbers of the top-level fields in a serialized protobuf message, or `nil` if the data isn't a well-formed
     /// protobuf message
     static func topLevelFieldNumbers(in data: Data) -> [Int]? {
@@ -154,10 +165,10 @@ internal extension UnsupportedMessage {
 
             guard fieldNumber > 0 && fieldNumber <= UInt64(Int32.max) else { return nil }
 
-            switch key & 0x7 {
-                case 0: guard readVarint() != nil else { return nil }
-                case 1: index += 8
-                case 2:
+            switch WireType(rawValue: key & 0x7) {
+                case .varint: guard readVarint() != nil else { return nil }
+                case .fixed64: index += 8
+                case .lengthDelimited:
                     guard
                         let length: UInt64 = readVarint(),
                         length <= UInt64(bytes.count - index)
@@ -165,8 +176,8 @@ internal extension UnsupportedMessage {
 
                     index += Int(length)
 
-                case 5: index += 4
-                default: return nil     /// Groups are deprecated and unused by Session, anything else is malformed
+                case .fixed32: index += 4
+                case .startGroup, .endGroup, .none: return nil
             }
 
             guard index <= bytes.count else { return nil }

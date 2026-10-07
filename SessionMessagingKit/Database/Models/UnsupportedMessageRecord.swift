@@ -12,8 +12,12 @@ import SessionUtilitiesKit
 public struct UnsupportedMessageRecord: Codable, Equatable, FetchableRecord, MutablePersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "unsupported_message" }
 
-    /// Upper bound on the total size of retained `data` across all rows
-    public static let maxRetainedDataBytes: Int64 = (256 * 1024 * 1024)
+    /// Upper bound on the total cost of retained rows, where each row costs `length(data) + 256` (the 256 is added by the
+    /// `unsupported_message_stats` triggers so that many tiny rows can't take far more space on disk than the budget allows)
+    public static let maxRetainedBytes: Int64 = (256 * 1024 * 1024)
+    
+    /// `newerFormat` rows can be deposited by anyone, so they are also capped by count
+    public static let maxNewerFormatCount: Int64 = 10_000
 
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -108,45 +112,55 @@ public extension UnsupportedMessageRecord {
         return "\(versionInfo.appVersion)-\(versionInfo.buildNumber)"
     }
 
-    /// Remove rows whose message has expired, then evict the oldest rows until the retained data fits within
-    /// `maxRetainedDataBytes`
+    /// Remove rows whose message has expired, then evict the oldest rows until both limits are met
     ///
     /// `newerFormat` rows are evicted before `unknownType` rows as anyone can deposit a message with the newer-format prefix
     /// into a one-to-one namespace, whereas an `unknownType` message came from an authenticated sender
+    ///
+    /// **Note:** This runs on every insert so it reads the trigger-maintained totals in `unsupported_message_stats` rather than
+    /// scanning the table
     static func enforceLimits(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         let nowMs: Int64 = dependencies.networkOffsetTimestampMs()
         
         try UnsupportedMessageRecord
             .filter(Columns.expiresAtMs <= nowMs)
             .deleteAll(db)
-
-        var totalBytes: Int64 = (try Int64.fetchOne(
+        
+        let newerFormatCount: Int64 = (try Int64.fetchOne(
             db,
-            sql: "SELECT IFNULL(SUM(length(\(Columns.data.name))), 0) FROM \(databaseTableName)"
+            sql: "SELECT newer_format_count FROM unsupported_message_stats WHERE id = 1"
         ) ?? 0)
-
-        guard totalBytes > maxRetainedDataBytes else { return }
-
-        let candidates: [Row] = try Row.fetchAll(
-            db,
-            sql: """
-                SELECT \(Columns.id.name), length(\(Columns.data.name)) AS size
-                FROM \(databaseTableName)
-                ORDER BY (\(Columns.kind.name) = ?) DESC, \(Columns.receivedAtMs.name) ASC
-            """,
-            arguments: [Kind.newerFormat.rawValue]
-        )
-        var idsToRemove: [Int64] = []
-
-        for row in candidates {
-            guard totalBytes > maxRetainedDataBytes else { break }
-
-            idsToRemove.append(row[Columns.id.name])
-            totalBytes -= row["size"]
+        
+        if newerFormatCount > maxNewerFormatCount {
+            try deleteOldest(db, kind: .newerFormat, count: (newerFormatCount - maxNewerFormatCount))
         }
-
+        
+        for kind in [Kind.newerFormat, Kind.unknownType] {
+            while try totalCostBytes(db) > maxRetainedBytes {
+                guard try deleteOldest(db, kind: kind, count: 100) > 0 else { break }
+            }
+        }
+    }
+    
+    private static func totalCostBytes(_ db: ObservingDatabase) throws -> Int64 {
+        return (try Int64.fetchOne(db, sql: "SELECT total_bytes FROM unsupported_message_stats WHERE id = 1") ?? 0)
+    }
+    
+    @discardableResult private static func deleteOldest(_ db: ObservingDatabase, kind: Kind, count: Int64) throws -> Int {
+        let ids: [Int64] = try UnsupportedMessageRecord
+            .select(.id)
+            .filter(Columns.kind == kind)
+            .order(Columns.id)
+            .limit(Int(count))
+            .asRequest(of: Int64.self)
+            .fetchAll(db)
+        
+        guard !ids.isEmpty else { return 0 }
+        
         try UnsupportedMessageRecord
-            .filter(idsToRemove.contains(Columns.id))
+            .filter(ids.contains(Columns.id))
             .deleteAll(db)
+        
+        return ids.count
     }
 }

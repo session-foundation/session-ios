@@ -44,34 +44,57 @@ public enum ReprocessUnsupportedMessagesJob: JobExecutor {
         }
         catch { Log.error(.cat, "Failed to enforce retained message limits due to error: \(error).") }
 
-        let recordIds: [Int64] = try await dependencies[singleton: .storage].read { db in
+        /// No legacy version can decrypt a `newerFormat` message, so mark them as attempted without ever loading their data
+        try await dependencies[singleton: .storage].write { db in
             try UnsupportedMessageRecord
-                .select(.id)
+                .filter(UnsupportedMessageRecord.Columns.kind == UnsupportedMessageRecord.Kind.newerFormat)
                 .filter(UnsupportedMessageRecord.Columns.lastAttemptVersion != currentVersion)
-                .asRequest(of: Int64.self)
-                .fetchAll(db)
+                .updateAll(db, UnsupportedMessageRecord.Columns.lastAttemptVersion.set(to: currentVersion))
         }
 
-        guard !recordIds.isEmpty else { return .success }
-
+        var attemptedCount: Int = 0
         var replacedCount: Int = 0
         var failedCount: Int = 0
+        var lastRecordId: Int64 = 0
 
-        for recordId in recordIds {
+        while true {
             try Task.checkCancellation()
 
-            let result: ReprocessResult = try await dependencies[singleton: .storage].write { db in
-                try reprocess(db, recordId: recordId, currentVersion: currentVersion, using: dependencies)
+            let recordIds: [Int64] = try await dependencies[singleton: .storage].read { [lastRecordId] db in
+                try UnsupportedMessageRecord
+                    .select(.id)
+                    .filter(UnsupportedMessageRecord.Columns.kind == UnsupportedMessageRecord.Kind.unknownType)
+                    .filter(UnsupportedMessageRecord.Columns.lastAttemptVersion != currentVersion)
+                    .filter(UnsupportedMessageRecord.Columns.id > lastRecordId)
+                    .order(UnsupportedMessageRecord.Columns.id)
+                    .limit(50)
+                    .asRequest(of: Int64.self)
+                    .fetchAll(db)
             }
 
-            switch result {
-                case .replaced: replacedCount += 1
-                case .failed: failedCount += 1
-                case .stillUnsupported, .missing: break
+            guard let pageLastRecordId: Int64 = recordIds.last else { break }
+
+            for recordId in recordIds {
+                try Task.checkCancellation()
+
+                let result: ReprocessResult = try await dependencies[singleton: .storage].write { db in
+                    try reprocess(db, recordId: recordId, currentVersion: currentVersion, using: dependencies)
+                }
+
+                switch result {
+                    case .replaced: replacedCount += 1
+                    case .failed: failedCount += 1
+                    case .stillUnsupported, .missing: break
+                }
             }
+
+            attemptedCount += recordIds.count
+            lastRecordId = pageLastRecordId
         }
 
-        Log.info(.cat, "Reprocessed \(recordIds.count) retained message(s): \(replacedCount) replaced, \(failedCount) failed.")
+        guard attemptedCount > 0 else { return .success }
+
+        Log.info(.cat, "Reprocessed \(attemptedCount) retained message(s): \(replacedCount) replaced, \(failedCount) failed.")
         return .success
     }
 
