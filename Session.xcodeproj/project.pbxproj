@@ -443,6 +443,7 @@
 		FD0150422CA2433D005B08A1 /* VersionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01503F2CA2433D005B08A1 /* VersionSpec.swift */; };
 		FD0150452CA243BB005B08A1 /* LibSessionUtilSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */; };
 		FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */; };
+		20C37E0112880A9BA14D603D /* LibSessionErasedGroupStubSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */; };
 		FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01504D2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift */; };
 		FD0150502CA24468005B08A1 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; platformFilter = ios; };
 		FD0150522CA2446D005B08A1 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD0150512CA2446D005B08A1 /* Quick */; };
@@ -2242,6 +2243,7 @@
 		FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeEncoderSpec.swift; sourceTree = "<group>"; };
 		FD01503F2CA2433D005B08A1 /* VersionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSpec.swift; sourceTree = "<group>"; };
 		FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionSpec.swift; sourceTree = "<group>"; };
+		A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionErasedGroupStubSpec.swift; sourceTree = "<group>"; };
 		FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionUtilSpec.swift; sourceTree = "<group>"; };
 		FD01504D2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeConversionUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD0150572CA27DEE005B08A1 /* ScrollableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollableLabel.swift; sourceTree = "<group>"; };
@@ -5558,6 +5560,7 @@
 			isa = PBXGroup;
 			children = (
 				FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */,
+				A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */,
 				FD481A8F2CAD16EA00ECC4CF /* LibSessionGroupInfoSpec.swift */,
 				FD481A912CAD17D900ECC4CF /* LibSessionGroupMembersSpec.swift */,
 				FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */,
@@ -8451,6 +8454,7 @@
 				FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */,
 				FDEF308B2F2971A70004C5BD /* MockFileManager.swift in Sources */,
 				FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */,
+				20C37E0112880A9BA14D603D /* LibSessionErasedGroupStubSpec.swift in Sources */,
 				FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */,
 				FD3765E32AD8F56200DC1489 /* Mocked+SNK.swift in Sources */,
 				FD83B9C527CF3E2A005E1583 /* OpenGroupSpec.swift in Sources */,
