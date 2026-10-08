@@ -150,6 +150,7 @@ public actor SessionProManager: SessionProManagerType {
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserCurrentProState: SessionPro.State { syncState.state }
+    nonisolated public var isSessionProEnabled: Bool { syncState.isSessionProEnabled }
     /// Whether this device may currently *use* Pro features - the **access** question, as distinct from `state.status`,
     /// which is the **display** question ("what state is the plan in", driving the settings row and the expiry CTAs).
     ///
@@ -159,6 +160,8 @@ public actor SessionProManager: SessionProManagerType {
     /// Derived from the proof and **recomputed on every read**, never snapshotted: a proof expires, and a revocation
     /// becomes effective, at an instant no cached copy of this answer would notice.
     nonisolated public var currentUserHasProAccess: Bool {
+        guard isSessionProEnabled else { return false }
+        
         /// The proof mock, never the status mock: a mocked run holds no real proof, so if this consulted
         /// `mockCurrentUserSessionProBackendStatus` then "the plan is Active" would grant access as a side effect and
         /// display-Active-without-access - the state the message-truncation bug lives in - could not be reached by a test
@@ -210,13 +213,26 @@ public actor SessionProManager: SessionProManagerType {
         self.syncState = SessionProManagerSyncState(using: dependencies)
 
         Task.detached(priority: .medium) { [weak self] in
+            /// Started whatever the flag says: it is what applies the mocks, holds the state at `.invalid` while Pro is off,
+            /// and refreshes it when Pro is switched on at runtime
             await self?.startProMockingObservations()
+
+            /// With Pro off only the work about other users starts: the revocation list their proofs are checked against,
+            /// and a re-render when those proofs lapse. Nothing about our own account runs. Enabling Pro at runtime
+            /// refreshes the state, but the rest of these tasks only start on the next launch.
+            guard dependencies[feature: .sessionProEnabled] else {
+                await self?.startRevocationListTask()
+                await self?.startProInvalidationRescheduleObservations(includingOwnProTasks: false)
+                await self?.scheduleNextProInvalidation()
+                await self?.hasCompletedInitialization.send(true)
+                return
+            }
 
             await self?.updateWithLatestFromUserConfig()
             await self?.startRevocationListTask()
             await self?.startAccessObservation()
             await self?.startStoreKitObservations()
-            await self?.startProInvalidationRescheduleObservations()
+            await self?.startProInvalidationRescheduleObservations(includingOwnProTasks: true)
             await self?.scheduleNextProInvalidation()
             
             /// **Note:** No gated status fetch here. It hangs off `didBecomeActive` instead - see
@@ -427,6 +443,8 @@ public actor SessionProManager: SessionProManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> ProCTAOutcome {
+        guard isSessionProEnabled else { return .suppressedProDisabled }
+        
         switch variant {
             /// The `groupLimit`, `animatedProfileImage`, and `expiring` CTA can be shown for Session Pro users as well
             ///
@@ -558,6 +576,10 @@ public actor SessionProManager: SessionProManagerType {
     // MARK: - State Management
     
     public func updateWithLatestFromUserConfig() async {
+        /// A proof or access expiry synced from another device is enough to project an active plan, so this is the gate
+        /// that keeps an account which is Pro elsewhere looking like a non-Pro one here
+        guard dependencies[feature: .sessionProEnabled] else { return }
+        
         await dependencies.untilInitialised(cache: .libSession)
         
         /// Get the cached pro state from libSession
@@ -1094,14 +1116,35 @@ public actor SessionProManager: SessionProManagerType {
         await reconcileProofRenewal()
     }
 
+    /// Whether config carries no sign this account has ever held Pro: no proof, no access expiry `E`, and no
+    /// profile features.
+    ///
+    /// `E` is the one doing the work. It outlives the proof of a lapsed subscription, so it is what separates a
+    /// returning subscriber from a first-time one, while the profile features cover a subscriber who has only
+    /// ever been Pro on another device.
+    ///
+    /// Reads live config, so it must be called inside the caller's `mutate(cache:)` and before that block writes
+    /// the proof or `E`.
+    internal static func hasNeverHeldPro(_ cache: LibSessionCacheType) -> Bool {
+        return (
+            cache.proConfig == nil &&
+            cache.proAccessExpiryTimestampSeconds == 0 &&
+            cache.profile.proFeatures == .none
+        )
+    }
+
     /// success: monotonic upgrade of the proof (replace iff it extends coverage) + `E` co-write, all inside
     /// one atomic mutation so the current-expiry read can't race the write.
     private func applyProofSuccess(
         _ response: Network.SessionPro.GenerateProProofResponse,
         rotatingKeyPair: KeyPair
     ) async {
-        try? await dependencies[singleton: .storage].write { [dependencies] db in
-            try dependencies.mutate(cache: .libSession) { cache in
+        /// Whether this is the account's first-ever proof, which the profile-feature write at the end needs.
+        let isFirstEverProof: Bool = ((try? await dependencies[singleton: .storage].write { [dependencies] db -> Bool in
+            try dependencies.mutate(cache: .libSession) { cache -> Bool in
+                /// Must be read before the writes below, two of which are values it asks about.
+                let neverHeldPro: Bool = SessionProManager.hasNeverHeldPro(cache)
+
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     let currentExpiry: UInt64 = (cache.proConfig?.proProof.expiryUnixTimestampSeconds ?? 0)
 
@@ -1136,8 +1179,10 @@ public actor SessionProManager: SessionProManagerType {
                         cache.updateProAutoRenewing(renewalInfo.autoRenewing)
                     }
                 }
+
+                return neverHeldPro
             }
-        }
+        }) ?? false)
 
         /// A proof response is a response, so it owns the display triple too.
         ///
@@ -1162,7 +1207,17 @@ public actor SessionProManager: SessionProManagerType {
         /// not carry `E`/`G`/`A` any more, which is why they are written explicitly above.
         await updateWithLatestFromUserConfig()
 
-        try? await Profile.updateLocal(proFeatures: syncState.state.profileFeatures, using: dependencies)
+        /// First-ever proof: turn the pro badge on. It is off by default because being visible as a subscriber is
+        /// the user's own choice, which is also why the condition is "has never held Pro" rather than "holds Pro
+        /// now" — the latter re-enables the badge at every renewal for a subscriber who turned it off, leaving
+        /// them no way to make it stick.
+        try? await Profile.updateLocal(
+            proFeatures: (isFirstEverProof ?
+                syncState.state.profileFeatures.inserting(.proBadge) :
+                syncState.state.profileFeatures
+            ),
+            using: dependencies
+        )
     }
 
     /// subscription_expired / not_subscribed clear — downgrade-guarded: apply only if there is no currently
@@ -1477,6 +1532,8 @@ public actor SessionProManager: SessionProManagerType {
     }
 
     public func refreshProState(immediate: Bool, forceLoadingState: Bool) async throws {
+        guard dependencies[feature: .sessionProEnabled] else { return }
+        
         /// No point refreshing the state if there is a refresh in progress
         ///
         /// Note: this is single-flight, not the floor — it stops concurrent fetches, not frequent ones, and
@@ -1915,7 +1972,7 @@ public actor SessionProManager: SessionProManagerType {
     ///
     /// **Pro status change:** a newly received proof can expire *earlier* than whatever we're currently waiting on, and if nothing
     /// is scheduled yet (no known pro contacts) there'd be no wake-up to correct it at all.
-    private func startProInvalidationRescheduleObservations() {
+    private func startProInvalidationRescheduleObservations(includingOwnProTasks: Bool) {
         appLifecycleObservingTask?.cancel()
         appLifecycleObservingTask = Task { [weak self, dependencies] in
             await withTaskGroup(of: Void.self) { group in
@@ -1934,6 +1991,8 @@ public actor SessionProManager: SessionProManagerType {
                             guard !Task.isCancelled else { return }
 
                             await self?.scheduleNextProInvalidation()
+
+                            guard includingOwnProTasks else { continue }
 
                             /// Returning to the foreground is also our robust proof-renewal trigger: re-run the
                             /// reconcile so a renewal target that elapsed while suspended is caught before the
@@ -2178,6 +2237,9 @@ public actor SessionProManager: SessionProManagerType {
     /// regardless of expiry — then refresh the account status so the server settles what the state now is.
     /// No-op when we hold no proof or it isn't revoked, so the refresh only happens on an actual revocation.
     private func clearOwnCredentialIfRevoked() async {
+        /// With Pro off this device leaves our own Pro config to the devices that have it on
+        guard dependencies[feature: .sessionProEnabled] else { return }
+        
         let nowSeconds: TimeInterval = await dependencies.networkOffsetDateNow().timeIntervalSince1970
 
         let ownProofRevocationTagHex: String? = dependencies.mutate(cache: .libSession) {
@@ -2244,6 +2306,7 @@ private final class SessionProManagerSyncState {
     private var _revocationList: [RevocationItem] = []
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
+    fileprivate var isSessionProEnabled: Bool { lock.withLock { _dependencies[feature: .sessionProEnabled] } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
     fileprivate var state: SessionPro.State { lock.withLock { _state } }
     fileprivate var revocationList: [RevocationItem] { lock.withLock { _revocationList } }
@@ -2385,6 +2448,11 @@ private extension SessionProManager {
             }
             .assign { [weak self] state in
                 Task.detached(priority: .userInitiated) {
+                    guard state.info.sessionProEnabled else {
+                        _ = await self?.mutateProState(rotatingKeyPair: .set(to: nil)) { _ in .invalid }
+                        return
+                    }
+                    
                     /// If we need a state refresh then start a new task to do so (we don't want the mocking to be dependant on the
                     /// result of the refresh so don't wait for it to complete before doing any mock changes)
                     if state.needsRefresh {

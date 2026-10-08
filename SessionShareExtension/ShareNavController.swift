@@ -94,7 +94,16 @@ final class ShareNavController: UINavigationController {
                     self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                 }
             }
-            catch { Log.error("Failed to complete migrations") }
+            catch {
+                Log.error("Failed to complete migrations: \(error)")
+                
+                /// The extension has custom UI for a startup which didn't complete, and showing it beats leaving the
+                /// share sheet blank. This is reachable for a database which is merely unreadable at the moment, not
+                /// only for one which is permanently broken
+                await MainActor.run { [weak self] in
+                    self?.checkIsAppReady(migrationsCompleted: false, userMetadata: nil)
+                }
+            }
         }
 
         // We don't need to use "screen protection" in the SAE.
@@ -166,12 +175,11 @@ final class ShareNavController: UINavigationController {
     deinit {
         processPendingAttachmentsTask?.cancel()
         NotificationCenter.default.removeObserver(self)
-        Log.flush()
 
         // Share extensions reside in a process that may be reused between usages.
         // That isn't safe; the codebase is full of statics (e.g. singletons) which
         // we can't easily clean up.
-        exit(0)
+        Log.flushAndTerminate()
     }
     
     // MARK: - Updating

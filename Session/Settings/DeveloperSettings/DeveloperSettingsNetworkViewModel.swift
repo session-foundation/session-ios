@@ -323,8 +323,6 @@ class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType,
                             description: .htmlTagged("""
                             The routing method which should be used when making network requests.
 
-                            The Session Router option does not work with Devnet.
-
                             <b>Current:</b> <span>\(state.pendingState.router.title)</span>
                             """),
                             trailingAccessory: .icon(.squarePen)
@@ -1400,7 +1398,7 @@ class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType,
             try? await dependencies[singleton: .storage].write { [dependencies] db in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 
-                _ = try SnodeReceivedMessageInfo.deleteAll(db)
+                try SnodeReceivedMessageInfo.deleteAllCursors(db, using: dependencies)
                 _ = try SessionThread.deleteAll(db)
                 _ = try MessageDeduplication.deleteAll(db)
                 _ = try ClosedGroup.deleteAll(db)
@@ -1445,7 +1443,8 @@ class DeveloperSettingsNetworkViewModel: SessionListScreenContent.ViewModelType,
                     .defaulting(to: "Anonymous"),
                 using: dependencies
             )
-            await updatedOnboarding?.completeRegistration()
+            do { try await updatedOnboarding?.completeRegistration() }
+            catch { Log.error("[DevSettings] Unable to complete registration: \(error)") }
         }
         
         /// Re-enable developer mode

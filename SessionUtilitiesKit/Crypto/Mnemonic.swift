@@ -35,30 +35,54 @@ public enum Mnemonic {
         private static var wordSetCache: [Language: [String]] = [:]
         private static var truncatedWordSetCache: [Language: [String]] = [:]
         
-        private init(filename: String, prefixLength: Int) {
+        /// Internal rather than private so tests can construct a language whose word set is absent from the
+        /// bundle — that failure is otherwise unreachable, and it is the one this type must not trap on
+        init(filename: String, prefixLength: Int) {
             self.filename = filename
             self.prefixLength = prefixLength
         }
         
-        fileprivate func loadWordSet() -> [String] {
+        fileprivate func loadWordSet() throws -> [String] {
             if let cachedResult = Language.wordSetCache[self] {
                 return cachedResult
             }
             
-            let url = Bundle.main.url(forResource: filename, withExtension: "txt")!
-            let contents = try! String(contentsOf: url)
-            let result = contents.split(separator: ",").map { String($0) }
-            Language.wordSetCache[self] = result
-            
-            return result
+            do {
+                guard let url: URL = Bundle.main.url(forResource: filename, withExtension: "txt") else {
+                    throw WordSetError.resourceMissing(filename)
+                }
+                
+                let contents: String
+                
+                /// The word lists are all UTF-8, and stating that keeps the thrown error specific to the fault —
+                /// the detection step reports anything it cannot decode as one unknown-encoding error whatever
+                /// the cause
+                do { contents = try String(contentsOf: url, encoding: .utf8) }
+                catch { throw WordSetError.unreadable(filename, error) }
+                
+                let result: [String] = contents.split(separator: ",").map { String($0) }
+                
+                /// `encode` and `decode` both use the word count as a modulus, so an empty set divides by zero
+                guard !result.isEmpty else { throw WordSetError.malformed(filename) }
+                
+                Language.wordSetCache[self] = result
+                
+                return result
+            }
+            catch {
+                /// There is no telemetry, so this log is the only field signal for a failure the callers are
+                /// deliberately silent about
+                Log.critical(.crypto, "\(error)")
+                throw error
+            }
         }
         
-        fileprivate func loadTruncatedWordSet() -> [String] {
+        fileprivate func loadTruncatedWordSet() throws -> [String] {
             if let cachedResult = Language.truncatedWordSetCache[self] {
                 return cachedResult
             }
             
-            let result = loadWordSet().map { String($0.prefix(prefixLength)) }
+            let result = try loadWordSet().map { String($0.prefix(prefixLength)) }
             Language.truncatedWordSetCache[self] = result
             
             return result
@@ -69,13 +93,37 @@ public enum Mnemonic {
         case generic, inputTooShort, invalidWord, verificationFailed
     }
     
-    public static func hash(hexEncodedString string: String, language: Language = .english) -> String {
-        return encode(hexEncodedString: string).split(separator: " ")[0..<3].joined(separator: " ")
+    /// Distinguishing these three matters: the word set is a file shipped inside the app bundle, so each case
+    /// points at a different fault (target membership, storage or install integrity, and a truncated file), and
+    /// only the error itself can tell them apart after the fact
+    public enum WordSetError: Error, CustomStringConvertible {
+        case resourceMissing(String)
+        case unreadable(String, Swift.Error)
+        case malformed(String)
+        
+        public var description: String {
+            switch self {
+                case .resourceMissing(let filename):
+                    return "Mnemonic word set '\(filename).txt' is not present in the bundle."
+                    
+                case .unreadable(let filename, let error):
+                    return "Mnemonic word set '\(filename).txt' could not be read: \(error)."
+                    
+                case .malformed(let filename):
+                    return "Mnemonic word set '\(filename).txt' contains no words."
+            }
+        }
     }
     
-    public static func encode(hexEncodedString string: String, language: Language = .english) -> String {
+    public static func hash(hexEncodedString string: String, language: Language = .english) throws -> String {
+        return try encode(hexEncodedString: string, language: language)
+            .split(separator: " ")[0..<3]
+            .joined(separator: " ")
+    }
+    
+    public static func encode(hexEncodedString string: String, language: Language = .english) throws -> String {
         var string = string
-        let wordSet = language.loadWordSet()
+        let wordSet = try language.loadWordSet()
         let prefixLength = language.prefixLength
         var result: [String] = []
         let n = wordSet.count
@@ -111,7 +159,7 @@ public enum Mnemonic {
         var words: [String] = mnemonic
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
-        let truncatedWordSet: [String] = language.loadTruncatedWordSet()
+        let truncatedWordSet: [String] = try language.loadTruncatedWordSet()
         let prefixLength: Int = language.prefixLength
         var result = ""
         let n = truncatedWordSet.count

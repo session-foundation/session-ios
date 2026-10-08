@@ -52,7 +52,8 @@ public enum SNMessagingKit {
         _050_AddEmptyPollTrackingForGroups.self,
         _051_AddUniqueJobConstraintBack.self,
         _052_RecoverBrokenCommunityAttachments.self,
-        _053_RenameProColumnsForWireFormat.self
+        _053_RenameProColumnsForWireFormat.self,
+        _054_AddUnsupportedMessageTable.self
     ]
     
     public static func configureJobRunner(using dependencies: Dependencies) async {
@@ -64,6 +65,7 @@ public enum SNMessagingKit {
             .reuploadUserDisplayPicture: ReuploadUserDisplayPictureJob.self,
             .retrieveDefaultOpenGroupRooms: RetrieveDefaultOpenGroupRoomsJob.self,
             .garbageCollection: GarbageCollectionJob.self,
+            .reprocessUnsupportedMessages: ReprocessUnsupportedMessagesJob.self,
             .messageSend: MessageSendJob.self,
             .messageReceive: MessageReceiveJob.self,
             .sendReadReceipts: SendReadReceiptsJob.self,
@@ -98,6 +100,7 @@ public enum SNMessagingKit {
                 JobRunner.StartupJobInfo(variant: .reuploadUserDisplayPicture, block: false),
                 JobRunner.StartupJobInfo(variant: .retrieveDefaultOpenGroupRooms, block: false),
                 JobRunner.StartupJobInfo(variant: .garbageCollection, block: false),
+                JobRunner.StartupJobInfo(variant: .reprocessUnsupportedMessages, block: false),
                 JobRunner.StartupJobInfo(variant: .failedGroupInvitesAndPromotions, block: true),
                 JobRunner.StartupJobInfo(variant: .syncPushTokens, block: false),
                 JobRunner.StartupJobInfo(variant: .checkForAppUpdates, block: false)

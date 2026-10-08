@@ -777,7 +777,12 @@ extension ConversationVC:
         // If we have no content then do nothing
         guard !processedText.isEmpty || !attachments.isEmpty else { return }
 
-        if processedText.contains(mnemonic) && !viewModel.state.threadInfo.isNoteToSelf && !hasPermissionToSendSeed {
+        if
+            let mnemonic: String = mnemonic,
+            processedText.contains(mnemonic),
+            !viewModel.state.threadInfo.isNoteToSelf,
+            !hasPermissionToSendSeed
+        {
             // Warn the user if they're about to send their seed to someone
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -2942,8 +2947,10 @@ extension ConversationVC:
             return cancelVoiceMessageRecording()
         }
         
-        // Limit voice messages to a minute
-        audioTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: false, block: { [weak self] _ in
+        // Capped so the attachment stays inside the 10MB upload limit (Network.maxFileSize), which is
+        // enforced against the encrypted size. At the AAC settings above - 44.1kHz stereo, 128kbps, so
+        // 16KB/s - 300s is ~4.9MB, leaving room for the padding applied before encryption
+        audioTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: false, block: { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
                 self?.snInputView.hideVoiceMessageUI()
                 self?.endVoiceMessageRecording()

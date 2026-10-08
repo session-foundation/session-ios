@@ -343,8 +343,21 @@ internal extension LibSessionCacheType {
             .fetchAll(db, ids: existingGroupSessionIds))
             .defaulting(to: [])
             .reduce(into: [:]) { result, next in result[next.id] = next }
-        
-        try extractedUserGroups.groups.forEach { group in
+
+        /// Finish the erase the merge undid: a stub must never become a group (it would show as "Unknown Group"), and leaving
+        /// it out of `groups` removes any thread we still have for it below
+        let erasedGroupStubs: [LibSession.GroupInfo] = extractedUserGroups.groups.filter { $0.isErasedGroupStub }
+        let groups: [LibSession.GroupInfo] = extractedUserGroups.groups.filter { !$0.isErasedGroupStub }
+
+        try erasedGroupStubs.forEach { group in
+            Log.warn(.libSession, "Erasing a group the merge recreated after another device erased it")
+            var cGroupId: [CChar] = try group.groupSessionId.cString(using: .utf8) ?? {
+                throw LibSessionError.invalidCConversion
+            }()
+            user_groups_erase_group(conf, &cGroupId)
+        }
+
+        try groups.forEach { group in
             switch (existingGroups[group.groupSessionId], existingGroupSessionIds.contains(group.groupSessionId)) {
                 case (.none, _), (_, false):
                     // Add a new group if it doesn't already exist
@@ -436,7 +449,7 @@ internal extension LibSessionCacheType {
         
         // Remove any groups which are no longer in the config
         let groupSessionIdsToRemove: Set<String> = existingGroupSessionIds
-            .subtracting(extractedUserGroups.groups.map { $0.groupSessionId })
+            .subtracting(groups.map { $0.groupSessionId })
         
         if !groupSessionIdsToRemove.isEmpty {
             LibSession.kickFromConversationUIIfNeeded(removedThreadIds: Array(groupSessionIdsToRemove), using: dependencies)
@@ -1254,8 +1267,24 @@ public extension LibSession {
         let invited: Bool
         let wasKickedFromGroup: Bool
         let wasGroupDestroyed: Bool
+
+        /// Whether this entry is what a config merge leaves of a group another of our devices erased, rather than a group we
+        /// are (or were) in
+        ///
+        /// libsession applies each device's diff in turn, so when one device erases a group while another changes one of its
+        /// fields (marking it destroyed after seeing the group's info, say), the merge recreates the erased entry holding only
+        /// the changed fields: no name and no keys. Every client keeps the name on its kicked and destroyed entries
+        /// (libsession's `mark_kicked`/`mark_destroyed` clear only the keys), so a removed entry without one can only be this.
+        /// libsession's header describes the name as invite-only, though: if any client starts clearing it after joining, this
+        /// rule has to change. The other clients apply the same rule; keep them in step.
+        var isErasedGroupStub: Bool {
+            (wasKickedFromGroup || wasGroupDestroyed) &&
+            name.isEmpty &&
+            groupIdentityPrivateKey == nil &&
+            authData == nil
+        }
     }
-    
+
     struct GroupUpdateInfo {
         let groupSessionId: String
         let groupIdentityPrivateKey: Data?

@@ -314,7 +314,10 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         /// tapping its stack opens the `longerMessages` CTA - so it follows the plan, not the entitlement. Read on
         /// ACCESS it would offer Pro to someone whose plan is active but whose proof has not arrived yet, four pixels
         /// from a modal that (correctly) declines to make that same offer
-        result.isHidden = (sessionProManager?.currentUserProPlanIsActive == true)
+        result.isHidden = (
+            sessionProManager?.isSessionProEnabled != true ||
+            sessionProManager?.currentUserProPlanIsActive == true
+        )
         /// Replaces the generic identifier the badge carries by default, so a test aimed at this one cannot match the
         /// home screen's badge instead - see `SessionProBadge.AccessibilityIdentifier.composer`
         result.accessibilityIdentifier = SessionProBadge.AccessibilityIdentifier.composer
@@ -390,7 +393,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
             
             for await planIsActive in sessionProManager.currentUserProPlanIsActiveStream {
                 await MainActor.run { [weak self] in
-                    self?.sessionProBadge.isHidden = planIsActive
+                    self?.sessionProBadge.isHidden = (!sessionProManager.isSessionProEnabled || planIsActive)
                 }
             }
         }

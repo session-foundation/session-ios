@@ -420,12 +420,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         switch error {
             // Every branch offers 'Clear Data', which is added unconditionally above - what differs is whether
             // 'Clear Data & Restore' is offered in addition. Withheld here because a restore replays migrations
-            // against a fresh database, which does not address a database that is locked or that failed to start
-            // for a reason we could not identify
+            // against a fresh database, which does not address a database that is locked, that was suspended, or
+            // that failed to start for a reason we could not identify. A suspension in particular leaves the data
+            // intact and is usually cleared by relaunching, so a restore would destroy an account that is fine
             //
             // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: the data is unreachable, so
             // restoring is the only thing that recovers the account, and it must keep falling through below
-            case .databaseError(StorageError.startupFailed), .databaseError(DatabaseError.SQLITE_LOCKED): break
+            case .databaseError(StorageError.startupFailed),
+                .databaseError(StorageError.databaseSuspended),
+                .databaseError(DatabaseError.SQLITE_LOCKED):
+                break
 
             // Offer the 'Restore' option if it was a migration error
             case .databaseError:
@@ -490,8 +494,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
-            Log.flush()
-            exit(0)
+            Log.flushAndTerminate()
         })
         
         Log.info(.cat, "Showing startup alert due to error: \(error.description)")
@@ -533,8 +536,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UNUserNotificationCenter.current().add(notificationRequest, withCompletionHandler: nil)
         UIApplication.shared.applicationIconBadgeNumber = 1
         
-        Log.flush()
-        exit(0)
+        Log.flushAndTerminate()
     }
 
     public func handleActivation() {

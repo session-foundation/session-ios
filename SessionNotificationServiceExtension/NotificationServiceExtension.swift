@@ -654,6 +654,19 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             case is VisibleMessage: break
             
+            /// An unknown type from someone else gets a placeholder (and so a notification) only in an existing, visible conversation,
+            /// anything else (including a newer-format message, which can't be attributed to anyone) is just saved for the main app
+            case let unsupportedMessage as UnsupportedMessage
+                where unsupportedMessage.placement == .incoming && dependencies.mutate(cache: .libSession, { cache in
+                    cache.conversationInConfig(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        visibleOnly: true,
+                        openGroupUrlInfo: nil
+                    ) == true
+                }):
+                break
+            
             /// For any other message we don't have any custom handling (and don't want to show a notification) so just save these
             /// messages to disk to be processed on next launch (letting the main app do any error handling) and just complete silently
             default:
@@ -1218,6 +1231,18 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
     }
     
+    /// The fallback paths construct their own `UNMutableNotificationContent` rather than going through
+    /// `NotificationContent.toMutableContent(shouldPlaySound:)`, so nothing else attaches the user's sound to them -
+    /// any path which builds content by hand must call this or its notification is delivered silently
+    private func applyNotificationSound(
+        to content: UNMutableNotificationContent,
+        notificationSettings: Preferences.NotificationSettings
+    ) {
+        /// `didReceive` aborts when the main app is active, so the extension only ever presents notifications on behalf
+        /// of a backgrounded app - the "quiet" variants exist for the in-app case and never apply here
+        content.sound = notificationSettings.sound.notificationSound(isQuiet: false)
+    }
+    
     private func handleFailureForVoIP(
         _ notification: ProcessedNotification,
         threadVariant: SessionThread.Variant,
@@ -1232,6 +1257,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let content: UNMutableNotificationContent = UNMutableNotificationContent()
         content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
         content.title = Constants.app_name
+        applyNotificationSound(
+            to: content,
+            notificationSettings: dependencies[singleton: .notificationsManager].settings(
+                threadId: notification.threadId,
+                threadVariant: threadVariant
+            )
+        )
         content.body = callMessage.sender
             .map { sender in displayNameRetriever(sender, false) }
             .map { senderDisplayName in
@@ -1311,6 +1343,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// **Note:** All `1-to-1` notifications will have the current users session id for the `accountId` value so only attach
         /// the `accountId` as the `threadId` for group notifications (for which it'll _actually_ be the group id)
         info.content.title = Constants.app_name
+        applyNotificationSound(to: info.content, notificationSettings: notificationSettings)
         info.content.userInfo = {
             switch (info.metadata, threadId, try? SessionId.Prefix(from: info.metadata.accountId)) {
                 case (_, .some(let threadId), _):

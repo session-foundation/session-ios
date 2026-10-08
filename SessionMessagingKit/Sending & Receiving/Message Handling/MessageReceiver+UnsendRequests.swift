@@ -31,6 +31,16 @@ extension MessageReceiver {
             decodedMessage.sender.hexString == message.author ||
             userSessionId.hexString == decodedMessage.sender.hexString
         else { return }
+        
+        /// A retained unsupported message without a placeholder can't be found through its interaction, and replaying it later would
+        /// restore a message its sender deleted
+        if let author: String = message.author, let timestampMs: UInt64 = message.timestamp {
+            try UnsupportedMessageRecord
+                .filter(UnsupportedMessageRecord.Columns.sender == author)
+                .filter(UnsupportedMessageRecord.Columns.sentTimestampMs == Int64(timestampMs))
+                .deleteAll(db)
+        }
+        
         guard
             let author: String = message.author,
             let timestampMs: UInt64 = message.timestamp,

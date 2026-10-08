@@ -72,7 +72,7 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** `"onionRequests"`/`"sessionRouter"`/`"direct"` (default: `"onionRequests"`)
             ///
-            /// **Note:** `direct` is not currently supported, so `onionRequests` will also be used in that case.
+            /// **Note:** `sessionRouter` and `direct` are not currently supported, so `onionRequests` will also be used in those cases.
             case router
             
             /// Controls whether the app communicates with mainnet or testnet by default
@@ -152,6 +152,13 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** Seconds since epoch
             case customFirstInstallDateTime
+            
+            /// Controls whether Session Pro should be enabled
+            ///
+            /// **Value:** `true`/`false` (default: `false`)
+            ///
+            /// **Note:** This is the master gate - the `mockCurrentUser…` values below are only reflected in the UI when this is `true`
+            case sessionPro
             
             /// Controls the url which is used for the Session Pro backend
             ///
@@ -330,8 +337,7 @@ extension DeveloperSettingsViewModel {
                     
                     switch value {
                         case "onionRequests": router = .onionRequests
-                        case "sessionRouter": router = .sessionRouter
-                        case "direct":
+                        case "sessionRouter", "direct":
                             router = .onionRequests
                             Log.warn("Invalid router option '\(value)' provided, falling back to onion requests")
                             
@@ -500,6 +506,9 @@ extension DeveloperSettingsViewModel {
                     }
                     
                     dependencies.set(feature: .customFirstInstallDateTime, to: value)
+                    
+                case .sessionPro:
+                    dependencies.set(feature: .sessionProEnabled, to: (value == "true"))
                     
                 case .mockCurrentUserSessionProBackendStatus:
                     guard

@@ -49,6 +49,7 @@ local boot_simulator(device_type="") = {
 };
 local sim_keepalive = {
   name: '(Simulator keep-alive)',
+  detach: true,
   commands: [
     '/Users/$USER/sim-keepalive/keepalive.sh $(<./build/artifacts/sim_uuid)',
   ],

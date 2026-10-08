@@ -17,7 +17,7 @@ final class DeletedMessageView: UIView {
     
     init(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
         super.init(frame: CGRect.zero)
-        accessibilityIdentifier = "Deleted message"
+        accessibilityIdentifier = (variant.isUnsupportedMessage ? "Unsupported message" : "Deleted message")
         isAccessibilityElement = true
         setUpViewHierarchy(textColor: textColor, variant: variant, maxWidth: maxWidth)
     }
@@ -31,10 +31,12 @@ final class DeletedMessageView: UIView {
     }
     
     private func setUpViewHierarchy(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
-        let trashIcon = Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?
-            .withRenderingMode(.alwaysTemplate)
+        let icon = Lucide.image(
+            icon: (variant.isUnsupportedMessage ? .circleAlert : .trash2),
+            size: DeletedMessageView.iconSize
+        )?.withRenderingMode(.alwaysTemplate)
         
-        let imageView = UIImageView(image: trashIcon)
+        let imageView = UIImageView(image: icon)
         imageView.themeTintColor = textColor
         imageView.alpha = Values.highOpacity
         imageView.contentMode = .scaleAspectFit
@@ -56,13 +58,16 @@ final class DeletedMessageView: UIView {
                 case .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
                     return "deleteMessageDeletedLocally".localized()
                 
+                case .standardIncomingUnsupported, .standardOutgoingUnsupported:
+                    return UnsupportedMessage.placeholderText
+                
                 default: return "deleteMessageDeletedGlobally".localized()
             }
         }()
         titleLabel.themeTextColor = textColor
         titleLabel.alpha = Values.highOpacity
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.numberOfLines = 2
+        titleLabel.numberOfLines = (variant.isUnsupportedMessage ? 0 : 2)
         titleLabel.setContentHugging(.vertical, to: .required)
         titleLabel.setCompressionResistance(.vertical, to: .required)
         

@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/libsession-util-spm",
       "state" : {
-        "revision" : "502e09e465d0144ff8e7810a69aaf45b69947af2",
-        "version" : "1.9.1"
+        "revision" : "1743d909e49a6a9f0bbc18c39b0934df61dd9db2",
+        "version" : "1.9.4"
       }
     },
     {
@@ -141,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/session-lucide.git",
       "state" : {
-        "revision" : "43efda6bc6f116ac620810e8955796be6c4c0e1d",
-        "version" : "0.473.2"
+        "revision" : "4961b37339b0ae201ba27269936f33a5777ca68e",
+        "version" : "0.473.4"
       }
     },
     {

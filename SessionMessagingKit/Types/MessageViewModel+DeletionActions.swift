@@ -133,6 +133,7 @@ public extension MessageViewModel.DeletionBehaviours {
             guard
                 !cellViewModels.contains(where: { $0.variant.isDeletedMessage }) &&
                 !cellViewModels.contains(where: { $0.variant.isInfoMessage }) &&
+                !cellViewModels.contains(where: { $0.variant.isUnsupportedMessage }) &&
                 !cellViewModels.contains(where: { $0.state == .sending || $0.state == .failed })
             else { return .containsLocalOnlyMessages }
             

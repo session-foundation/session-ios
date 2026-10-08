@@ -264,6 +264,20 @@ public enum Log {
         DDLog.flushLog()
     }
     
+    /// Flushes the logs and then terminates the process immediately, every deliberate termination should go through this
+    /// rather than calling `exit` directly
+    ///
+    /// **Note:** This **must** use `_exit` rather than `exit`. `exit` runs C++ static destructors and `atexit` handlers
+    /// (SQLCipher's shutdown, libSession's logger registry) while GRDB and libSession threads are still running, and those
+    /// threads then crash on the freed state - and a database write which is in flight when SQLCipher shuts down can corrupt
+    /// the database. Nothing we depend on persists anything from those handlers (the database is in WAL mode so committed
+    /// transactions are already durable) so skipping them is safe, while an orderly shutdown before calling `exit` can't
+    /// guarantee every thread has stopped
+    public static func flushAndTerminate() -> Never {
+        flush()
+        _exit(0)
+    }
+    
     public static func reset() {
         Log.logger.set(nil)
     }

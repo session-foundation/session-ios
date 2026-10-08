@@ -317,14 +317,12 @@ extension MessageReceiver {
         // admins get historic message access by default (if we don't do this then restoring a device
         // would get all of the old messages and result in a conversation history that differs from
         // devices that had the group before they were promoted
-        try SnodeReceivedMessageInfo
-            .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.StorageServer.Namespace.groupMessages.rawValue)
-            .updateAllAndConfig(
-                db,
-                SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
-                using: dependencies
-            )
+        try SnodeReceivedMessageInfo.invalidateCursor(
+            db,
+            swarmPublicKey: groupSessionId.hexString,
+            namespace: .groupMessages,
+            using: dependencies
+        )
         
         return insertedInteractionInfo
     }
