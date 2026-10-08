@@ -50,6 +50,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     private lazy var bannersStackView: UIStackView = {
         let result: UIStackView = UIStackView(arrangedSubviews: [
+            unsupportedMessageBanner,
             versionSupportBanner,
             seedReminderView
         ])
@@ -87,6 +88,31 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         result.isHidden = !self.viewModel.state.showVersionSupportBanner
         return result
     }()
+    
+    lazy var unsupportedMessageBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(info: unsupportedMessageBannerInfo(self.viewModel.state.unsupportedMessageBanner))
+        result.isHidden = (self.viewModel.state.unsupportedMessageBanner == .hidden)
+        
+        return result
+    }()
+    
+    private func unsupportedMessageBannerInfo(_ state: UnsupportedMessageBanner.State) -> InfoBanner.Info {
+        return InfoBanner.Info(
+            font: .systemFont(ofSize: Values.verySmallFontSize),
+            message: ThemedAttributedString(string: (state.text ?? "")),
+            icon: .close,
+            tintColor: .messageBubble_outgoingText,
+            backgroundColor: .primary,
+            labelAccessibility: Accessibility(identifier: "Unsupported messages banner"),
+            onTap: { [dependencies = viewModel.dependencies] in
+                Task(priority: .userInitiated) {
+                    try? await dependencies[singleton: .storage].write { db in
+                        UnsupportedMessageBanner.dismiss(db, using: dependencies)
+                    }
+                }
+            }
+        )
+    }
     
     private lazy var loadingConversationsLabel: UILabel = {
         let result: UILabel = UILabel()
@@ -446,6 +472,8 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         // Update the 'view seed' UI
         seedReminderView.isHidden = !state.showViewedSeedBanner
         versionSupportBanner.isHidden = !state.showVersionSupportBanner
+        unsupportedMessageBanner.update(with: unsupportedMessageBannerInfo(state.unsupportedMessageBanner))
+        unsupportedMessageBanner.isHidden = (state.unsupportedMessageBanner == .hidden)
         
         // Update the overall view state (loading, empty, or loaded)
         switch state.viewState {

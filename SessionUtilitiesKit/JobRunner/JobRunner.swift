@@ -197,7 +197,10 @@ public actor JobRunner: JobRunnerType {
                 isTestingJobRunner: isTestingJobRunner,
                 jobVariants: [
                     jobVariants.remove(.messageReceive),
-                    jobVariants.remove(.configMessageReceive)
+                    jobVariants.remove(.configMessageReceive),
+                    
+                    /// Replays retained messages through the normal receive path so needs the same ordering guarantees
+                    jobVariants.remove(.reprocessUnsupportedMessages)
                 ].compactMap { $0 },
                 using: dependencies
             ),

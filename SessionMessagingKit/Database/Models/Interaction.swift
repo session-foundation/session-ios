@@ -68,6 +68,10 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         case standardOutgoingDeleted
         case standardOutgoingDeletedLocally
         
+        // Placeholders for a message type this client can't display
+        case standardIncomingUnsupported = 100
+        case standardOutgoingUnsupported
+        
         // Info Message Types (spacing the values out to make it easier to extend)
         case infoLegacyGroupCreated = 1000
         case infoLegacyGroupUpdated
@@ -1095,6 +1099,8 @@ public extension Interaction {
             case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardIncomingDeletedLocally,
                 .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                 return ""
+            
+            case .standardIncomingUnsupported, .standardOutgoingUnsupported: return UnsupportedMessage.placeholderText
                 
             case .standardIncoming, .standardOutgoing:
                 let attachmentDescription: String? = Attachment.description(
@@ -1187,14 +1193,20 @@ public extension Interaction.Variant {
     
     var isOutgoing: Bool {
         switch self {
-            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally: return true
+            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally,
+                .standardOutgoingUnsupported:
+                return true
+            
             default: return false
         }
     }
     
     var isIncoming: Bool {
         switch self {
-            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally: return true
+            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                .standardIncomingUnsupported:
+                return true
+            
             default: return false
         }
     }
@@ -1210,7 +1222,8 @@ public extension Interaction.Variant {
                 
             case .standardIncoming, .standardOutgoing, ._legacyStandardIncomingDeleted,
                 .standardIncomingDeleted, .standardIncomingDeletedLocally,
-                .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+                .standardOutgoingDeleted, .standardOutgoingDeletedLocally,
+                .standardIncomingUnsupported, .standardOutgoingUnsupported:
                 return false
         }
     }
@@ -1221,6 +1234,13 @@ public extension Interaction.Variant {
                 .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
                 return true
                 
+            default: return false
+        }
+    }
+    
+    var isUnsupportedMessage: Bool {
+        switch self {
+            case .standardIncomingUnsupported, .standardOutgoingUnsupported: return true
             default: return false
         }
     }
@@ -1248,6 +1268,7 @@ public extension Interaction.Variant {
     var shouldShowConversationSnippet: Bool {
         switch self {
             case .standardIncoming, .standardOutgoing,
+                .standardIncomingUnsupported, .standardOutgoingUnsupported,
                 .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
                 .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
                 .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
@@ -1266,6 +1287,7 @@ public extension Interaction.Variant {
         switch self {
             case .standardIncoming: return .sent
             case .standardOutgoing: return .sending
+            case .standardIncomingUnsupported, .standardOutgoingUnsupported: return .sent
                 
             case ._legacyStandardIncomingDeleted, .standardIncomingDeleted,
                 .standardIncomingDeletedLocally, .standardOutgoingDeleted,
@@ -1285,7 +1307,7 @@ public extension Interaction.Variant {
     /// or won't affect the unread count)
     var canBeUnread: Bool {
         switch self {
-            case .standardIncoming: return true
+            case .standardIncoming, .standardIncomingUnsupported: return true
             case .infoCall: return true
 
             case .infoDisappearingMessagesUpdate, .infoScreenshotNotification,
@@ -1296,7 +1318,8 @@ public extension Interaction.Variant {
                 return true
             
             case .standardOutgoing, ._legacyStandardIncomingDeleted, .standardIncomingDeleted,
-                .standardIncomingDeletedLocally, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+                .standardIncomingDeletedLocally, .standardOutgoingDeleted, .standardOutgoingDeletedLocally,
+                .standardOutgoingUnsupported:
                 return false
             
             case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
@@ -1472,7 +1495,13 @@ public extension Interaction {
         reactionInfo.forEach { info in
             db.addReactionEvent(id: info.first, messageId: info.second, change: .removed(info.third))
         }
-        
+
+        /// Deleted messages are generally converted to a "deleted" variant rather than removed, so the foreign key cascade won't
+        /// remove any retained unsupported message data
+        _ = try UnsupportedMessageRecord
+            .filter(interactionIds.contains(UnsupportedMessageRecord.Columns.placeholderMessageId))
+            .deleteAll(db)
+
         /// Flag the `SnodeReceivedMessageInfo` records as invalid (otherwise we might try to poll for a hash which no longer
         /// exists, resulting in fetching the last 14 days of messages)
         let serverHashes: Set<String> = interactionInfo.compactMap(\.serverHash).asSet()
@@ -1508,11 +1537,14 @@ public extension Interaction {
             .forEach { variant, info in
                 let targetVariant: Interaction.Variant = {
                     switch (variant, localOnly) {
-                        case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, true):
+                        case (.standardOutgoing, true), (.standardOutgoingDeletedLocally, true),
+                            (.standardOutgoingUnsupported, true):
                             return .standardOutgoingDeletedLocally
-                        case (.standardOutgoing, false), (.standardOutgoingDeletedLocally, false), (.standardOutgoingDeleted, _):
+                        case (.standardOutgoing, false), (.standardOutgoingDeletedLocally, false), (.standardOutgoingDeleted, _),
+                            (.standardOutgoingUnsupported, false):
                             return .standardOutgoingDeleted
-                        case (.standardIncoming, true), (.standardIncomingDeletedLocally, true):
+                        case (.standardIncoming, true), (.standardIncomingDeletedLocally, true),
+                            (.standardIncomingUnsupported, true):
                             return .standardIncomingDeletedLocally
                         default: return .standardIncomingDeleted
                     }

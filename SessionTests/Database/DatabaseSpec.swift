@@ -41,6 +41,7 @@ class DatabaseSpec: AsyncSpec {
             TableColumn(SessionThread.self, .notificationSound): 1000,
             TableColumn(ConfigDump.self, .variant): "userProfile",
             TableColumn(Interaction.self, .state): Interaction.State.sent.rawValue,
+            TableColumn(UnsupportedMessageRecord.self, .kind): UnsupportedMessageRecord.Kind.unknownType.rawValue,
             
             // libSession will throw if we try to insert a community with an invalid
             // 'server' value or a room that is too long
@@ -232,7 +233,8 @@ class DatabaseSpec: AsyncSpec {
                     "AddEmptyPollTrackingForGroups",
                     "AddUniqueJobConstraintBack",
                     "RecoverBrokenCommunityAttachments",
-                    "RenameProColumnsForWireFormat"
+                    "RenameProColumnsForWireFormat",
+                    "AddUnsupportedMessageTable"
                 ]))
             }
             

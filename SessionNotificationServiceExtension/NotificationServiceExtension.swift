@@ -654,6 +654,19 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 
             case is VisibleMessage: break
             
+            /// An unknown type from someone else gets a placeholder (and so a notification) only in an existing, visible conversation,
+            /// anything else (including a newer-format message, which can't be attributed to anyone) is just saved for the main app
+            case let unsupportedMessage as UnsupportedMessage
+                where unsupportedMessage.placement == .incoming && dependencies.mutate(cache: .libSession, { cache in
+                    cache.conversationInConfig(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        visibleOnly: true,
+                        openGroupUrlInfo: nil
+                    ) == true
+                }):
+                break
+            
             /// For any other message we don't have any custom handling (and don't want to show a notification) so just save these
             /// messages to disk to be processed on next launch (letting the main app do any error handling) and just complete silently
             default:

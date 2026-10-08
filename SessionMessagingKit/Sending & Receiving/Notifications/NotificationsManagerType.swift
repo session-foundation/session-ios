@@ -126,6 +126,14 @@ public extension NotificationsManagerType {
             /// Group invitations and promotions may show notifications in some cases
             case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage: break
             
+            /// Only a placeholder for an incoming message is something to notify about, and as its content can't be read it can't
+            /// be checked for mentions
+            case is UnsupportedMessage:
+                guard
+                    interactionVariant == .standardIncomingUnsupported &&
+                    !notificationSettings.mentionsOnly
+                else { throw MessageError.ignorableMessage }
+            
             /// No other messages should have notifications
             default: throw MessageError.ignorableMessage
         }
@@ -314,6 +322,12 @@ public extension NotificationsManagerType {
                             .localized()
                 }
                 
+            /// The content can't be read so there is nothing more specific to say
+            case is UnsupportedMessage:
+                return "messageNewYouveGot"
+                    .putNumber(1)
+                    .localized()
+            
             /// Fallback to something generic
             default:
                 Log.error(cat, "Failed to process body for unexpected message type (variant: \(Message.Variant(from: message).map { "\($0)" } ?? "UNKNWON")), using generic body.")

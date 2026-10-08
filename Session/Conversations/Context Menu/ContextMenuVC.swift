@@ -239,12 +239,14 @@ final class ContextMenuVC: UIViewController {
         menuView.pin(.top, to: .top, of: view, withInset: targetFrame.maxY + spacing)
         
         switch cellViewModel.variant {
-            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
+            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally,
+                .standardOutgoingUnsupported:
                 let inset: CGFloat = Dependencies.isRTL ? -targetFrame.minX : -(UIScreen.main.bounds.width - targetFrame.maxX)
                 menuView.pin(.trailing, to: .trailing, of: view, withInset: inset)
                 emojiBar.pin(.trailing, to: .trailing, of: view, withInset: inset)
             
-            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally:
+            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally,
+                .standardIncomingUnsupported:
                 let inset: CGFloat = Dependencies.isRTL ? (UIScreen.main.bounds.width - targetFrame.maxX) : targetFrame.minX
                 menuView.pin(.leading, to: .leading, of: view, withInset: inset)
                 emojiBar.pin(.leading, to: .leading, of: view, withInset: inset)

@@ -567,7 +567,20 @@ class NotificationsManagerSpec: AsyncSpec {
                         adminSignature: nil,
                         sender: message.sender
                     ),
-                    LibSessionMessage(ciphertext: Data([1, 2, 3]), sender: message.sender)
+                    LibSessionMessage(ciphertext: Data([1, 2, 3]), sender: message.sender),
+                    UnsupportedMessage(
+                        kind: .unknownType,
+                        placement: .incoming,
+                        rawData: Data([1, 2, 3]),
+                        swarmPublicKey: threadId,
+                        namespace: .default,
+                        serverHash: "TestHash",
+                        serverTimestampMs: 0,
+                        sender: (message.sender ?? ""),
+                        sentTimestampMs: 0,
+                        sigTimestampMs: nil,
+                        receivedTimestampMs: 0
+                    )
                 ]
                 
                 /// If this line fails then we need to create a new message type in one of the above arrays

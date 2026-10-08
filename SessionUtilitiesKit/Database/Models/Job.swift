@@ -45,6 +45,10 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// as 'runOnce' to avoid waiting until the next launch to clear data
         case garbageCollection
         
+        /// This is a recurring job that runs on launch and replays any retained unsupported messages which haven't been
+        /// attempted by the current app version
+        case reprocessUnsupportedMessages
+        
         /// This is a recurring job that runs on launch and flags any messages marked as 'sending' to
         /// be in their 'failed' state
         ///
