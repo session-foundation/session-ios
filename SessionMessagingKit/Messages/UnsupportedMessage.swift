@@ -30,8 +30,7 @@ public final class UnsupportedMessage: Message, NotProtoConvertible {
     /// clients alongside a known type (eg. `msgId = 18`) don't get mistaken for an unknown type
     static let highestKnownContentFieldNumber: Int = 18
 
-    // FIXME: Move this to Crowdin once the design is settled
-    public static let placeholderText: String = "This message can't be displayed. Update Session to view it." // stringlint:ignore
+    public static var placeholderText: String { "messageUnsupported".localized() }
 
     public enum Placement: String, Codable {
         /// There is no conversation to show this in (eg. a `newerFormat` message, or a sync message from our own device without

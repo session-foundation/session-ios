@@ -177,14 +177,10 @@ public enum UnsupportedMessageBanner {
         case otherDevice
 
         public var text: String? {
-            // FIXME: Move these to Crowdin once the design is settled
             switch self {
                 case .hidden: return nil
-                case .general:
-                    return "Some messages can't be shown on this device. Update Session to read them." // stringlint:ignore
-
-                case .otherDevice:
-                    return "One of your other devices is using a newer version of Session. Update this device to keep your messages in sync." // stringlint:ignore
+                case .general: return "messageUnsupportedBanner".localized()
+                case .otherDevice: return "messageUnsupportedBannerLinkedDevice".localized()
             }
         }
     }
