@@ -12,7 +12,7 @@ enum NotificationResolution: CustomStringConvertible {
     case success(Network.PushNotification.NotificationMetadata)
     case successCall
     
-    case ignoreDueToMainAppRunning
+    case ignoreDueToMainAppRunning(MainAppLease.State)
     case ignoreDueToNoContentFromApple
     case ignoreDueToNonLegacyGroupLegacyNotification
     case ignoreDueToSelfSend
@@ -40,7 +40,7 @@ enum NotificationResolution: CustomStringConvertible {
             
             case .successCall: return "Completed: Notified main app of call message"
             
-            case .ignoreDueToMainAppRunning: return "Ignored: Main app running"
+            case .ignoreDueToMainAppRunning(let lease): return "Ignored: Main app running, \(lease)"
             case .ignoreDueToNoContentFromApple: return "Ignored: No content"
             case .ignoreDueToNonLegacyGroupLegacyNotification: return "Ignored: Non-group legacy notification"
             case .ignoreDueToSelfSend: return "Ignored: Self send"

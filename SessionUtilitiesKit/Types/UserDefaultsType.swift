@@ -169,10 +169,6 @@ public extension UserDefaults.BoolKey {
     /// **Note:** This doesn't seem to be properly used (we basically just maintain the existing value)
     static let wasUnlinked: UserDefaults.BoolKey = "wasUnlinked"
     
-    /// Indicates whether the main app is active, this is set to `true` while the app is in the foreground and `false` when
-    /// the app is in the background
-    static let isMainAppActive: UserDefaults.BoolKey = "isMainAppActive"
-    
     /// Indicates whether there is an ongoing call
     static let isCallOngoing: UserDefaults.BoolKey = "isCallOngoing"
     
@@ -226,6 +222,10 @@ public extension UserDefaults.DateKey {
     
     /// The date/time when app review prompt will appear again
     static let rateAppRetryDate: UserDefaults.DateKey = "rateAppRetryDate"
+    
+    /// The date/time until which the main app should be considered active, read it via `Dependencies.mainAppLease` rather
+    /// than directly so the clock guard is applied
+    static let mainAppActiveUntil: UserDefaults.DateKey = "mainAppActiveUntil"
 }
 
 public extension UserDefaults.DoubleKey {

@@ -49,6 +49,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             dependencies.set(defaults: .appGroup, to: mockUserDefaults)
             try await mockUserDefaults.defaultInitialSetup()
             try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
+            try await mockUserDefaults.mockMainAppLease(isActive: true, using: dependencies)
             
             dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.defaultInitialSetup(using: dependencies)
@@ -108,9 +109,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
         describe("a RetrieveDefaultOpenGroupRoomsJob") {
             // MARK: -- successfully runs
             it("successfully runs") {
-                try await mockUserDefaults
-                    .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                    .thenReturn(true)
+                try await mockUserDefaults.mockMainAppLease(isActive: true, using: dependencies)
                 
                 await expect {
                     try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)
@@ -119,9 +118,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             
             // MARK: -- succeeds without a request if the main app is not running
             it("succeeds without a request if the main app is not running") {
-                try await mockUserDefaults
-                    .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                    .thenReturn(false)
+                try await mockUserDefaults.mockMainAppLease(isActive: false, using: dependencies)
                 
                 await expect {
                     try await RetrieveDefaultOpenGroupRoomsJob.run(job, using: dependencies)

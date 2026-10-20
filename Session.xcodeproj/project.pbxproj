@@ -592,6 +592,8 @@
 		FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286702C38D43000BC06F7 /* DifferenceKit */; };
 		FD2286732C38D43900BC06F7 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286722C38D43900BC06F7 /* DifferenceKit */; };
 		FD23CE262A676B5B0000B97C /* DependenciesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE252A676B5B0000B97C /* DependenciesSpec.swift */; };
+		7D8E18F333E0A330FDB2BE78 /* LoggingSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB051A4B6DA2CBF19427AF63 /* LoggingSpec.swift */; };
+		7C042B63F5F302168A44EA8C /* MainAppLeaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2B5742BA7AD1CF60944D96 /* MainAppLeaseSpec.swift */; };
 		FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE312A67C38D0000B97C /* MockNetwork.swift */; };
 		FD23CE342A67C4D90000B97C /* MockNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD23CE312A67C38D0000B97C /* MockNetwork.swift */; };
 		FD23EA5D28ED00FA0058676E /* TestConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BD27CF2243005E1583 /* TestConstants.swift */; };
@@ -2390,6 +2392,8 @@
 		FD2272F92C352D8E004D8A6C /* LibSession+GroupInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "LibSession+GroupInfo.swift"; sourceTree = "<group>"; };
 		FD2273072C353109004D8A6C /* DisplayPictureManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DisplayPictureManager.swift; sourceTree = "<group>"; };
 		FD23CE252A676B5B0000B97C /* DependenciesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependenciesSpec.swift; sourceTree = "<group>"; };
+		EB051A4B6DA2CBF19427AF63 /* LoggingSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingSpec.swift; sourceTree = "<group>"; };
+		AB2B5742BA7AD1CF60944D96 /* MainAppLeaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppLeaseSpec.swift; sourceTree = "<group>"; };
 		FD23CE312A67C38D0000B97C /* MockNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockNetwork.swift; sourceTree = "<group>"; };
 		FD245C612850664300B966DD /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
 		FD28A4F527EAD44C00FF65E7 /* Storage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Storage.swift; sourceTree = "<group>"; };
@@ -5514,6 +5518,8 @@
 			children = (
 				FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */,
 				FD23CE252A676B5B0000B97C /* DependenciesSpec.swift */,
+				EB051A4B6DA2CBF19427AF63 /* LoggingSpec.swift */,
+				AB2B5742BA7AD1CF60944D96 /* MainAppLeaseSpec.swift */,
 				FD8A5B2F2DC18D5E004C689B /* GeneralCacheSpec.swift */,
 				FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */,
 			);
@@ -8393,6 +8399,8 @@
 				FDEF309B2F2974220004C5BD /* MockKeychain.swift in Sources */,
 				FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */,
 				FD23CE262A676B5B0000B97C /* DependenciesSpec.swift in Sources */,
+				7D8E18F333E0A330FDB2BE78 /* LoggingSpec.swift in Sources */,
+				7C042B63F5F302168A44EA8C /* MainAppLeaseSpec.swift in Sources */,
 				FDF0DF7C2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */,
 				FDEF30A02F29742E0004C5BD /* MockLogger.swift in Sources */,

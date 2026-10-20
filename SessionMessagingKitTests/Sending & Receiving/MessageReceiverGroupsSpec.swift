@@ -321,9 +321,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ sends a local notification about the group invite
                     it("sends a local notification about the group invite") {
-                        try await fixture.mockUserDefaults
-                            .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                            .thenReturn(true)
+                        try await fixture.mockUserDefaults.mockMainAppLease(isActive: true, using: fixture.dependencies)
                         try await fixture.mockLibSessionCache
                             .when { $0.isMessageRequest(threadId: .any, threadVariant: .any) }
                             .thenReturn(true)
