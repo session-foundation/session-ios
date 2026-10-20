@@ -58,6 +58,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         /// `appDidFinishLaunching` seems to fix this odd behaviour (even though it doesn't match
         /// Apple's documentation on the matter)
         appDelegate.dependencies[singleton: .notificationsManager].setDelegate(appDelegate)
+        appDelegate.handleSceneWillEnterForeground()
         
         Task(priority: .userInitiated) { [dependencies = appDelegate.dependencies] in
             /// Wait for the initial app setup to complete before resuming database/network access.
