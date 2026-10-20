@@ -114,9 +114,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             throw NotificationError.notReadyForExtension
         }
         
-        /// Setup Version Info and Network
+        /// Setup Version Info
+        ///
+        /// **Note:** `sessionProManager` is deliberately left to be created on demand: the extension only parses messages and the
+        /// main app handles them (including Pro entitlement checks) when it imports them, so it is only needed in the rare case where
+        /// the extension sends a message
         dependencies.warm(cache: .appVersion)
-        dependencies.warm(singleton: .sessionProManager)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(
