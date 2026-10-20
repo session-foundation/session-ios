@@ -32,6 +32,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     let dependencies: Dependencies = Dependencies.createEmpty()
     @MainActor var hasInitialRootViewController: Bool = false
     private var rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
+    private lazy var foregroundSceneGate: ForegroundSceneGate = ForegroundSceneGate { [dependencies] in
+        dependencies[singleton: .appContext].isMainAppAndForeground
+    }
     var startTime: CFTimeInterval = 0
     var loadingViewController: LoadingViewController? = LoadingViewController()
     private var hasNotifiedWindowReady: Bool = false
@@ -322,6 +325,46 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// May as well run this on the background thread
         dependencies[singleton: .audioSession].setup()
         
+        /// A launch iOS makes in the background (eg. to run a `BGAppRefreshTask`) has no scene in the foreground, and `HomeVC`
+        /// won't render its conversation list until there is one - so the `rootViewController` setup can't complete, and its timeout
+        /// would present the startup alert where nobody can see it. The rest of startup has to wait for a scene to get there
+        guard foregroundSceneGate.isOpen(elseDefer: { [weak self] in
+            Task(priority: .userInitiated) { await self?.completeDeferredStartup(calledFrom: lifecycleMethod) }
+        }) else {
+            Log.info(.cat, "No scene in the foreground, deferring rootViewController setup until one enters it")
+            
+            /// Work which doesn't need a scene still needs the user's onboarding state (eg. the background fetch syncs push tokens,
+            /// which waits on it), and loading it is otherwise part of the `rootViewController` setup
+            try? await dependencies[singleton: .onboarding].loadInitialState()
+            return
+        }
+        
+        await completeRootViewControllerSetup(calledFrom: lifecycleMethod)
+    }
+    
+    private func completeDeferredStartup(calledFrom lifecycleMethod: LifecycleMethod) async {
+        try? await SessionBackgroundTask.run(
+            label: "Deferred Startup", // stringlint:ignore
+            using: dependencies
+        ) { [weak self, dependencies] in
+            /// A background fetch may have suspended the database while startup was waiting, and `SceneDelegate` won't resume it
+            /// until `appReadiness` is set at the end of startup, which can't happen without the database
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            
+            /// The process has probably been suspended by the OS while waiting, and a launch in the background never gets the
+            /// `sceneDidEnterBackground` which would normally have suspended the network first - so its connections are likely dead,
+            /// and resuming a network which isn't suspended doesn't reconnect it. Suspending here means the resume `SceneDelegate`
+            /// performs once startup completes re-establishes them
+            await dependencies[singleton: .network].suspendNetworkAccess()
+            await self?.completeRootViewControllerSetup(calledFrom: lifecycleMethod)
+        }
+    }
+    
+    func handleSceneWillEnterForeground() {
+        foregroundSceneGate.sceneWillEnterForeground()
+    }
+    
+    private func completeRootViewControllerSetup(calledFrom lifecycleMethod: LifecycleMethod) async {
         /// Setup the UI if needed, then trigger any post-UI setup actions
         ///
         /// **Note:** If we didn't successfully ensure the `rootViewController` then don't continue as the user is in an invalid
@@ -858,6 +901,9 @@ private actor RootViewControllerCoordinator {
 
         /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
         /// the option to export their logs)
+        ///
+        /// **Note:** This relies on a scene being in the foreground - `HomeVC` can't finish loading without one, so in the background
+        /// this would always fire and present the alert off-screen (which is why `completePostMigrationSetup` defers until then)
         let timeoutTask: Task<Void, Error> = Task { @MainActor in
             try await Task.sleep(for: .seconds(AppDelegate.maxRootViewControllerInitialQueryDuration))
             
@@ -1000,6 +1046,33 @@ private actor RootViewControllerCoordinator {
         isRunning = false
         pendingContinuations.forEach { $0.resume(returning: false) }
         pendingContinuations = []
+    }
+}
+
+// MARK: - ForegroundSceneGate
+
+/// Holds back work which can't complete until a scene is in the foreground
+@MainActor final class ForegroundSceneGate {
+    private let hasForegroundScene: @MainActor () -> Bool
+    private var deferredWork: (() -> Void)?
+    
+    init(hasForegroundScene: @escaping @MainActor () -> Bool) {
+        self.hasForegroundScene = hasForegroundScene
+    }
+    
+    /// - Returns: `true` if a scene is already in the foreground (so the caller should carry on), otherwise `false` with `work` held
+    ///   until `sceneWillEnterForeground()`
+    func isOpen(elseDefer work: @escaping () -> Void) -> Bool {
+        guard !hasForegroundScene() else { return true }
+        
+        deferredWork = work
+        return false
+    }
+    
+    func sceneWillEnterForeground() {
+        let work: (() -> Void)? = deferredWork
+        deferredWork = nil
+        work?()
     }
 }
 
