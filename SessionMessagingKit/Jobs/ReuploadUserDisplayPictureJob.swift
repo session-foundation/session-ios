@@ -33,7 +33,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
     
     public static func run(_ job: Job, using dependencies: Dependencies) async throws -> JobExecutionResult {
         /// Don't run when inactive or not in main app
-        guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+        guard dependencies.isMainAppActive else {
             return .success
         }
         

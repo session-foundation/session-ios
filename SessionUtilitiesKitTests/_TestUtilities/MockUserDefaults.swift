@@ -69,3 +69,14 @@ extension MockUserDefaults {
         try await self.when { $0.set(URL.any, forKey: .any) }.thenReturn(())
     }
 }
+
+extension MockUserDefaults {
+    /// Stubs the app group lease which `Dependencies.isMainAppActive` reads, relative to `dependencies.dateNow`
+    func mockMainAppLease(isActive: Bool, using dependencies: Dependencies) async throws {
+        let until: Date = dependencies.dateNow.addingTimeInterval(isActive ? (MainAppLease.duration / 2) : -1)
+        
+        try await self
+            .when { $0.object(forKey: UserDefaults.DateKey.mainAppActiveUntil.rawValue) }
+            .thenReturn(until)
+    }
+}

@@ -217,6 +217,18 @@ public actor SessionProManager: SessionProManagerType {
             /// and refreshes it when Pro is switched on at runtime
             await self?.startProMockingObservations()
 
+            /// The extensions only read state from this while handling a message, so the background work stays in the main app: the
+            /// revocation list task creates the network (which the notification extension should only do when it has something to
+            /// send) and reads the database, as does scheduling the next invalidation
+            ///
+            /// **Note:** This leaves `proofIsRevoked` without a revocation list in an extension, which is fine because the notification
+            /// extension saves messages raw and the main app handles them (including that check) when it imports them
+            guard dependencies[singleton: .appContext].isMainApp else {
+                await self?.updateWithLatestFromUserConfig()
+                await self?.hasCompletedInitialization.send(true)
+                return
+            }
+
             /// With Pro off only the work about other users starts: the revocation list their proofs are checked against,
             /// and a re-render when those proofs lapse. Nothing about our own account runs. Enabling Pro at runtime
             /// refreshes the state, but the rest of these tasks only start on the next launch.
