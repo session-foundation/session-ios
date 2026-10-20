@@ -40,9 +40,11 @@ final class MainAppContext: AppContext {
     
     // MARK: - Initialization
 
-    init(using dependencies: Dependencies) {
+    /// - Parameter initialApplicationState: The state at launch - a launch straight into the background never posts
+    ///   `didEnterBackgroundNotification`, so the observers below can't be relied on to establish it
+    init(initialApplicationState: UIApplication.State, using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.reportedApplicationState = .inactive
+        self.reportedApplicationState = initialApplicationState
         
         NotificationCenter.default.addObserver(
             self,
