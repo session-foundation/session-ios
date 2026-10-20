@@ -64,7 +64,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 #endif
         
         /// These should be the first things we do (the startup process can fail without them)
-        dependencies.set(singleton: .appContext, to: MainAppContext(using: dependencies))
+        dependencies.set(
+            singleton: .appContext,
+            to: MainAppContext(initialApplicationState: application.applicationState, using: dependencies)
+        )
         verifyDBKeysAvailableBeforeBackgroundLaunch()
         
         /// Kick of a task to perform the app setup
