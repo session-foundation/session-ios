@@ -8214,6 +8214,12 @@
             "value" : "Adminisztrátor"
           }
         },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者"
+          }
+        },
         "my" : {
           "stringUnit" : {
             "state" : "translated",
@@ -93999,7 +94005,7 @@
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Podatke nije izbrisao %lld Service Node. ID-ovi uslužnih čvorova: {service_node_id}."
+                  "value" : "Podatke nije izbrisao %lld Service Node. ID-evi uslužnih čvorova: {service_node_id}."
                 }
               },
               "one" : {
@@ -94011,7 +94017,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Podatke nije izbrisao %lld Service Node. ID-ovi uslužnih čvorova: {service_node_id}."
+                  "value" : "Podatke nije izbrisao %lld Service Node. ID-evi uslužnih čvorova: {service_node_id}."
                 }
               }
             }
@@ -129004,6 +129010,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按回车键发送消息，SHIFT+回车键换行。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ENTER 發送訊息，SHIFT + ENTER 創建新行。"
           }
         }
       }
@@ -197872,19 +197884,19 @@
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "I %lld osobe su reagirale {emoji} na ovu poruku."
+                  "value" : "%lld osobe su reagirale sa {emoji} na ovu poruku."
                 }
               },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "I %lld osoba je reagirala {emoji} na ovu poruku."
+                  "value" : "%lld osoba je reagirala sa {emoji} na ovu poruku."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "I %lld osoba je reagiralo {emoji} na ovu poruku."
+                  "value" : "%lld osoba je reagiralo sa {emoji} na ovu poruku."
                 }
               }
             }
@@ -290882,6 +290894,18 @@
               }
             }
           }
+        },
+        "zh-TW" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 管理員以選中"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -358944,7 +358968,7 @@
         "hr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session skriva vaš IP usmjeravanjem vaših poruka kroz više uslužnih čvorova u Session decentraliziranoj mreži. Ovo je vaša trenutna putanja:"
+            "value" : "Session skriva vašu IP adresu usmjeravanjem vaših poruka kroz više uslužnih čvorova u Session decentraliziranoj mreži. Ovo je vaša trenutna putanja:"
           }
         },
         "hu" : {
@@ -365404,6 +365428,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更改 Session 的解锁密码。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改 Session 的解鎖密碼。"
           }
         }
       }
@@ -389535,6 +389565,12 @@
             "state" : "translated",
             "value" : "You do not have an active Pro subscription."
           }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem rendelkezik Pro előfizetéssel."
+          }
         }
       }
     },
@@ -391796,6 +391832,12 @@
     "proAccessRenewDesktop" : {
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Momentan kann der Pro-Zugang nur über eine unserer unterstützten Plattformen gekauft und erneuert werden:{pro_stores}<br/>Weil Sie Session Desktop verwenden, ist hier keine Erneuerung möglich.<br/><br/>Die Entwickler von Session arbeiten intensiv an alternativen Zahlungsmöglichkeiten, damit Pro-Zugang auch außerhalb der oben genannten Plattformen erworben werden kann. <b>Pro Roadmap</b> {icon}"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -392139,6 +392181,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renew your Pro access to start using powerful Session Pro Beta features and support the project again."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újítsa meg Pro csomagját, hogy hozzáférjen a legújabb Session Pro Béta funkciókhoz, és támogassa újra a projektet."
           }
         }
       }
@@ -409490,6 +409538,28 @@
               }
             }
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@arg1@"
+          },
+          "substitutions" : {
+            "arg1" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "提升成員"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -415217,6 +415287,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "يرجى التواصل مع {platform} للحصول على تحديثات إضافية بخصوص طلب استرداد المبلغ الخاص بكم. وفقاً لسياسات استرداد المبالغ المعتمدة من قِبل {platform}، لا يستطيع مطورو Session التأثير على نتيجة طلبات الاسترداد.<br/><br/><span><b>{platform} دعم طلبات الاسترداد{icon}</b></span>"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte kontaktiere {platform} für weitere Aktualisierungen zu deinem Rückerstattungsantrag. Aufgrund von Rückerstattungsrichtlinien von {platform} haben Session Entwickler keine Möglichkeit das Ergebnis des Rückerstattungsantrags zu beeinflussen.<br/><br/><span><b>{platform} Rückerstattungs-Support {icon}</b></span>"
           }
         },
         "en" : {
@@ -491561,7 +491637,7 @@
         "hr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session nije uspio ažurirati. Molimo idite na https://getsession.org/download i instalirajte novu verziju ručno, zatim kontaktirajte naš Centar za pomoć kako biste nas obavijestili o ovom problemu."
+            "value" : "Session se nije uspijela ažurirati. Molimo idite na https://getsession.org/download i instalirajte novu verziju ručno, zatim kontaktirajte naš Centar za pomoć kako biste nas obavijestili o ovom problemu."
           }
         },
         "hu" : {
