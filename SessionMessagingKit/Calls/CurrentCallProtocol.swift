@@ -15,6 +15,9 @@ public protocol CurrentCallProtocol {
     var hasEnded: Bool { get set }
     var mode: CallMode { get }
     
+    /// The send of this call's `endCall` message, once the user has ended the call
+    var endCallMessageSend: Task<Void, Never>? { get }
+    
     func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies)
     func didReceiveRemoteSDP(sdp: RTCSessionDescription)
     func startSessionCall(_ db: ObservingDatabase)

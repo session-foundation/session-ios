@@ -628,6 +628,7 @@
 		FD336F642CAA28CF00C0B51B /* MockCommunityPollerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F582CAA28CF00C0B51B /* MockCommunityPollerManager.swift */; };
 		FD336F672CAA28CF00C0B51B /* MockGroupPollerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5A2CAA28CF00C0B51B /* MockGroupPollerManager.swift */; };
 		FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5E2CAA28CF00C0B51B /* MockPoller.swift */; };
+		31EB9947E22EABE773905F70 /* MockPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5E2CAA28CF00C0B51B /* MockPoller.swift */; };
 		FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */; };
 		FD336F6C2CAA29C600C0B51B /* CommunityPollerManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F6B2CAA29C200C0B51B /* CommunityPollerManagerSpec.swift */; };
 		FD336F702CABB96C00C0B51B /* BatchRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01502D2CA24310005B08A1 /* BatchRequestSpec.swift */; };
@@ -999,6 +1000,7 @@
 		FDA1000030000002000000A1 /* MnemonicSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000001000000A1 /* MnemonicSpec.swift */; };
 		FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */; };
 		625643A4B4C043BE9D3974C3 /* ForegroundSceneGateSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */; };
+		A68275C9ADDA97ED7D601164 /* SessionCallManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 776965097C448BE80AA797FD /* SessionCallManagerSpec.swift */; };
 		8F296D67356267D9EE81B001 /* MainAppContextSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */; };
 		FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */; };
 		FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */; };
@@ -2679,6 +2681,7 @@
 		FDA1000030000001000000A1 /* MnemonicSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicSpec.swift; sourceTree = "<group>"; };
 		FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicWordSetSpec.swift; sourceTree = "<group>"; };
 		198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundSceneGateSpec.swift; sourceTree = "<group>"; };
+		776965097C448BE80AA797FD /* SessionCallManagerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManagerSpec.swift; sourceTree = "<group>"; };
 		8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppContextSpec.swift; sourceTree = "<group>"; };
 		FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryViewModelSpec.swift; sourceTree = "<group>"; };
 		FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrlSpec.swift; sourceTree = "<group>"; };
@@ -5311,6 +5314,7 @@
 			isa = PBXGroup;
 			children = (
 				FDC0F00B2C04100E002CBFB9 /* Session.xctestplan */,
+				DCDDBA3C2C2A9A7055D61CA8 /* Calls */,
 				FD71161228D00D5300B47552 /* Conversations */,
 				FDA1000030000006000000A1 /* Crypto */,
 				FD19363D2ACA66CF004BCF0F /* Database */,
@@ -5687,6 +5691,14 @@
 				FDA1000030000001000000A1 /* MnemonicSpec.swift */,
 			);
 			path = Crypto;
+			sourceTree = "<group>";
+		};
+		DCDDBA3C2C2A9A7055D61CA8 /* Calls */ = {
+			isa = PBXGroup;
+			children = (
+				776965097C448BE80AA797FD /* SessionCallManagerSpec.swift */,
+			);
+			path = Calls;
 			sourceTree = "<group>";
 		};
 		31D3EF5A374DE49D047B9917 /* Meta */ = {
@@ -8332,10 +8344,12 @@
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
 				FDEF307F2F2971920004C5BD /* MockAppContext.swift in Sources */,
+				31EB9947E22EABE773905F70 /* MockPoller.swift in Sources */,
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */,
 				FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */,
 				625643A4B4C043BE9D3974C3 /* ForegroundSceneGateSpec.swift in Sources */,
+				A68275C9ADDA97ED7D601164 /* SessionCallManagerSpec.swift in Sources */,
 				8F296D67356267D9EE81B001 /* MainAppContextSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FDEF30872F29719F0004C5BD /* MockCrypto.swift in Sources */,

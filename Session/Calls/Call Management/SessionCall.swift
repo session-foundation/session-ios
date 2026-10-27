@@ -139,6 +139,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     var timeOutTimer: Timer?
     var didTimeout = false
+    public private(set) var endCallMessageSend: Task<Void, Never>?
 
     var duration: TimeInterval {
         guard let connectedDate = connectedDate else {
@@ -316,8 +317,12 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         guard !hasEnded else { return }
         
         webRTCSession.hangUp()
-        dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady { [webRTCSession, sessionId] in
-            webRTCSession.endCall(with: sessionId)
+        
+        /// Created synchronously because callers report the call ended straight after this, and `SessionCallManager` needs the
+        /// send in hand at that point to wait for it before suspending the database and network
+        endCallMessageSend = Task(priority: .userInitiated) { [webRTCSession, sessionId, dependencies] in
+            await dependencies[singleton: .appReadiness].isReady()
+            await webRTCSession.endCall(with: sessionId).value
         }
         hasEnded = true
     }
