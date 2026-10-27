@@ -97,8 +97,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func reportOutgoingCall(_ call: SessionCall) {
         Log.assertOnMainThread()
-        dependencies[defaults: .appGroup, key: .isCallOngoing] = true
-        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+        storeOngoingCall(call)
         
         call.stateDidChange = {
             if call.hasStartedConnecting {
@@ -114,8 +113,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {
         // If CallKit isn't supported then we don't have anything to report the call to
         guard Preferences.isCallKitSupported else {
-            dependencies[defaults: .appGroup, key: .isCallOngoing] = true
-            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+            storeOngoingCall(call)
             completion(nil)
             return
         }
@@ -132,14 +130,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         disableUnsupportedFeatures(callUpdate: update)
 
         // Report the incoming call to the system
-        self.provider?.reportNewIncomingCall(with: call.callId, update: update) { [dependencies] error in
+        self.provider?.reportNewIncomingCall(with: call.callId, update: update) { error in
             guard error == nil else {
                 self.reportCurrentCallEnded(reason: .failed)
                 completion(error)
                 return
             }
-            dependencies[defaults: .appGroup, key: .isCallOngoing] = true
-            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+            self.storeOngoingCall(call)
             completion(nil)
         }
     }
@@ -179,6 +176,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     // MARK: - Util
+    
+    /// The notification extension reads these to decide whether an incoming call message belongs to a call the main app is
+    /// already handling
+    private func storeOngoingCall(_ call: CurrentCallProtocol) {
+        dependencies[defaults: .appGroup, key: .isCallOngoing] = true
+        dependencies[defaults: .appGroup, key: .ongoingCallUuid] = call.uuid
+        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+    }
     
     private func drainPendingSignalingIfNeeded() {
         guard
@@ -328,6 +333,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         WebRTCSession.current = nil
         currentCall = nil
         dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+        dependencies[defaults: .appGroup, key: .ongoingCallUuid] = nil
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
