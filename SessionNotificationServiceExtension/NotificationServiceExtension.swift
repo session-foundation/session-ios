@@ -655,6 +655,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             displayNameRetriever: displayNameRetriever
                         )
                         
+                    case .leaveForMainApp:
+                        Log.info(.calls, "Leaving \(callMessage.kind) message for the ongoing call (\(callMessage.uuid)) to the main app.")
+                        completeSilenty(notification.info, .ignoreDueToMainAppRunning)
+                        return
+                    
                     case .standard: break  /// Send all other cases through the standard notification handling
                 }
                 

@@ -480,6 +480,7 @@ extension MessageReceiver {
         case unableToReceiveCall(CallMessage.MessageInfo.State)
         case respondBusy
         case reportIncomingCall
+        case leaveForMainApp
         case standard
     }
     
@@ -494,16 +495,18 @@ extension MessageReceiver {
         switch ((areCallsEnabled && hasMicrophonePermission), isCallOngoing, message.kind) {
             case (false, _, _): return .unableToReceiveCall(areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
             
+            /// The extension still runs while the user has backgrounded the app mid-call, but the main app owns the ongoing call
+            /// and its poller keeps running for it - saving one of the call's messages here would also write a dedupe record, so
+            /// the poller would drop it, and the main app only loads messages the extension saved once it's next in the foreground
+            case (_, true, _) where message.uuid == ongoingCallUuid: return .leaveForMainApp
+            
             /// If we receive an `endCall` message while on another call then we can just ignore it
             case (_, _, .endCall): return .standard
             
-            /// Only a `preOffer` starts a call, every other kind belongs to an existing one - if that's the ongoing call then the main
-            /// app is handling its signalling, and the extension still runs while the user has backgrounded the app mid-call, so
-            /// responding busy would end the very call the main app is setting up (and the `missed` state would add a dedupe
-            /// record for the call, so the main app would then drop the rest of its messages)
-            ///
-            /// An unknown `ongoingCallUuid` is treated as a different call so a genuine second caller still gets a busy response
-            case (true, true, .preOffer) where message.uuid != ongoingCallUuid: return .respondBusy
+            /// Only a `preOffer` starts a call, so only that can be a second caller - answering anything else as busy would end
+            /// whichever call it belongs to (an unknown `ongoingCallUuid` is treated as a different call so a genuine second
+            /// caller still gets a busy response)
+            case (true, true, .preOffer): return .respondBusy
             case (true, false, .preOffer): return .reportIncomingCall
             default: return .standard
         }

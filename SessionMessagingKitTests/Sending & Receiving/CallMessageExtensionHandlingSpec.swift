@@ -32,25 +32,21 @@ class CallMessageExtensionHandlingSpec: QuickSpec {
         describe("a CallMessage received by the notification extension") {
             // MARK: -- while a call is ongoing
             context("while a call is ongoing") {
-                // MARK: ---- does not respond busy to signalling for the ongoing call
-                it("does not respond busy to signalling for the ongoing call") {
+                // MARK: ---- leaves every message for the ongoing call to the main app
+                it("leaves every message for the ongoing call to the main app") {
                     let kinds: [CallMessage.Kind] = [
+                        .preOffer,
+                        .offer,
                         .answer,
                         .provisionalAnswer,
                         .iceCandidates(sdpMLineIndexes: [0], sdpMids: ["0"]),
-                        .offer
+                        .endCall
                     ]
 
                     kinds.forEach { kind in
                         expect(handling(kind, uuid: ongoingCallUuid, isCallOngoing: true, ongoingCallUuid: ongoingCallUuid))
-                            .to(equal(.standard), description: "\(kind)")
+                            .to(equal(.leaveForMainApp), description: "\(kind)")
                     }
-                }
-
-                // MARK: ---- does not respond busy to a pre-offer for the ongoing call
-                it("does not respond busy to a pre-offer for the ongoing call") {
-                    expect(handling(.preOffer, uuid: ongoingCallUuid, isCallOngoing: true, ongoingCallUuid: ongoingCallUuid))
-                        .to(equal(.standard))
                 }
 
                 // MARK: ---- responds busy to a pre-offer for a different call
@@ -68,6 +64,12 @@ class CallMessageExtensionHandlingSpec: QuickSpec {
                 // MARK: ---- does not respond busy to signalling for a different call
                 it("does not respond busy to signalling for a different call") {
                     expect(handling(.answer, uuid: otherCallUuid, isCallOngoing: true, ongoingCallUuid: ongoingCallUuid))
+                        .to(equal(.standard))
+                }
+
+                // MARK: ---- does not respond busy to signalling when the ongoing call's uuid is unknown
+                it("does not respond busy to signalling when the ongoing call's uuid is unknown") {
+                    expect(handling(.answer, uuid: ongoingCallUuid, isCallOngoing: true, ongoingCallUuid: nil))
                         .to(equal(.standard))
                 }
 
