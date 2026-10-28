@@ -268,8 +268,13 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             self.collectionPickerController.view.layoutIfNeeded()
             
             // We also need to actually inform the collectionView that the item should be selected (if we don't
-            // then the user won't be able to deselect it)
-            if let firstSelectedIndexPath: IndexPath = self.firstSelectedIndexPath {
+            // then the user won't be able to deselect it). The photo library can change while another screen is on top,
+            // so the remembered item may no longer exist, and `selectItem` asserts on an out-of-range index
+            if
+                let firstSelectedIndexPath: IndexPath = self.firstSelectedIndexPath,
+                firstSelectedIndexPath.section < self.collectionView.numberOfSections,
+                firstSelectedIndexPath.item < self.collectionView.numberOfItems(inSection: firstSelectedIndexPath.section)
+            {
                 self.collectionView.selectItem(at: firstSelectedIndexPath, animated: false, scrollPosition: .centeredHorizontally)
                 self.collectionView.cellForItem(at: firstSelectedIndexPath)?.isSelected = true
             }
@@ -380,6 +385,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         }
 
         collectionView.indexPathsForSelectedItems?.forEach { collectionView.deselectItem(at: $0, animated: false)}
+        firstSelectedIndexPath = nil
     }
 
     func showTooManySelectedToast() {
