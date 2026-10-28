@@ -20,6 +20,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var loadMessagesTask: Task<Void, Never>?
     private var jobRunnerShutdownTask: Task<Void, Never>?
     
+    /// When backgrounding, the longest we wait for the remaining jobs before suspending the database anyway, and the background
+    /// time we keep back for stopping the jobs, checkpointing and suspending
+    private static let maxBackgroundDrainDuration: TimeInterval = 20
+    private static let backgroundSuspendReserve: TimeInterval = 10
+    
     private var appDelegate: AppDelegate? {
         UIApplication.shared.delegate as? AppDelegate
     }
@@ -113,7 +118,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 )
                 guard !Task.isCancelled else { return }
                 
-                await dependencies[singleton: .jobRunner].allQueuesDrained()
+                /// Sends and uploads are left to finish, but they can outlast the background time, and when this task is cancelled
+                /// for running out of it the database below is never suspended (so iOS suspends the app with the database open
+                /// and kills it with `0xdead10cc`). The jobs are persisted, so they resume next time the app runs
+                let drainTimeLimit: TimeInterval = await MainActor.run {
+                    max(
+                        0,
+                        min(
+                            SceneDelegate.maxBackgroundDrainDuration,
+                            UIApplication.shared.backgroundTimeRemaining - SceneDelegate.backgroundSuspendReserve
+                        )
+                    )
+                }
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await dependencies[singleton: .jobRunner].allQueuesDrained() }
+                    group.addTask { try? await Task.sleep(nanoseconds: UInt64(drainTimeLimit * 1_000_000_000)) }
+                    await group.next()
+                    group.cancelAll()
+                }
                 guard !Task.isCancelled else { return }
                 
                 /// Since we aren't going to stop the remaining jobs if there is an ongoing call then there is no need
