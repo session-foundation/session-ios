@@ -266,6 +266,7 @@
 		00C255EAE43B5EC0AE47E7E2 /* _054_AddUnsupportedMessageTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F36960EF834258B26C75F08 /* _054_AddUnsupportedMessageTable.swift */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
 		A1B2C3D40002E5F600A00002 /* VisibleMessageCellSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */; };
+		807F9A1B5785E9E362F63DCA /* MediaLoaderViewSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B84C507A8E68778309D627 /* MediaLoaderViewSpec.swift */; };
 		A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */; };
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
 		A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4D17A0652C000A904E /* AddressBook.framework */; };
@@ -2050,6 +2051,7 @@
 		9D980B840B604F5BBABCA02D /* SwarmPollerSpec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SwarmPollerSpec.swift; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		93B84C507A8E68778309D627 /* MediaLoaderViewSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLoaderViewSpec.swift; sourceTree = "<group>"; };
 		A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisibleMessageCellSpec.swift; sourceTree = "<group>"; };
 		A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoTruncationSpec.swift; sourceTree = "<group>"; };
 		A1C32D4D17A0652C000A904E /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
@@ -5324,6 +5326,7 @@
 			isa = PBXGroup;
 			children = (
 				FD71161328D00D5D00B47552 /* Settings */,
+				93B84C507A8E68778309D627 /* MediaLoaderViewSpec.swift */,
 				A1B2C3D40001E5F600A00001 /* VisibleMessageCellSpec.swift */,
 				A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */,
 			);
@@ -8325,6 +8328,7 @@
 				FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
 				A1B2C3D40002E5F600A00002 /* VisibleMessageCellSpec.swift in Sources */,
+				807F9A1B5785E9E362F63DCA /* MediaLoaderViewSpec.swift in Sources */,
 				A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */,
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,
