@@ -700,7 +700,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     /// Unable to change the theme from the Share extension
     func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool) {}
     
-    func navBarSessionIcon() -> NavBarSessionIcon {
+    func makeNavBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
             case (.mainnet, false): return NavBarSessionIcon()
             case (.testnet, _), (.devnet, _), (.mainnet, true):

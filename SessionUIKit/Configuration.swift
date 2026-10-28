@@ -15,7 +15,7 @@ public actor SNUIKit {
         var initialMainScreenMaxDimension: CGFloat { get }
         
         func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool)
-        func navBarSessionIcon() -> NavBarSessionIcon
+        func makeNavBarSessionIcon() -> NavBarSessionIcon
         func persistentTopBannerChanged(warningKey: String?)
         func cachedContextualActionInfo(tableViewHash: Int, sideKey: String) -> [Int: Any]?
         func cacheContextualActionInfo(tableViewHash: Int, sideKey: String, actionIndex: Int, actionInfo: Any)
@@ -90,8 +90,8 @@ public actor SNUIKit {
         currentConfig()?.themeChanged(theme, primaryColor, matchSystemNightModeSetting)
     }
     
-    @MainActor internal static func navBarSessionIcon() -> NavBarSessionIcon {
-        return (currentConfig()?.navBarSessionIcon() ?? navBarSessionIcon())
+    @MainActor internal static func makeNavBarSessionIcon() -> NavBarSessionIcon {
+        return (currentConfig()?.makeNavBarSessionIcon() ?? NavBarSessionIcon())
     }
     
     internal static func topBannerChanged(to warning: TopBannerController.Warning?) {

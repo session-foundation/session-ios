@@ -113,7 +113,7 @@ open class SessionHostingViewController<Content>: UIHostingController<ModifiedCo
     }
 
     public func setUpNavBarSessionIcon() {
-        navigationItem.titleView = SNUIKit.navBarSessionIcon()
+        navigationItem.titleView = SNUIKit.makeNavBarSessionIcon()
     }
     
     public func setUpDismissingButton(on postion: NavigationItemPosition) {
