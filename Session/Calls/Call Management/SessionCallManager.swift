@@ -29,7 +29,7 @@ public extension CXProviderConfiguration {
 // MARK: - SessionCallManager
 
 public final class SessionCallManager: NSObject, CallManagerProtocol {
-    private static let endCallMessageSendTimeout: DispatchTimeInterval = .seconds(10)
+    private static let callTeardownTimeout: DispatchTimeInterval = .seconds(10)
     
     let dependencies: Dependencies
     
@@ -37,7 +37,6 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     let callController: CXCallController?
     private var pendingOfferSDP: (uuid: String, sdp: String)? = nil
     private var pendingICECandidates: [(message: CallMessage, sdpMLineIndexes: [UInt32], sdpMids: [String])] = []
-    @ThreadSafeObject private var pendingEndCallMessageSend: Task<Void, Never>? = nil
     
     public var currentCall: CurrentCallProtocol? = nil {
         willSet {
@@ -152,24 +151,36 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
+        /// Once the call is reported ended iOS stops keeping the app running for it, but the teardown below still uses the database,
+        /// so when in the background hold a background task from before any of it until the database is suspended (otherwise iOS
+        /// can suspend the app with the database open, which crashes with `0xdead10cc`)
+        let backgroundTask: (id: UIBackgroundTaskIdentifier, end: () -> Void)? = (dependencies[singleton: .appContext].isInBackground ?
+            SessionBackgroundTask.begin(label: "Suspend after call", using: dependencies) :
+            nil
+        )
+        
         guard let call = currentCall else {
             self.cleanUpPreviousCall()
-            self.suspendDatabaseIfCallEndedInBackground()
+            self.suspendDatabaseIfCallEndedInBackground(endingBackgroundTask: backgroundTask, after: [])
             return
         }
         
+        let endCallMessageSend: Task<Void, Never>? = call.endCallMessageSend
+        let callMessageUpdate: Task<Void, Never>
         self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
         
         switch (reason) {
-            case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
-            case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
-            case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
-            default: call.updateCallMessage(mode: .remote, using: dependencies)
+            case .answeredElsewhere: callMessageUpdate = call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
+            case .unanswered: callMessageUpdate = call.updateCallMessage(mode: .unanswered, using: dependencies)
+            case .declinedElsewhere: callMessageUpdate = call.updateCallMessage(mode: .local, using: dependencies)
+            default: callMessageUpdate = call.updateCallMessage(mode: .remote, using: dependencies)
         }
         
-        _pendingEndCallMessageSend.set(to: call.endCallMessageSend)
         self.cleanUpPreviousCall()
-        self.suspendDatabaseIfCallEndedInBackground()
+        self.suspendDatabaseIfCallEndedInBackground(
+            endingBackgroundTask: backgroundTask,
+            after: [callMessageUpdate, endCallMessageSend].compactMap { $0 }
+        )
     }
     
     public func currentWebRTCSessionMatches(callId: String) -> Bool {
@@ -220,56 +231,55 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         callUpdate.supportsDTMF = false
     }
     
-    public func suspendDatabaseIfCallEndedInBackground() {
+    private func suspendDatabaseIfCallEndedInBackground(
+        endingBackgroundTask backgroundTask: (id: UIBackgroundTaskIdentifier, end: () -> Void)?,
+        after teardown: [Task<Void, Never>]
+    ) {
         Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
         
-        if dependencies[singleton: .appContext].isInBackground {
-            /// Stop all jobs except for message sending and when completed suspend the database
-            Task.detached(priority: .userInitiated) { [weak self, dependencies, pendingEndCallMessageSend] in
-                /// Waiting for the `endCall` message keeps the app running in the background with the database open, so hold a
-                /// background task to stop iOS suspending it before the database is (which would crash with `0xdead10cc`)
-                try? await SessionBackgroundTask.run(label: "Suspend after call", using: dependencies) {
-                    await dependencies[singleton: .jobRunner].stopAndClearJobs(
-                        filters: JobRunner.Filters(
-                            exclude: [.variant(.messageSend)]
-                        )
-                    )
-                    
-                    /// The `endCall` message is the only way the other party learns the call ended - it isn't a job (so the exclusion
-                    /// above doesn't protect it) and it needs both the database and the network, so if it hasn't gone out by the time
-                    /// we suspend them the other party is left "connecting" until they give up
-                    if let pendingEndCallMessageSend {
-                        await SessionCallManager.waitForEndCallMessageSend(pendingEndCallMessageSend, using: dependencies)
-                    }
-                    
-                    if self?.currentCall?.hasEnded != false {
-                        await dependencies[singleton: .network].suspendNetworkAccess()
-                        await dependencies[singleton: .storage].suspendDatabaseAccess()
-                        Log.flush()
-                    }
-                }
+        guard let backgroundTask else { return }
+        
+        /// Stop all jobs except for message sending and when completed suspend the database
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            defer { backgroundTask.end() }
+            
+            await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                filters: JobRunner.Filters(
+                    exclude: [.variant(.messageSend)]
+                )
+            )
+            
+            /// The teardown needs the database (and the `endCall` message the network too) - that message is the only way the
+            /// other party learns the call ended and it isn't a job (so the exclusion above doesn't protect it), and the call's final
+            /// state is saved by a write which suspending would cancel, so wait for them rather than cutting them off
+            await SessionCallManager.waitForCallTeardown(teardown, using: dependencies)
+            
+            if self?.currentCall?.hasEnded != false {
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
+                Log.flush()
             }
         }
     }
     
-    private static func waitForEndCallMessageSend(_ send: Task<Void, Never>, using dependencies: Dependencies) async {
+    private static func waitForCallTeardown(_ teardown: [Task<Void, Never>], using dependencies: Dependencies) async {
         let (outcome, continuation) = AsyncStream<Bool>.makeStream()
-        let sendWatcher: Task<Void, Never> = Task {
-            await send.value
+        let teardownWatcher: Task<Void, Never> = Task {
+            for task in teardown { await task.value }
             continuation.yield(true)
         }
         let timeout: Task<Void, Never> = Task {
-            try? await dependencies.sleep(for: endCallMessageSendTimeout)
+            try? await dependencies.sleep(for: callTeardownTimeout)
             continuation.yield(false)
         }
         
-        let didSend: Bool = (await outcome.first(where: { _ in true }) ?? false)
+        let didFinish: Bool = (await outcome.first(where: { _ in true }) ?? false)
         continuation.finish()
-        sendWatcher.cancel()
+        teardownWatcher.cancel()
         timeout.cancel()
         
-        if !didSend {
-            Log.warn(.calls, "Suspending before the end call message was sent.")
+        if !didFinish {
+            Log.warn(.calls, "Suspending before the call teardown finished.")
         }
     }
     

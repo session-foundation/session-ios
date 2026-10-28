@@ -22,7 +22,6 @@ public protocol CallManagerProtocol {
     func reportFakeCall(info: String)
     func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void)
     func reportCurrentCallEnded(reason: CXCallEndedReason)
-    func suspendDatabaseIfCallEndedInBackground()
     
     func handlePendingOfferSDP(uuid: String, sdp: String)
     func clearPendingSignaling(for uuid: String)

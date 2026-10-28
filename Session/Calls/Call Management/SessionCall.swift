@@ -334,11 +334,11 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
     
     // MARK: - Call Message Handling
     
-    public func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) {
+    public func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) -> Task<Void, Never> {
         let duration: TimeInterval = self.duration
         let hasStartedConnecting: Bool = self.hasStartedConnecting
         
-        Task(priority: .userInitiated) {
+        return Task(priority: .userInitiated) {
             try? await dependencies[singleton: .storage].write { [sessionId, uuid] db in
                 guard let interaction: Interaction = try? Interaction
                     .filter(Interaction.Columns.threadId == sessionId)
@@ -400,8 +400,6 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
                     using: dependencies
                 )
             }
-            
-            dependencies[singleton: .callManager].suspendDatabaseIfCallEndedInBackground()
         }
     }
     

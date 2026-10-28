@@ -16,6 +16,8 @@ class SessionCallManagerSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
 
+        let backgroundTaskId: UIBackgroundTaskIdentifier = UIBackgroundTaskIdentifier(rawValue: 1)
+
         @TestState var dependencies: TestDependencies! = TestDependencies()
         @TestState var mockStorage: Storage! = try! Storage.createForTesting(using: dependencies)
         @TestState var mockAppContext: MockAppContext! = .create(using: dependencies)
@@ -24,6 +26,8 @@ class SessionCallManagerSpec: AsyncSpec {
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockPoller: MockPoller<Void>! = .create(using: dependencies)
         @TestState var endCallMessageGate: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation)! = AsyncStream<Void>.makeStream()
+        @TestState var callMessageUpdateGate: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation)! = AsyncStream<Void>.makeStream()
+        @TestState var events: EventLog! = EventLog()
         @TestState var testCall: TestCall!
         @TestState var manager: SessionCallManager!
 
@@ -34,8 +38,13 @@ class SessionCallManagerSpec: AsyncSpec {
             try await mockUserDefaults.defaultInitialSetup()
 
             dependencies.set(singleton: .appContext, to: mockAppContext)
-            try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
+            try await mockAppContext.when { $0.isMainApp }.thenReturn(true)
             try await mockAppContext.when { $0.reportedApplicationState }.thenReturn(.background)
+            try await mockAppContext.when { $0.beginBackgroundTask(expirationHandler: {}) }.thenReturn { _ in
+                events.append("beginBackgroundTask")
+                return backgroundTaskId
+            }
+            try await mockAppContext.when { $0.endBackgroundTask(backgroundTaskId) }.thenReturn(())
 
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             try await mockJobRunner.when { await $0.stopAndClearJobs(filters: .any) }.thenReturn(())
@@ -48,23 +57,41 @@ class SessionCallManagerSpec: AsyncSpec {
 
             manager = await MainActor.run { SessionCallManager(using: dependencies) }
 
-            /// Models `WebRTCSession.endCall`, whose first step reads the database, held back until the test releases it
-            testCall = TestCall(endCallMessageSend: Task { [gate = endCallMessageGate.stream, storage = mockStorage!] in
-                for await _ in gate { break }
+            /// Models `WebRTCSession.endCall`, whose first step reads the database, and `SessionCall.updateCallMessage`, which
+            /// writes to it, each held back until the test releases it
+            testCall = TestCall(
+                endCallMessageSend: Task { [gate = endCallMessageGate.stream, storage = mockStorage!] in
+                    for await _ in gate { break }
 
-                do { return .success(try await storage.read { _ in }) }
-                catch { return .failure(error) }
-            })
+                    do { return .success(try await storage.read { _ in }) }
+                    catch { return .failure(error) }
+                },
+                callMessageUpdate: { [gate = callMessageUpdateGate.stream, storage = mockStorage!, events = events!] in
+                    events.append("updateCallMessage")
+
+                    return Task {
+                        for await _ in gate { break }
+
+                        do { return .success(try await storage.write { _ in }) }
+                        catch { return .failure(error) }
+                    }
+                }
+            )
         }
 
         afterEach {
             endCallMessageGate.continuation.finish()
+            callMessageUpdateGate.continuation.finish()
         }
 
-        func endCallLocally() async {
+        func endCallLocally(releasingCallMessageUpdate: Bool = true) async {
             await MainActor.run {
                 manager.currentCall = testCall
                 manager.reportCurrentCallEnded(reason: .declinedElsewhere)
+            }
+
+            if releasingCallMessageUpdate {
+                callMessageUpdateGate.continuation.yield(())
             }
         }
 
@@ -116,6 +143,79 @@ class SessionCallManagerSpec: AsyncSpec {
                     await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasCalled(exactly: 1, timeout: .seconds(5))
                     await expect(mockStorage.syncState.state).toEventually(equal(.suspended), timeout: .seconds(5))
                 }
+
+                // MARK: ---- begins a background task before updating the call message
+                it("begins a background task before updating the call message") {
+                    await endCallLocally()
+
+                    expect(events.all).to(equal(["beginBackgroundTask", "updateCallMessage"]))
+                }
+
+                // MARK: ---- lets the call message update write before suspending the database
+                it("lets the call message update write before suspending the database") {
+                    await endCallLocally(releasingCallMessageUpdate: false)
+                    endCallMessageGate.continuation.yield(())
+                    await expect { try await testCall.sendResult.get() }.toNot(throwError())
+                    try await Task.sleep(for: .milliseconds(200))
+
+                    await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasNotCalled()
+                    expect(mockStorage.syncState.state).toNot(equal(.suspended))
+
+                    callMessageUpdateGate.continuation.yield(())
+
+                    await expect { try await testCall.updateResult.get() }.toNot(throwError())
+                    await expect(mockStorage.syncState.state).toEventually(equal(.suspended), timeout: .seconds(5))
+                }
+
+                // MARK: ---- holds the background task until the database is suspended
+                it("holds the background task until the database is suspended") {
+                    await endCallLocally(releasingCallMessageUpdate: false)
+                    try await Task.sleep(for: .milliseconds(200))
+
+                    await mockAppContext.verify { $0.endBackgroundTask(backgroundTaskId) }.wasNotCalled()
+
+                    callMessageUpdateGate.continuation.yield(())
+                    endCallMessageGate.continuation.yield(())
+
+                    await expect(mockStorage.syncState.state).toEventually(equal(.suspended), timeout: .seconds(5))
+                    await mockAppContext
+                        .verify { $0.endBackgroundTask(backgroundTaskId) }
+                        .wasCalled(exactly: 1, timeout: .seconds(5))
+                }
+
+                // MARK: ---- suspends once when the call message update finishes first
+                it("suspends once when the call message update finishes first") {
+                    await endCallLocally(releasingCallMessageUpdate: false)
+                    callMessageUpdateGate.continuation.yield(())
+                    await expect { try await testCall.updateResult.get() }.toNot(throwError())
+                    try await Task.sleep(for: .milliseconds(200))
+
+                    await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasNotCalled()
+
+                    endCallMessageGate.continuation.yield(())
+
+                    await expect { try await testCall.sendResult.get() }.toNot(throwError())
+                    await expect(mockStorage.syncState.state).toEventually(equal(.suspended), timeout: .seconds(5))
+                    try await Task.sleep(for: .milliseconds(200))
+                    await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasCalled(exactly: 1)
+                }
+
+                // MARK: ---- suspends once when the end call message finishes first
+                it("suspends once when the end call message finishes first") {
+                    await endCallLocally(releasingCallMessageUpdate: false)
+                    endCallMessageGate.continuation.yield(())
+                    await expect { try await testCall.sendResult.get() }.toNot(throwError())
+                    try await Task.sleep(for: .milliseconds(200))
+
+                    await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasNotCalled()
+
+                    callMessageUpdateGate.continuation.yield(())
+
+                    await expect { try await testCall.updateResult.get() }.toNot(throwError())
+                    await expect(mockStorage.syncState.state).toEventually(equal(.suspended), timeout: .seconds(5))
+                    try await Task.sleep(for: .milliseconds(200))
+                    await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasCalled(exactly: 1)
+                }
             }
 
             // MARK: -- when a call ends in the foreground
@@ -129,14 +229,29 @@ class SessionCallManagerSpec: AsyncSpec {
                     await endCallLocally()
                     endCallMessageGate.continuation.yield(())
                     await expect { try await testCall.sendResult.get() }.toNot(throwError())
+                    await expect { try await testCall.updateResult.get() }.toNot(throwError())
                     try await Task.sleep(for: .milliseconds(200))
 
+                    await mockAppContext.verify { $0.beginBackgroundTask(expirationHandler: {}) }.wasNotCalled()
                     await mockJobRunner.verify { await $0.stopAndClearJobs(filters: .any) }.wasNotCalled()
                     await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasNotCalled()
                     expect(mockStorage.syncState.state).toNot(equal(.suspended))
                 }
             }
         }
+    }
+}
+
+// MARK: - EventLog
+
+private final class EventLog: @unchecked Sendable {
+    private let lock: NSLock = NSLock()
+    private var events: [String] = []
+
+    var all: [String] { lock.withLock { events } }
+
+    func append(_ event: String) {
+        lock.withLock { events.append(event) }
     }
 }
 
@@ -152,14 +267,29 @@ private final class TestCall: CurrentCallProtocol {
     let endCallMessageSend: Task<Void, Never>?
 
     private let send: Task<Result<Void, Error>, Never>
+    private let callMessageUpdate: () -> Task<Result<Void, Error>, Never>
+    private var update: Task<Result<Void, Error>, Never>?
     var sendResult: Result<Void, Error> { get async { await send.value } }
+    var updateResult: Result<Void, Error> {
+        get async { await update?.value ?? .failure(StorageError.objectNotFound) }
+    }
 
-    init(endCallMessageSend send: Task<Result<Void, Error>, Never>) {
+    init(
+        endCallMessageSend send: Task<Result<Void, Error>, Never>,
+        callMessageUpdate: @escaping () -> Task<Result<Void, Error>, Never>
+    ) {
         self.send = send
+        self.callMessageUpdate = callMessageUpdate
         self.endCallMessageSend = Task { _ = await send.value }
     }
 
-    func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) {}
+    func updateCallMessage(mode: EndCallMode, using dependencies: Dependencies) -> Task<Void, Never> {
+        let update: Task<Result<Void, Error>, Never> = callMessageUpdate()
+        self.update = update
+
+        return Task { _ = await update.value }
+    }
+
     func didReceiveRemoteSDP(sdp: RTCSessionDescription) {}
     func startSessionCall(_ db: ObservingDatabase) {}
 }
