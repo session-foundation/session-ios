@@ -16,7 +16,7 @@ class SNUIKitConfigurationSpec: AsyncSpec {
                 let previousConfig: SNUIKit.ConfigType? = SNUIKit.config
                 SNUIKit.config = nil
 
-                let icon: NavBarSessionIcon = await MainActor.run { SNUIKit.navBarSessionIcon() }
+                let icon: NavBarSessionIcon = await MainActor.run { SNUIKit.makeNavBarSessionIcon() }
                 SNUIKit.config = previousConfig
 
                 expect(icon).toNot(beNil())
