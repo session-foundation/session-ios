@@ -91,7 +91,7 @@ public actor SNUIKit {
     }
     
     @MainActor internal static func navBarSessionIcon() -> NavBarSessionIcon {
-        return (currentConfig()?.navBarSessionIcon() ?? navBarSessionIcon())
+        return (currentConfig()?.navBarSessionIcon() ?? NavBarSessionIcon())
     }
     
     internal static func topBannerChanged(to warning: TopBannerController.Warning?) {

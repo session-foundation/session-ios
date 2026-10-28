@@ -511,6 +511,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                     )
                                 }
                                 try await AppSetup.postMigrationSetup(using: dependencies)
+                                await AppSetup.configureSNUIKit(using: dependencies)
                                 
                                 await self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
                             }
