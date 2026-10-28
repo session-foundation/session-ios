@@ -1182,6 +1182,7 @@
 		FDE754A32C9A8FD1002A2623 /* SwarmPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A22C9A8FD1002A2623 /* SwarmPoller.swift */; };
 		FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */; };
 		66F9D00A815E13185A0A29CA /* UnsupportedMessageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F076A64618A6B2D2856220 /* UnsupportedMessageSpec.swift */; };
+		6E1DFAC8BC295126870694F6 /* TypingIndicatorsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 087F7792F2CC5E0913A2AFA6 /* TypingIndicatorsSpec.swift */; };
 		FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */; };
 		FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */; };
 		FDE754AC2C9B967E002A2623 /* FileMetadataSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754AB2C9B967D002A2623 /* FileMetadataSpec.swift */; };
@@ -2861,6 +2862,7 @@
 		FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Crypto+OpenGroup.swift"; sourceTree = "<group>"; };
 		FDE754A22C9A8FD1002A2623 /* SwarmPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwarmPoller.swift; sourceTree = "<group>"; };
 		FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageReceiverGroupsSpec.swift; sourceTree = "<group>"; };
+		087F7792F2CC5E0913A2AFA6 /* TypingIndicatorsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TypingIndicatorsSpec.swift; sourceTree = "<group>"; };
 		94F076A64618A6B2D2856220 /* UnsupportedMessageSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UnsupportedMessageSpec.swift; sourceTree = "<group>"; };
 		FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderGroupsSpec.swift; sourceTree = "<group>"; };
 		FDE754A62C9B964D002A2623 /* MessageSenderSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageSenderSpec.swift; sourceTree = "<group>"; };
@@ -6006,6 +6008,7 @@
 				FD3F2EE52DE6CC3500FD6849 /* Notifications */,
 				FD336F6A2CAA29BC00C0B51B /* Pollers */,
 				FDE754A42C9B964D002A2623 /* MessageReceiverGroupsSpec.swift */,
+				087F7792F2CC5E0913A2AFA6 /* TypingIndicatorsSpec.swift */,
 				94F076A64618A6B2D2856220 /* UnsupportedMessageSpec.swift */,
 				FDE754A52C9B964D002A2623 /* MessageSenderGroupsSpec.swift */,
 				AA01F0011000000000000001 /* ProStatsReaderSpec.swift */,
@@ -8470,6 +8473,7 @@
 				FDCF01000000000000000042 /* ExpirationUpdateJobSpec.swift in Sources */,
 				FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */,
 				66F9D00A815E13185A0A29CA /* UnsupportedMessageSpec.swift in Sources */,
+				6E1DFAC8BC295126870694F6 /* TypingIndicatorsSpec.swift in Sources */,
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
 				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitySpec.swift in Sources */,
