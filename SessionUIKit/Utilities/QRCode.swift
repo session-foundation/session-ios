@@ -3,13 +3,38 @@
 import UIKit
 
 public enum QRCode {
+    /// Generating a code takes up to a second on older devices, so keep the results for screens that show the same code again
+    private static let cache: NSCache<NSString, UIImage> = NSCache()
+    
+    /// Returns the previously generated image for these inputs, if there is one, without generating it
+    public static func cachedImage(for string: String, hasBackground: Bool, iconName: String?) -> UIImage? {
+        return cache.object(forKey: cacheKey(for: string, hasBackground: hasBackground, iconName: iconName))
+    }
+    
     /// Generates a QRCode with a logo in the middle for the give string
     ///
     /// **Note:** If the `hasBackground` value is true then the QRCode will be black and white and
     /// the `withRenderingMode(.alwaysTemplate)` won't work correctly on some iOS versions (eg. iOS 16)
-    ///
-    /// stringlint:ignore_contents
     public static func generate(for string: String, hasBackground: Bool, iconName: String?) -> UIImage {
+        let key: NSString = cacheKey(for: string, hasBackground: hasBackground, iconName: iconName)
+        
+        if let cachedImage: UIImage = cache.object(forKey: key) {
+            return cachedImage
+        }
+        
+        let image: UIImage = createImage(for: string, hasBackground: hasBackground, iconName: iconName)
+        cache.setObject(image, forKey: key)
+        
+        return image
+    }
+    
+    // stringlint:ignore_contents
+    private static func cacheKey(for string: String, hasBackground: Bool, iconName: String?) -> NSString {
+        return "\(string)|\(hasBackground)|\(iconName ?? "")" as NSString
+    }
+    
+    // stringlint:ignore_contents
+    private static func createImage(for string: String, hasBackground: Bool, iconName: String?) -> UIImage {
         // 1. Create QR code data
         guard let data = string.data(using: .utf8),
               let qrFilter = CIFilter(name: "CIQRCodeGenerator") else {

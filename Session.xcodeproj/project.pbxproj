@@ -987,6 +987,7 @@
 		FD9E26AF2EA5DC7D00404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9E26AE2EA5DC7100404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift */; };
 		FD9E26B22EA72BE600404C7F /* QuoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328251E25CA3A900062D0A7 /* QuoteView.swift */; };
 		FD9E26B32EA72CC500404C7F /* UIEdgeInsets+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35D0DB425AE5F1200B6BF49 /* UIEdgeInsets+Utilities.swift */; };
+		48A9DC4969C3DB7207DF215D /* QRCodeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = C798E8F8E9844003DD31A0BD /* QRCodeSpec.swift */; };
 		FD9E26C72EA72DAC00404C7F /* SUIKStringUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9E26C62EA72D7D00404C7F /* SUIKStringUtilitiesSpec.swift */; };
 		FD9E26C92EA72DC200404C7F /* SessionUIKit.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = FD9E26C82EA72DC200404C7F /* SessionUIKit.xctestplan */; };
 		FD9E26CB2EA72E2600404C7F /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = FD9E26CA2EA72E2600404C7F /* Quick */; };
@@ -2669,6 +2670,7 @@
 		FD9E26AE2EA5DC7100404C7F /* _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _046_RemoveQuoteUnusedColumnsAndForeignKeys.swift; sourceTree = "<group>"; };
 		FD9E26B82EA72D3E00404C7F /* SessionUIKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SessionUIKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9E26C62EA72D7D00404C7F /* SUIKStringUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SUIKStringUtilitiesSpec.swift; sourceTree = "<group>"; };
+		C798E8F8E9844003DD31A0BD /* QRCodeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeSpec.swift; sourceTree = "<group>"; };
 		FD9E26C82EA72DC200404C7F /* SessionUIKit.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionUIKit.xctestplan; sourceTree = "<group>"; };
 		FD9E26CF2EA73F4800404C7F /* UTType+Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UTType+Localization.swift"; sourceTree = "<group>"; };
 		FDA10000202608120000001A /* KeychainAccessGroupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAccessGroupMigration.swift; sourceTree = "<group>"; };
@@ -5674,6 +5676,7 @@
 		FD9E26C52EA72D7500404C7F /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				C798E8F8E9844003DD31A0BD /* QRCodeSpec.swift */,
 				FD9E26C62EA72D7D00404C7F /* SUIKStringUtilitiesSpec.swift */,
 			);
 			path = Utilities;
@@ -8406,6 +8409,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48A9DC4969C3DB7207DF215D /* QRCodeSpec.swift in Sources */,
 				FD9E26C72EA72DAC00404C7F /* SUIKStringUtilitiesSpec.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
