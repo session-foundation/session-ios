@@ -157,9 +157,9 @@ public class ExtensionHelper: ExtensionHelperType {
         return plaintext
     }
     
+    /// Doesn't check `fileExists` first because a missing file already makes `attributesOfItem` throw, and this runs once per
+    /// dedupe file on every push
     private func createdTimestamp(for path: String) -> TimeInterval? {
-        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else { return nil }
-        
         return ((try? dependencies[singleton: .fileManager]
             .attributesOfItem(atPath: path)
             .getting(.creationDate) as? Date)?
@@ -251,7 +251,9 @@ public class ExtensionHelper: ExtensionHelperType {
             .path
     }
     
-    private func dedupeRecordTimestampsSinceLastCleared(conversationPath: String) -> [TimeInterval] {
+    /// Stops counting at `limit` because the callers only need to compare against a known number, and a conversation can hold
+    /// far more dedupe records than that
+    private func dedupeRecordCountSinceLastCleared(conversationPath: String, upTo limit: Int) -> Int {
         /// Using `lastModified` for the `lastClearedRecord` because if the file already existed when clearing then it's
         /// `created` timestamp wouldn't get updated
         let lastClearedPath: String? = lastClearedRecordPath(conversationPath: conversationPath)
@@ -262,28 +264,32 @@ public class ExtensionHelper: ExtensionHelperType {
             .appendingPathComponent(conversationDedupeDir)
             .path
         
-        return (try? dependencies[singleton: .fileManager]
+        let fileHashes: [String] = (try? dependencies[singleton: .fileManager]
             .contentsOfDirectory(atPath: dedupePath))
             .defaulting(to: [])
-            .compactMap { fileHash in
-                let filePath: String = URL(fileURLWithPath: dedupePath).appendingPathComponent(fileHash).path
-                
-                /// Ignore the `lastClearedPath` since it doesn't represent a message and add a `100 millisecond` buffer
-                /// to account for different write times of the separate files
-                guard
-                    filePath != lastClearedPath,
-                    let fileCreatedTimestamp: TimeInterval = createdTimestamp(for: filePath),
-                    fileCreatedTimestamp >= (lastClearedTimestamp - 0.1)
-                else { return nil }
-                    
-                return fileCreatedTimestamp
-            }
+        var count: Int = 0
+        
+        for fileHash in fileHashes where count < limit {
+            let filePath: String = URL(fileURLWithPath: dedupePath).appendingPathComponent(fileHash).path
+            
+            /// Ignore the `lastClearedPath` since it doesn't represent a message and add a `100 millisecond` buffer
+            /// to account for different write times of the separate files
+            guard
+                filePath != lastClearedPath,
+                let fileCreatedTimestamp: TimeInterval = createdTimestamp(for: filePath),
+                fileCreatedTimestamp >= (lastClearedTimestamp - 0.1)
+            else { continue }
+            
+            count += 1
+        }
+        
+        return count
     }
     
     public func hasDedupeRecordSinceLastCleared(threadId: String) -> Bool {
         guard let conversationPath: String = conversationPath(threadId) else { return false }
         
-        return (dedupeRecordTimestampsSinceLastCleared(conversationPath: conversationPath).count > 0)
+        return (dedupeRecordCountSinceLastCleared(conversationPath: conversationPath, upTo: 1) > 0)
     }
     
     public func dedupeRecordExists(threadId: String, uniqueIdentifier: String) -> Bool {
@@ -815,15 +821,16 @@ public class ExtensionHelper: ExtensionHelperType {
                 /// the conversation was last cleared and `messageRequestStub` was created (When the app opens, these dedupe
                 /// files are automatically removed which is why we need the convoluted logic)
                 guard !dependencies[singleton: .fileManager].fileExists(atPath: messageRequestStubPath) else {
-                    let dedupeFileCreatedTimestamps: [TimeInterval] = dedupeRecordTimestampsSinceLastCleared(
+                    let dedupeRecordCount: Int = dedupeRecordCountSinceLastCleared(
                         conversationPath: URL(fileURLWithPath: conversationsPath)
                             .appendingPathComponent(conversationHash)
-                            .path
+                            .path,
+                        upTo: unreadMessageHashes.count
                     )
                     
                     /// If the number of dedupe records don't match the number of unread messages (minus 1 to account for the stub
                     /// file) then the user has seen the message requests banner since they received the PN for this message request
-                    guard dedupeFileCreatedTimestamps.count == (unreadMessageHashes.count - 1) else {
+                    guard dedupeRecordCount == (unreadMessageHashes.count - 1) else {
                         return result
                     }
                     
