@@ -1001,6 +1001,7 @@
 		625643A4B4C043BE9D3974C3 /* ForegroundSceneGateSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */; };
 		8F296D67356267D9EE81B001 /* MainAppContextSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */; };
 		FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */; };
+		E196D098452F6B9DDAD61C54 /* PhotoCollectionPickerViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ABECB6C16AF21D15BF53D28 /* PhotoCollectionPickerViewModelSpec.swift */; };
 		FDA1E0022F0A11B000A11B02 /* FileServerParsedDownloadUrlSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */; };
 		FDA1E0052F0A11B000A11B05 /* CryptoAttachmentsSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */; };
 		FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA335F42D911576007E0EB6 /* SessionImageView.swift */; };
@@ -2679,6 +2680,7 @@
 		FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicWordSetSpec.swift; sourceTree = "<group>"; };
 		198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundSceneGateSpec.swift; sourceTree = "<group>"; };
 		8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppContextSpec.swift; sourceTree = "<group>"; };
+		6ABECB6C16AF21D15BF53D28 /* PhotoCollectionPickerViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCollectionPickerViewModelSpec.swift; sourceTree = "<group>"; };
 		FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryViewModelSpec.swift; sourceTree = "<group>"; };
 		FDA1E0012F0A11B000A11B01 /* FileServerParsedDownloadUrlSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileServerParsedDownloadUrlSpec.swift; sourceTree = "<group>"; };
 		FDA1E0042F0A11B000A11B04 /* CryptoAttachmentsSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoAttachmentsSpec.swift; sourceTree = "<group>"; };
@@ -5708,6 +5710,7 @@
 			isa = PBXGroup;
 			children = (
 				FDA1B3022F0000020000AAAA /* MediaGalleryViewModelSpec.swift */,
+				6ABECB6C16AF21D15BF53D28 /* PhotoCollectionPickerViewModelSpec.swift */,
 			);
 			path = Media;
 			sourceTree = "<group>";
@@ -8323,6 +8326,7 @@
 				FDF0DF762F4D6CFD000D6041 /* MockFileHandle.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FDA1B3012F0000010000AAAA /* MediaGalleryViewModelSpec.swift in Sources */,
+				E196D098452F6B9DDAD61C54 /* PhotoCollectionPickerViewModelSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
 				A1B2C3D40002E5F600A00002 /* VisibleMessageCellSpec.swift in Sources */,
 				A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */,

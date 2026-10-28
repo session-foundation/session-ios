@@ -18,6 +18,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     private let thumbnailPixelDimension: CGFloat
     private let onCollectionSelected: (PhotoCollection) -> Void
     private var photoCollections: CurrentValueSubject<[PhotoCollection], Error>
+    private var loadTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -30,7 +31,23 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
         self.library = library
         self.thumbnailPixelDimension = thumbnailSize.pixelDimension()
         self.onCollectionSelected = onCollectionSelected
-        self.photoCollections = CurrentValueSubject(library.allPhotoCollections(using: dependencies))
+        self.photoCollections = CurrentValueSubject([])
+        
+        loadPhotoCollections()
+    }
+    
+    /// Fetching every album (and each album's contents, in `observation`) can take seconds with a large library, and this view
+    /// model is created on the main thread as the image picker appears
+    private func loadPhotoCollections() {
+        loadTask?.cancel()
+        loadTask = Task.detached(priority: .userInitiated) { [weak self, library, dependencies] in
+            let collections: [PhotoCollection] = library.allPhotoCollections(using: dependencies)
+            
+            /// A newer load was started while this one ran, so this result may be out of date
+            guard !Task.isCancelled else { return }
+            
+            self?.photoCollections.send(collections)
+        }
     }
     
     // MARK: - Config
@@ -94,6 +111,6 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     // MARK: PhotoLibraryDelegate
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
-        self.photoCollections.send(library.allPhotoCollections(using: dependencies))
+        loadPhotoCollections()
     }
 }
