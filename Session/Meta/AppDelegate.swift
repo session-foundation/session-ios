@@ -122,6 +122,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Update state of current call
         if dependencies[singleton: .callManager].currentCall == nil {
             dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+            dependencies[defaults: .appGroup, key: .ongoingCallUuid] = nil
             dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         }
         

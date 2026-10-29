@@ -476,6 +476,42 @@ extension MessageReceiver {
         )
     }
     
+    public enum CallMessageExtensionHandling: Equatable {
+        case unableToReceiveCall(CallMessage.MessageInfo.State)
+        case respondBusy
+        case reportIncomingCall
+        case leaveForMainApp
+        case standard
+    }
+    
+    /// How the notification extension should handle a `CallMessage` it receives while the main app isn't active
+    public static func callMessageExtensionHandling(
+        for message: CallMessage,
+        areCallsEnabled: Bool,
+        hasMicrophonePermission: Bool,
+        isCallOngoing: Bool,
+        ongoingCallUuid: String?
+    ) -> CallMessageExtensionHandling {
+        switch ((areCallsEnabled && hasMicrophonePermission), isCallOngoing, message.kind) {
+            case (false, _, _): return .unableToReceiveCall(areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
+            
+            /// The extension still runs while the user has backgrounded the app mid-call, but the main app owns the ongoing call
+            /// and its poller keeps running for it - saving one of the call's messages here would also write a dedupe record, so
+            /// the poller would drop it, and the main app only loads messages the extension saved once it's next in the foreground
+            case (_, true, _) where message.uuid == ongoingCallUuid: return .leaveForMainApp
+            
+            /// If we receive an `endCall` message while on another call then we can just ignore it
+            case (_, _, .endCall): return .standard
+            
+            /// Only a `preOffer` starts a call, so only that can be a second caller - answering anything else as busy would end
+            /// whichever call it belongs to (an unknown `ongoingCallUuid` is treated as a different call so a genuine second
+            /// caller still gets a busy response)
+            case (true, true, .preOffer): return .respondBusy
+            case (true, false, .preOffer): return .reportIncomingCall
+            default: return .standard
+        }
+    }
+    
     @discardableResult public static func insertCallInfoMessage(
         _ db: ObservingDatabase,
         threadId: String,

@@ -559,15 +559,21 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     (dependencies[defaults: .appGroup, key: .lastCallPreOffer] != nil)
                 )
                 
+                let handling: MessageReceiver.CallMessageExtensionHandling = MessageReceiver.callMessageExtensionHandling(
+                    for: callMessage,
+                    areCallsEnabled: areCallsEnabled,
+                    hasMicrophonePermission: hasMicrophonePermission,
+                    isCallOngoing: isCallOngoing,
+                    ongoingCallUuid: dependencies[defaults: .appGroup, key: .ongoingCallUuid]
+                )
+                
                 /// Handle the call as needed
-                switch ((areCallsEnabled && hasMicrophonePermission), isCallOngoing, callMessage.kind) {
-                    case (false, _, _):
+                switch handling {
+                    case .unableToReceiveCall(let state):
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
-                        callMessage.state = (areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
+                        callMessage.state = state
                     
-                    /// If we receive an `endCall` message while on another call then we can just ignore it
-                    case (_, _, .endCall): break
-                    case (true, true, _):
+                    case .respondBusy:
                         guard let sender: String = callMessage.sender else {
                             throw MessageError.missingRequiredField("sender")
                         }
@@ -613,7 +619,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         /// Show the notification and write the message to disk
                         break
                         
-                    case (true, false, .preOffer):
+                    case .reportIncomingCall:
                         let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { libSession in
                             libSession.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
                         }
@@ -649,7 +655,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             displayNameRetriever: displayNameRetriever
                         )
                         
-                    default: break  /// Send all other cases through the standard notification handling
+                    case .leaveForMainApp:
+                        Log.info(.calls, "Leaving \(callMessage.kind) message for the ongoing call (\(callMessage.uuid)) to the main app.")
+                        completeSilenty(notification.info, .ignoreDueToMainAppRunning)
+                        return
+                    
+                    case .standard: break  /// Send all other cases through the standard notification handling
                 }
                 
             case is VisibleMessage: break
