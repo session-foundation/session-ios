@@ -26,7 +26,7 @@ extension MessageReceiver {
         currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo {
-        let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+        let isMainAppActive: Bool = dependencies.isMainAppActive
         
         // Update profile if needed
         if let profile = message.profile {
@@ -579,7 +579,7 @@ extension MessageReceiver {
             case .react:
                 // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
                 // requiring main-thread execution
-                let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+                let isMainAppActive: Bool = dependencies.isMainAppActive
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 try Reaction(
                     interactionId: interactionId,

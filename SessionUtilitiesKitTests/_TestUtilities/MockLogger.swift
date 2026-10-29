@@ -18,7 +18,6 @@ public actor MockLogger: LoggerType {
     
     nonisolated public let primaryPrefix: String = "Mock"
     nonisolated public let sortedLogFilePaths: [String]? = nil
-    public let isSuspended: Bool = false
     public var logs: [LogOutput] = []
     
     func clearLogs() { logs = [] }
@@ -29,24 +28,22 @@ public actor MockLogger: LoggerType {
     public func setDefaultLogLevel(_ level: Log.Level?) {}
     public func setLogLevel(_ level: Log.Level?, for category: Log.Category) {}
     public func resetAllLogLevelsToDefaults() {}
-    public func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {}
     public func loadExtensionLogsAndResumeLogging() {}
     public func clearCache() {}
-    public func _internalLog(
-        _ level: Log.Level,
-        _ categories: [Log.Category],
-        _ message: String,
-        file: String,
-        function: StaticString,
-        line: UInt
-    ) {
+    nonisolated public func log(_ info: Log.LogInfo) {
+        Task { await append(info) }
+    }
+    nonisolated public func flush(completion: @escaping @Sendable () -> Void) { completion() }
+    nonisolated public func stopLogging(completion: (@Sendable () -> Void)?) { completion?() }
+    
+    private func append(_ info: Log.LogInfo) {
         logs.append(
             LogOutput(
-                level: level,
-                categories: categories,
-                message: message,
-                file: "\(file)",
-                function: "\(function)"
+                level: info.level,
+                categories: info.categories,
+                message: info.message,
+                file: "\(info.file)",
+                function: "\(info.function)"
             )
         )
     }

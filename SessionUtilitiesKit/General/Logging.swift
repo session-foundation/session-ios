@@ -45,7 +45,8 @@ public enum Log {
         message: String,
         file: String,
         function: StaticString,
-        line: UInt
+        line: UInt,
+        timestamp: Date
     )
     
     public enum Level: Comparable, CaseIterable, ThreadSafeType {
@@ -190,6 +191,9 @@ public enum Log {
     }
     
     private static let logger: Atomic<LoggerType> = Atomic()
+    
+    /// Logs raised while there is no logger, the `logger` is only ever replaced while holding this lock so that a log can't be added
+    /// here after the logger which would drain it has been set
     @ThreadSafeObject private static var pendingStartupLogs: [LogInfo] = []
     
     public static func loggerExists(withPrefix prefix: String) -> Bool {
@@ -197,11 +201,32 @@ public enum Log {
     }
     
     public static func setup(with logger: LoggerType) {
-        Task {
-            await logger.setPendingLogsRetriever {
-                _pendingStartupLogs.performUpdateAndMap { ([], $0) }
+        let previousLogger: LoggerType? = replaceLogger(with: logger)
+        previousLogger?.stopLogging(completion: nil)
+        
+        /// This has to start after the logger has been set, otherwise logs added between it draining `pendingStartupLogs` and the
+        /// logger being set would be stuck until the next logger is set up
+        Task { await logger.loadExtensionLogsAndResumeLogging() }
+    }
+    
+    /// Only the current logger, or a stopped one when there is no current logger, may take these - otherwise a logger which was
+    /// replaced but hasn't finished resuming yet could take logs and write them after the current logger has been flushed
+    internal static func takePendingStartupLogs(for requestingLogger: LoggerType) -> [LogInfo] {
+        return _pendingStartupLogs.performUpdateAndMap { logs in
+            switch Log.logger.value {
+                case .none: return ([], logs)
+                case .some(let currentLogger) where currentLogger === requestingLogger: return ([], logs)
+                case .some: return (logs, [])
             }
-            Log.logger.set(logger)
+        }
+    }
+    
+    private static func replaceLogger(with newLogger: LoggerType?) -> LoggerType? {
+        return _pendingStartupLogs.performUpdateAndMap { logs in
+            let previousLogger: LoggerType? = Log.logger.value
+            Log.logger.set(newLogger)
+            
+            return (logs, previousLogger)
         }
     }
     
@@ -278,8 +303,34 @@ public enum Log {
         _exit(0)
     }
     
+    /// Calls `completion` once every log which was sent to the current logger has been written to disk, without stopping it
+    ///
+    /// **Note:** Unlike `flush()` this waits for logs which haven't reached the file logger yet, so should be used before the
+    /// process is likely to be suspended or killed (eg. before an extension calls its completion handler)
+    public static func flush(completion: @escaping @Sendable () -> Void) {
+        guard let currentLogger: LoggerType = logger.value else {
+            flush()
+            return completion()
+        }
+        
+        currentLogger.flush(completion: completion)
+    }
+    
     public static func reset() {
-        Log.logger.set(nil)
+        replaceLogger(with: nil)?.stopLogging(completion: nil)
+    }
+    
+    /// Removes the current logger and calls `completion` once every log which was sent to it has been written to disk
+    ///
+    /// **Note:** Unlike `flush` this waits for logs which haven't reached the file logger yet, so should be used before the
+    /// process is likely to be suspended or killed (eg. before an extension calls its completion handler)
+    public static func flushAndReset(completion: @escaping @Sendable () -> Void) {
+        guard let currentLogger: LoggerType = replaceLogger(with: nil) else {
+            flush()
+            return completion()
+        }
+        
+        currentLogger.stopLogging(completion: completion)
     }
     
     public static func resetAndClearCache() {
@@ -492,26 +543,22 @@ public enum Log {
         function: StaticString = #function,
         line: UInt = #line
     ) {
+        let info: LogInfo = (level, categories, message, file, function, line, Date())
+        
         /// If we don't have a logger yet then store the startup logs
-        guard let logger: LoggerType = logger.value else {
-            return _pendingStartupLogs.performUpdate { logs in
-                logs.appending((level, categories, message, file, function, line))
-            }
+        let maybeLogger: LoggerType? = _pendingStartupLogs.performUpdateAndMap { logs in
+            guard let logger: LoggerType = Log.logger.value else { return (logs.appending(info), nil) }
+            
+            return (logs, logger)
         }
         
         /// Since we have a logger we can check whether we _should_ log
-        guard logger.shouldLog(level: level, categories: categories) else { return }
+        guard
+            let logger: LoggerType = maybeLogger,
+            logger.shouldLog(level: level, categories: categories)
+        else { return }
         
-        Task {
-            /// If the logger is suspended then store the logs in the startup logs
-            guard await !logger.isSuspended else {
-                return _pendingStartupLogs.performUpdate { logs in
-                    logs.appending((level, categories, message, file, function, line))
-                }
-            }
-            
-            await logger._internalLog(level, categories, message, file: file, function: function, line: line)
-        }
+        logger.log(info)
     }
     
     public static func setDefaultLogLevel(_ level: Log.Level?) {
@@ -538,23 +585,25 @@ public enum Log {
 public protocol LoggerType: Actor {
     nonisolated var primaryPrefix: String { get }
     nonisolated var sortedLogFilePaths: [String]? { get }
-    var isSuspended: Bool { get }
     
-    func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo])
     func loadExtensionLogsAndResumeLogging()
     nonisolated func shouldLog(level: Log.Level, categories: [Log.Category]) -> Bool
+    
+    /// Logs are written in the order this is called, any logged while the logger is suspended are held until it resumes
+    nonisolated func log(_ info: Log.LogInfo)
+    
+    /// `completion` is called once the logs passed to `log` before this call have been written to disk, including any held while
+    /// the logger is suspended
+    nonisolated func flush(completion: @escaping @Sendable () -> Void)
+    
+    /// Logs passed to `log` before this call will still be written but any after it are dropped, `completion` is called once they
+    /// have been written to disk
+    nonisolated func stopLogging(completion: (@Sendable () -> Void)?)
+    
     func setDefaultLogLevel(_ level: Log.Level?)
     func setLogLevel(_ level: Log.Level?, for category: Log.Category)
     func resetAllLogLevelsToDefaults()
     func clearCache()
-    func _internalLog(
-        _ level: Log.Level,
-        _ categories: [Log.Category],
-        _ message: String,
-        file: String,
-        function: StaticString,
-        line: UInt
-    )
 }
 
 public actor Logger: LoggerType {
@@ -586,13 +635,23 @@ public actor Logger: LoggerType {
     nonisolated public var sortedLogFilePaths: [String]? {
         fileLogger?.logFileManager.sortedLogFilePaths
     }
-    public var isSuspended: Bool = true
+    private enum QueuedItem {
+        case log(Log.LogInfo)
+        case flush(@Sendable () -> Void)
+        case stop((@Sendable () -> Void)?)
+    }
+    
+    private var isSuspended: Bool = true
+    private var hasStopped: Bool = false
+    private var suspendedLogs: [Log.LogInfo] = []
+    private var suspendedFlushCompletions: [@Sendable () -> Void] = []
+    nonisolated private let queuedItems: AsyncStream<QueuedItem>
+    nonisolated private let queue: AsyncStream<QueuedItem>.Continuation
     nonisolated private let cachedLogLevels: SyncLogLevelCache = SyncLogLevelCache()
     
     private var systemLoggers: [String: SystemLoggerType] = [:]
     nonisolated private let fileLogger: DDFileLogger?
     private var shouldTruncatePubkeys: Bool
-    private var pendingLogsRetriever: (() -> [Log.LogInfo])? = nil
     private lazy var pubkeyRegex: NSRegularExpression? = try? NSRegularExpression(
         pattern: "\\b[0-9a-fA-F]{64,66}\\b",
         options: []
@@ -609,6 +668,9 @@ public actor Logger: LoggerType {
         self.fileLogger = fileLogger
         self.isSuspended = isSuspended
         self.shouldTruncatePubkeys = dependencies[feature: .truncatePubkeysInLogs]
+        (self.queuedItems, self.queue) = AsyncStream.makeStream(of: QueuedItem.self)
+        
+        Task { await self.processQueuedItems() }
     }
     
     public init(
@@ -619,11 +681,12 @@ public actor Logger: LoggerType {
         self.dependencies = dependencies
         self.primaryPrefix = primaryPrefix
         self.shouldTruncatePubkeys = dependencies[feature: .truncatePubkeysInLogs]
+        (self.queuedItems, self.queue) = AsyncStream.makeStream(of: QueuedItem.self)
         
         switch customDirectory {
             case .none: self.fileLogger = DDFileLogger()
             case .some(let customDirectory):
-                let logFileManager: DDLogFileManagerDefault = DDLogFileManagerDefault(logsDirectory: customDirectory)
+                let logFileManager: DDLogFileManagerDefault = UniquelyNamedLogFileManager(logsDirectory: customDirectory)
                 self.fileLogger = DDFileLogger(logFileManager: logFileManager)
         }
         
@@ -643,13 +706,30 @@ public actor Logger: LoggerType {
                 logger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dateFormatter)
                 logger.rollingFrequency = (24 * 60 * 60) // Refresh everyday
                 logger.maximumFileSize = (1024 * 1024 * 5) // Max log file size of 5MB
-                logger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+                
+                switch customDirectory {
+                    case .none: logger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
+                    case .some:
+                        /// Only the extensions use a custom directory, each process writes to a new file (and the main app importing
+                        /// the files rolls the one being written to), so a file count limit would delete all but the last few
+                        /// processes' logs before the main app imports them
+                        logger.logFileManager.maximumNumberOfLogFiles = 0
+                        logger.logFileManager.logFilesDiskQuota = (1024 * 1024 * 5)
+                        
+                        /// Another process, or a logger this one replaced (its file is archived asynchronously after it is removed),
+                        /// may still have the newest file open, and two file handles appending to one file overwrite each other's logs
+                        logger.doNotReuseLogFiles = true
+                }
+                
                 DDLog.add(logger)
         }
         
-        // Now that we are setup we should load the extension logs which will then
-        // complete the startup process when completed
-        Task.detached(priority: .utility) { await self.loadExtensionLogsAndResumeLogging() }
+        /// Needed before the logger resumes, otherwise `shouldLog` would drop uncategorised logs until it does
+        let storedDefault: Log.Level = dependencies[feature: .logLevel(cat: .default)]
+        cachedLogLevels.defaultLogLevel = (storedDefault == .default ? Log.Category.default.defaultLevel : storedDefault)
+        
+        /// This retains `self` until `stopLogging` is called
+        Task { await self.processQueuedItems() }
     }
     
     deinit {
@@ -663,8 +743,75 @@ public actor Logger: LoggerType {
     
     // MARK: - Functions
     
-    public func setPendingLogsRetriever(_ callback: @escaping () -> [Log.LogInfo]) {
-        pendingLogsRetriever = callback
+    nonisolated public func log(_ info: Log.LogInfo) {
+        queue.yield(.log(info))
+    }
+    
+    nonisolated public func flush(completion: @escaping @Sendable () -> Void) {
+        guard case .enqueued = queue.yield(.flush(completion)) else {
+            DDLog.flushLog()
+            completion()
+            return
+        }
+    }
+    
+    nonisolated public func stopLogging(completion: (@Sendable () -> Void)?) {
+        guard case .enqueued = queue.yield(.stop(completion)) else {
+            DDLog.flushLog()
+            completion?()
+            return
+        }
+        
+        queue.finish()
+    }
+    
+    private func processQueuedItems() async {
+        var stopCompletions: [@Sendable () -> Void] = []
+        
+        for await item in queuedItems {
+            switch (item, isSuspended) {
+                case (.log(let info), false): write(info)
+                case (.log(let info), true): suspendedLogs.append(info)
+                case (.flush(let completion), false):
+                    DDLog.flushLog()
+                    completion()
+                    
+                /// The held logs are only written once the logger resumes (or stops)
+                case (.flush(let completion), true): suspendedFlushCompletions.append(completion)
+                case (.stop(let completion), _): completion.map { stopCompletions.append($0) }
+            }
+        }
+        
+        /// A logger can be stopped before it first resumes (eg. an extension which finishes immediately) and nothing will resume
+        /// it afterwards, so write out anything which was held back
+        writeHeldLogs()
+        hasStopped = true
+        
+        /// `DDLog` sends every log to every file logger it has, so this one needs to be removed before anyone waiting on it is told
+        /// it has stopped, rather than when `self` is deallocated (which pending tasks can delay), or logs meant for the next logger
+        /// would be written to both files
+        if let fileLogger: DDFileLogger = fileLogger {
+            DDLog.remove(fileLogger)
+        }
+        
+        DDLog.flushLog()
+        (suspendedFlushCompletions + stopCompletions).forEach { $0() }
+        suspendedFlushCompletions = []
+    }
+    
+    /// Logs from before there was a logger and logs from while this one was suspended, they keep the timestamp from when they were
+    /// logged so may appear in the file after logs with a later timestamp
+    private func writeHeldLogs() {
+        /// Once stopped the file logger has been removed, so anything written would go to another logger's file or nowhere
+        guard !hasStopped else { return }
+        
+        let pendingStartupLogs: [Log.LogInfo] = Log.takePendingStartupLogs(for: self)
+            .filter { shouldLog(level: $0.level, categories: $0.categories) }
+        
+        (pendingStartupLogs + suspendedLogs)
+            .sorted { $0.timestamp < $1.timestamp }
+            .forEach { write($0) }
+        suspendedLogs = []
     }
     
     private func setShouldTruncatePubkeys(_ shouldTruncatePubkeys: Bool) {
@@ -719,6 +866,10 @@ public actor Logger: LoggerType {
     }
     
     public func loadExtensionLogsAndResumeLogging() {
+        /// The first resume runs in a task so can happen after the logger has been stopped, at which point even reading
+        /// `currentLogFileInfo` would create a new file, which can replace the next logger's file if both get the same name
+        guard !hasStopped else { return }
+        
         // Pause logging while we load the extension logs (want to avoid interleaving them where possible)
         isSuspended = true
         
@@ -751,7 +902,8 @@ public actor Logger: LoggerType {
                     return []
                 }
                 
-                return files.map { ("\(dir)/\($0)", type) }
+                /// File names start with "<app name> <UTC creation time>" so this keeps the logs in order
+                return files.sorted().map { ("\(dir)/\($0)", type) }
             }
             
             do {
@@ -815,14 +967,14 @@ public actor Logger: LoggerType {
     }
     
     private func completeResumeLogging(error: String? = nil) {
+        /// The extension logs are loaded asynchronously so the logger can be stopped before this runs
+        guard !hasStopped else { return }
+        
         // Cache the default log level
         let storedDefault: Log.Level = dependencies[feature: .logLevel(cat: .default)]
         cachedLogLevels.defaultLogLevel = (storedDefault == .default ? Log.Category.default.defaultLevel : storedDefault)
         
-        // Retrieve any logs that were added during startup
-        let pendingLogs: [Log.LogInfo] = (pendingLogsRetriever?() ?? [])
         isSuspended = false
-        pendingLogsRetriever = nil
         
         // Store (and subscribe) for the `truncatePubkeysInLogs` setting
         ObservationBuilder.observe(.feature(.truncatePubkeysInLogs), using: dependencies) { [weak self] event in
@@ -837,18 +989,22 @@ public actor Logger: LoggerType {
         // If we had an error loading the extension logs then actually log it
         if let error: String = error {
             Log.empty()
-            _internalLog(.error, [], error, file: #fileID, function: #function, line: #line)
+            write((.error, [], error, #fileID, #function, #line, Date()))
         }
         
-        // After creating a new logger we want to log two empty lines to make it easier to read
-        Log.empty()
-        Log.empty()
+        /// Two empty lines make each launch easy to find in the main app's log, the extensions set up a logger for every run (eg. every
+        /// push) so there they would just add noise
+        if dependencies[singleton: .appContext].isMainApp {
+            Log.empty()
+            Log.empty()
+        }
         
-        // Add any logs that were pending during the startup process
-        pendingLogs.forEach { level, categories, message, file, function, line in
-            guard shouldLog(level: level, categories: categories) else { return }
-            
-            _internalLog(level, categories, message, file: file, function: function, line: line)
+        writeHeldLogs()
+        
+        if !suspendedFlushCompletions.isEmpty {
+            DDLog.flushLog()
+            suspendedFlushCompletions.forEach { $0() }
+            suspendedFlushCompletions = []
         }
     }
     
@@ -881,6 +1037,7 @@ public actor Logger: LoggerType {
     
     public func clearCache() {
         isSuspended = true
+        suspendedLogs = []
         systemLoggers.removeAll()
         cachedLogLevels.removeAll()
         
@@ -889,14 +1046,9 @@ public actor Logger: LoggerType {
         try? dependencies[singleton: .fileManager].removeItem(atPath: logPath)
     }
     
-    public func _internalLog(
-        _ level: Log.Level,
-        _ categories: [Log.Category],
-        _ message: String,
-        file: String,
-        function: StaticString,
-        line: UInt
-    ) {
+    private func write(_ info: Log.LogInfo) {
+        let (level, categories, message, file, function, line, timestamp) = info
+        
         // Sort out the prefixes
         let logPrefix: String = {
             let prefixes: String = [
@@ -958,7 +1110,7 @@ public actor Logger: LoggerType {
                     line: line,
                     tag: nil,
                     options: [.dontCopyMessage],
-                    timestamp: nil
+                    timestamp: timestamp
                 )
             )
         }
@@ -974,6 +1126,24 @@ public actor Logger: LoggerType {
         #if DEBUG
         systemLogger?.log(level, consoleLogMessage)
         #endif
+    }
+}
+
+// MARK: - UniquelyNamedLogFileManager
+
+/// `DDLogFileManagerDefault` names files by their creation time to the millisecond and creates them with an atomic write, which
+/// replaces an existing file rather than failing with the "file exists" error its retry logic expects, so two loggers creating a file
+/// in the same millisecond would lose the first file
+///
+/// **Note:** The suffix must be the same on every call as `DDLogFileManagerDefault` reads the name more than once for each file
+private final class UniquelyNamedLogFileManager: DDLogFileManagerDefault {
+    private let nameSuffix: String = String(UUID().uuidString.prefix(8))
+    
+    override var newLogFileName: String {
+        let defaultName: NSString = super.newLogFileName as NSString
+        
+        // stringlint:ignore
+        return "\(defaultName.deletingPathExtension) \(nameSuffix).\(defaultName.pathExtension)"
     }
 }
 

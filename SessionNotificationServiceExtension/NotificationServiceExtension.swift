@@ -4,6 +4,7 @@ import Foundation
 import CallKit
 import UserNotifications
 import QuartzCore
+import os
 import SessionUIKit
 import SessionMessagingKit
 import SessionNetworkingKit
@@ -20,6 +21,7 @@ private extension Log.Category {
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     // Called via the OS so create a default 'Dependencies' instance
     private var dependencies: Dependencies = Dependencies.createEmpty()
+    private static let loggerSetupLock: NSLock = NSLock()
     private var startTime: CFTimeInterval = 0
     private var cachedNotificationInfo: NotificationInfo = .invalid
     private let hasCompletedLock: NSLock = NSLock()
@@ -42,24 +44,28 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         self._hasCompleted = false
         hasCompletedLock.unlock()
         
-        /// Abort if the main app is running
-        guard !dependencies[defaults: .appGroup, key: .isMainAppActive] else {
-            return self.completeSilenty(self.cachedNotificationInfo, .ignoreDueToMainAppRunning)
-        }
-        
-        guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
-            return self.completeSilenty(self.cachedNotificationInfo, .ignoreDueToNoContentFromApple)
-        }
-        
-        Log.info(.cat, "didReceive called with requestId: \(request.identifier).")
-        
-        /// Create the context if we don't have it (needed before _any_ interaction with the database)
+        /// Create the context if we don't have it (needed before _any_ interaction with the database, and by the logger)
         if !dependencies.has(singleton: .appContext) || !dependencies[singleton: .appContext].isValid {
             dependencies.set(singleton: .appContext, to: NotificationServiceExtensionContext(using: dependencies))
             Dependencies.setIsRTLRetriever(requiresMainThread: false) {
                 NotificationServiceExtensionContext.determineDeviceRTL()
             }
         }
+        
+        Self.setupLoggerIfNeeded()
+        
+        /// Abort if the main app is running
+        let mainAppLease: MainAppLease.State = dependencies.mainAppLease
+        
+        guard !mainAppLease.isActive else {
+            return self.completeSilenty(self.cachedNotificationInfo, .ignoreDueToMainAppRunning(mainAppLease))
+        }
+        
+        guard let content = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            return self.completeSilenty(self.cachedNotificationInfo, .ignoreDueToNoContentFromApple)
+        }
+        
+        Log.info(.cat, "didReceive called with requestId: \(request.identifier), \(mainAppLease), proceeding, \(availableMemory).")
         
         /// Setup the extension and handle the notification
         var notificationInfo: NotificationInfo = self.cachedNotificationInfo.with(content: content)
@@ -91,28 +97,45 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     // MARK: - Setup
+    
+    /// The logger needs to be set up before anything which can complete the notification so every push leaves a line in the log,
+    /// otherwise a device which receives pushes can't be told apart from one which doesn't
+    ///
+    /// It is kept for the life of the process, rather than replaced for each push, so a process writes one log file rather than one
+    /// per push (the main app imports them all, so each file costs every later logger setup a directory scan until then) and
+    /// pushes handled at the same time don't stop each other's logger. That means it needs its own `Dependencies`, otherwise it
+    /// would keep the first push's alive (including its database connection)
+    private static func setupLoggerIfNeeded() {
+        loggerSetupLock.withLock {
+            // stringlint:ignore_start
+            guard !Log.loggerExists(withPrefix: "NotificationServiceExtension") else { return }
+            
+            let dependencies: Dependencies = Dependencies.createEmpty()
+            dependencies.set(singleton: .appContext, to: NotificationServiceExtensionContext(using: dependencies))
+            Log.setup(with: Logger(
+                primaryPrefix: "NotificationServiceExtension",
+                customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
+                using: dependencies
+            ))
+            // stringlint:ignore_stop
+        }
+    }
 
     private func performSetup(_ info: NotificationInfo) throws -> Int {
-        Log.info(.cat, "Performing setup for requestId: \(info.requestId).")
-        
-        // stringlint:ignore_start
-        Log.setup(with: Logger(
-            primaryPrefix: "NotificationServiceExtension",
-            customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
-            using: dependencies
-        ))
         LibSession.clearLoggers()
         LibSession.setupLogger(using: dependencies)
-        // stringlint:ignore_stop
         
         /// Try to load the `UserMetadata` before doing any further setup (if it doesn't exist then there is no need to continue)
         guard let userMetadata: ExtensionHelper.UserMetadata = dependencies[singleton: .extensionHelper].loadUserMetadata() else {
             throw NotificationError.notReadyForExtension
         }
         
-        /// Setup Version Info and Network
+        /// Setup Version Info
+        ///
+        /// **Note:** `sessionProManager` is deliberately left to be created on demand: the extension only parses messages and the
+        /// main app handles them (including Pro entitlement checks) when it imports them, so it is only needed in the rare case where
+        /// the extension sends a message
         dependencies.warm(cache: .appVersion)
-        dependencies.warm(singleton: .sessionProManager)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(
@@ -1173,11 +1196,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
-        Log.custom(resolution.logLevel, [.cat], "\(resolution) after \(.seconds(duration), unit: .ms), requestId: \(info.requestId).")
-        Log.flush()
-        Log.reset()
-        
-        info.contentHandler(silentContent)
+        Log.custom(resolution.logLevel, [.cat], "\(resolution) after \(.seconds(duration), unit: .ms), requestId: \(info.requestId), \(availableMemory).")
+        Log.flush {
+            info.contentHandler(silentContent)
+        }
     }
     
     private func handleSuccessForIncomingCall(
@@ -1331,11 +1353,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             threadVariant: targetThreadVariant
         )
         let hasOrigin: Bool = resolution.description.contains(info.metadata.messageOriginString)
-        Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message\(hasOrigin ? "" : " for message from \(info.metadata.messageOriginString)"), requestId: \(info.requestId).")
-        
-        /// Clear the logger
-        Log.flush()
-        Log.reset()
+        Log.error(.cat, "\(resolution) after \(.seconds(duration), unit: .ms), showing generic failure message\(hasOrigin ? "" : " for message from \(info.metadata.messageOriginString)"), requestId: \(info.requestId), \(availableMemory).")
         
         /// Attach the metadata to the notification (if we got far enough to get it - use the explicit `threadVariant` provided, otherwise
         /// try to infer it based on the `accountId` or `threadId` from processing the notification)
@@ -1388,13 +1406,21 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             return
         }
         
-        info.contentHandler(info.content)
+        Log.flush {
+            info.contentHandler(info.content)
+        }
     }
 }
 
 // MARK: - Convenience
 
 private extension NotificationServiceExtension {
+    /// How much more memory the extension can use before the system terminates it
+    // stringlint:ignore_contents
+    var availableMemory: String {
+        "available memory: \(String(format: "%.1f", Double(os_proc_available_memory()) / (1024 * 1024)))MB"
+    }
+    
     private func isAlreadyCompleted() -> Bool {
         hasCompletedLock.lock()
         defer { hasCompletedLock.unlock() }
