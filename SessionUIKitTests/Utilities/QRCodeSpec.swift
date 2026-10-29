@@ -51,6 +51,28 @@ class QRCodeSpec: QuickSpec {
                 expect(first).toNot(beIdenticalTo(second))
                 expect(first).toNot(beIdenticalTo(third))
             }
+            
+            // MARK: -- does not keep an image generated with shouldCache false
+            it("does not keep an image generated with shouldCache false") {
+                let recoveryPassword: String = String(repeating: "e", count: 64)
+                let image: UIImage = QRCode.generate(for: recoveryPassword, hasBackground: false, iconName: nil, shouldCache: false)
+                
+                expect(image.size.width).to(beGreaterThan(0))
+                expect(QRCode.cachedImage(for: recoveryPassword, hasBackground: false, iconName: nil)).to(beNil())
+            }
+            
+            // MARK: -- does not keep every image it generates
+            it("does not keep every image it generates") {
+                let accountIds: [String] = (0..<12).map { "05\(String(format: "%064lx", 0x5eed00 + $0))" }
+                accountIds.forEach { _ = QRCode.generate(for: $0, hasBackground: false, iconName: "SessionWhite40") }
+                let cachedCount: Int = accountIds
+                    .filter { QRCode.cachedImage(for: $0, hasBackground: false, iconName: "SessionWhite40") != nil }
+                    .count
+                print("[QRCodeSpec] \(cachedCount) of \(accountIds.count) generated images still cached")
+                
+                expect(cachedCount).to(beLessThan(accountIds.count))
+                expect(QRCode.cachedImage(for: accountIds.last!, hasBackground: false, iconName: "SessionWhite40")).toNot(beNil())
+            }
         }
     }
 }

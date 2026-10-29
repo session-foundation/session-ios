@@ -7,6 +7,7 @@ public struct QRCodeView: View {
         let string: String
         let hasBackground: Bool
         let logo: String?
+        let shouldCache: Bool
     }
     
     private let providedImage: UIImage?
@@ -47,14 +48,15 @@ public struct QRCodeView: View {
         string: String,
         hasBackground: Bool,
         logo: String?,
+        shouldCache: Bool = true,
         themeStyle: UIUserInterfaceStyle
     ) {
         /// Generating on the main thread takes up to a second on older devices (this `init` runs inside the parent's `body`),
         /// so only take an already generated image here and generate any other in `body`'s `task`
         self.providedImage = nil
-        self.generationInput = GenerationInput(string: string, hasBackground: hasBackground, logo: logo)
+        self.generationInput = GenerationInput(string: string, hasBackground: hasBackground, logo: logo, shouldCache: shouldCache)
         self._generatedImage = State(
-            initialValue: QRCode.cachedImage(for: string, hasBackground: hasBackground, iconName: logo)
+            initialValue: (shouldCache ? QRCode.cachedImage(for: string, hasBackground: hasBackground, iconName: logo) : nil)
         )
         self.themeStyle = themeStyle
     }
@@ -88,7 +90,12 @@ public struct QRCodeView: View {
             guard let input: GenerationInput = generationInput else { return }
             
             generatedImage = await Task.detached(priority: .userInitiated) {
-                QRCode.generate(for: input.string, hasBackground: input.hasBackground, iconName: input.logo)
+                QRCode.generate(
+                    for: input.string,
+                    hasBackground: input.hasBackground,
+                    iconName: input.logo,
+                    shouldCache: input.shouldCache
+                )
             }.value
         }
     }
