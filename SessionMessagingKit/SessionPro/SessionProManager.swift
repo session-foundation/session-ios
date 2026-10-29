@@ -217,13 +217,16 @@ public actor SessionProManager: SessionProManagerType {
             /// and refreshes it when Pro is switched on at runtime
             await self?.startProMockingObservations()
 
-            /// The extensions only read state from this while handling a message, so the background work stays in the main app: the
+            /// The notification extension only reads state from this while handling a message, so it skips the background work: the
             /// revocation list task creates the network (which the notification extension should only do when it has something to
-            /// send) and reads the database, as does scheduling the next invalidation
+            /// send) and reads the database, as does scheduling the next invalidation. The share extension sends messages, which
+            /// need the revocation list and our own Pro access, so it keeps them
             ///
-            /// **Note:** This leaves `proofIsRevoked` without a revocation list in an extension, which is fine because the notification
-            /// extension saves messages raw and the main app handles them (including that check) when it imports them
-            guard dependencies[singleton: .appContext].isMainApp else {
+            /// **Note:** This leaves `proofIsRevoked` without a revocation list in the notification extension, which is fine because it
+            /// saves messages raw and the main app handles them (including that check) when it imports them
+            let appContext: AppContext = dependencies[singleton: .appContext]
+
+            guard appContext.isMainApp || appContext.isShareExtension else {
                 await self?.updateWithLatestFromUserConfig()
                 await self?.hasCompletedInitialization.send(true)
                 return

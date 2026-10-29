@@ -39,6 +39,7 @@ class SessionProGateSpec: AsyncSpec {
             /// Not the main app by default, so the manager's main app only background work (which needs a lot more stubbing) stays off
             dependencies.set(singleton: .appContext, to: mockAppContext)
             try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
+            try await mockAppContext.when { $0.isShareExtension }.thenReturn(false)
 
             dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn(0)
@@ -192,8 +193,24 @@ class SessionProGateSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- in an extension
-            context("in an extension") {
+            // MARK: -- in the share extension
+            context("in the share extension") {
+                beforeEach {
+                    try await mockAppContext.when { $0.isShareExtension }.thenReturn(true)
+                }
+
+                // MARK: ---- uses the network on startup
+                it("uses the network on startup") {
+                    await createManagerAndWaitForInitialisation(sessionProEnabled: false)
+
+                    await mockNetwork
+                        .verify { $0.networkStatus }
+                        .wasCalled(timeout: .seconds(1))
+                }
+            }
+
+            // MARK: -- in the notification extension
+            context("in the notification extension") {
                 beforeEach {
                     dependencies[singleton: .storage] = nil as Storage?
                 }

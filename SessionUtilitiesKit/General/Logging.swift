@@ -303,6 +303,19 @@ public enum Log {
         _exit(0)
     }
     
+    /// Calls `completion` once every log which was sent to the current logger has been written to disk, without stopping it
+    ///
+    /// **Note:** Unlike `flush()` this waits for logs which haven't reached the file logger yet, so should be used before the
+    /// process is likely to be suspended or killed (eg. before an extension calls its completion handler)
+    public static func flush(completion: @escaping @Sendable () -> Void) {
+        guard let currentLogger: LoggerType = logger.value else {
+            flush()
+            return completion()
+        }
+        
+        currentLogger.flush(completion: completion)
+    }
+    
     public static func reset() {
         replaceLogger(with: nil)?.stopLogging(completion: nil)
     }
@@ -579,6 +592,10 @@ public protocol LoggerType: Actor {
     /// Logs are written in the order this is called, any logged while the logger is suspended are held until it resumes
     nonisolated func log(_ info: Log.LogInfo)
     
+    /// `completion` is called once the logs passed to `log` before this call have been written to disk, including any held while
+    /// the logger is suspended
+    nonisolated func flush(completion: @escaping @Sendable () -> Void)
+    
     /// Logs passed to `log` before this call will still be written but any after it are dropped, `completion` is called once they
     /// have been written to disk
     nonisolated func stopLogging(completion: (@Sendable () -> Void)?)
@@ -620,12 +637,14 @@ public actor Logger: LoggerType {
     }
     private enum QueuedItem {
         case log(Log.LogInfo)
+        case flush(@Sendable () -> Void)
         case stop((@Sendable () -> Void)?)
     }
     
     private var isSuspended: Bool = true
     private var hasStopped: Bool = false
     private var suspendedLogs: [Log.LogInfo] = []
+    private var suspendedFlushCompletions: [@Sendable () -> Void] = []
     nonisolated private let queuedItems: AsyncStream<QueuedItem>
     nonisolated private let queue: AsyncStream<QueuedItem>.Continuation
     nonisolated private let cachedLogLevels: SyncLogLevelCache = SyncLogLevelCache()
@@ -691,14 +710,14 @@ public actor Logger: LoggerType {
                 switch customDirectory {
                     case .none: logger.logFileManager.maximumNumberOfLogFiles = 3 // Save 3 days' log files
                     case .some:
-                        /// Only the extensions use a custom directory, they replace their logger on every run and removing a file
-                        /// logger archives its file, so a file count limit would delete all but the last few runs before the main
-                        /// app imports them
+                        /// Only the extensions use a custom directory, each process writes to a new file (and the main app importing
+                        /// the files rolls the one being written to), so a file count limit would delete all but the last few
+                        /// processes' logs before the main app imports them
                         logger.logFileManager.maximumNumberOfLogFiles = 0
                         logger.logFileManager.logFilesDiskQuota = (1024 * 1024 * 5)
                         
-                        /// The previous run's file is archived asynchronously after its logger is removed, so reusing the newest file
-                        /// could mean two file handles appending to the same file and overwriting each other's logs
+                        /// Another process, or a logger this one replaced (its file is archived asynchronously after it is removed),
+                        /// may still have the newest file open, and two file handles appending to one file overwrite each other's logs
                         logger.doNotReuseLogFiles = true
                 }
                 
@@ -709,7 +728,7 @@ public actor Logger: LoggerType {
         let storedDefault: Log.Level = dependencies[feature: .logLevel(cat: .default)]
         cachedLogLevels.defaultLogLevel = (storedDefault == .default ? Log.Category.default.defaultLevel : storedDefault)
         
-        /// This retains `self` until `stopLogging` is called, after which `deinit` removes the file logger
+        /// This retains `self` until `stopLogging` is called
         Task { await self.processQueuedItems() }
     }
     
@@ -726,6 +745,14 @@ public actor Logger: LoggerType {
     
     nonisolated public func log(_ info: Log.LogInfo) {
         queue.yield(.log(info))
+    }
+    
+    nonisolated public func flush(completion: @escaping @Sendable () -> Void) {
+        guard case .enqueued = queue.yield(.flush(completion)) else {
+            DDLog.flushLog()
+            completion()
+            return
+        }
     }
     
     nonisolated public func stopLogging(completion: (@Sendable () -> Void)?) {
@@ -745,6 +772,12 @@ public actor Logger: LoggerType {
             switch (item, isSuspended) {
                 case (.log(let info), false): write(info)
                 case (.log(let info), true): suspendedLogs.append(info)
+                case (.flush(let completion), false):
+                    DDLog.flushLog()
+                    completion()
+                    
+                /// The held logs are only written once the logger resumes (or stops)
+                case (.flush(let completion), true): suspendedFlushCompletions.append(completion)
                 case (.stop(let completion), _): completion.map { stopCompletions.append($0) }
             }
         }
@@ -762,7 +795,8 @@ public actor Logger: LoggerType {
         }
         
         DDLog.flushLog()
-        stopCompletions.forEach { $0() }
+        (suspendedFlushCompletions + stopCompletions).forEach { $0() }
+        suspendedFlushCompletions = []
     }
     
     /// Logs from before there was a logger and logs from while this one was suspended, they keep the timestamp from when they were
@@ -966,6 +1000,12 @@ public actor Logger: LoggerType {
         }
         
         writeHeldLogs()
+        
+        if !suspendedFlushCompletions.isEmpty {
+            DDLog.flushLog()
+            suspendedFlushCompletions.forEach { $0() }
+            suspendedFlushCompletions = []
+        }
     }
     
     public func setDefaultLogLevel(_ level: Log.Level?) {

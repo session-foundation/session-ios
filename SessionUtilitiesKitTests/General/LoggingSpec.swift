@@ -124,6 +124,37 @@ class LoggingSpec: AsyncSpec {
                 expect(wasOnDisk).to(beTrue())
             }
 
+            // MARK: -- only completes a flush once the logs are on disk, including those raised before it resumed
+            it("only completes a flush once the logs are on disk, including those raised before it resumed") {
+                Log.setup(with: makeLogger())
+                Log.info(.spec, "Raised before resuming")
+
+                let wasOnDisk: Bool = await withCheckedContinuation { continuation in
+                    Log.flush {
+                        continuation.resume(
+                            returning: readLog().contains(where: { $0.message.contains("Raised before resuming") })
+                        )
+                    }
+                }
+
+                expect(wasOnDisk).to(beTrue())
+            }
+
+            // MARK: -- keeps writing to the same file after a flush
+            it("keeps writing to the same file after a flush") {
+                Log.setup(with: makeLogger())
+
+                for index in 0..<3 {
+                    Log.info(.spec, "Push \(index)")
+                    await withCheckedContinuation { continuation in
+                        Log.flush { continuation.resume() }
+                    }
+                }
+
+                expect(readLog().filter { $0.message.contains("Push ") }.count).to(equal(3))
+                expect(try? FileManager.default.contentsOfDirectory(atPath: logDirectory).count).to(equal(1))
+            }
+
             // MARK: -- writes nothing but the logged lines for an extension
             it("writes nothing but the logged lines for an extension") {
                 Log.setup(with: makeLogger())

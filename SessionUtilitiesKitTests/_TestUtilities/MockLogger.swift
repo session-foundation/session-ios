@@ -33,6 +33,7 @@ public actor MockLogger: LoggerType {
     nonisolated public func log(_ info: Log.LogInfo) {
         Task { await append(info) }
     }
+    nonisolated public func flush(completion: @escaping @Sendable () -> Void) { completion() }
     nonisolated public func stopLogging(completion: (@Sendable () -> Void)?) { completion?() }
     
     private func append(_ info: Log.LogInfo) {

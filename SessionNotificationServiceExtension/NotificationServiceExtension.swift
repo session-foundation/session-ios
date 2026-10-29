@@ -21,6 +21,7 @@ private extension Log.Category {
 public final class NotificationServiceExtension: UNNotificationServiceExtension {
     // Called via the OS so create a default 'Dependencies' instance
     private var dependencies: Dependencies = Dependencies.createEmpty()
+    private static let loggerSetupLock: NSLock = NSLock()
     private var startTime: CFTimeInterval = 0
     private var cachedNotificationInfo: NotificationInfo = .invalid
     private let hasCompletedLock: NSLock = NSLock()
@@ -51,15 +52,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
         }
         
-        /// The logger needs to be set up before anything which can complete the notification so every push leaves a line in the log,
-        /// otherwise a device which receives pushes can't be told apart from one which doesn't
-        // stringlint:ignore_start
-        Log.setup(with: Logger(
-            primaryPrefix: "NotificationServiceExtension",
-            customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
-            using: dependencies
-        ))
-        // stringlint:ignore_stop
+        Self.setupLoggerIfNeeded()
         
         /// Abort if the main app is running
         let mainAppLease: MainAppLease.State = dependencies.mainAppLease
@@ -104,6 +97,29 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     // MARK: - Setup
+    
+    /// The logger needs to be set up before anything which can complete the notification so every push leaves a line in the log,
+    /// otherwise a device which receives pushes can't be told apart from one which doesn't
+    ///
+    /// It is kept for the life of the process, rather than replaced for each push, so a process writes one log file rather than one
+    /// per push (the main app imports them all, so each file costs every later logger setup a directory scan until then) and
+    /// pushes handled at the same time don't stop each other's logger. That means it needs its own `Dependencies`, otherwise it
+    /// would keep the first push's alive (including its database connection)
+    private static func setupLoggerIfNeeded() {
+        loggerSetupLock.withLock {
+            // stringlint:ignore_start
+            guard !Log.loggerExists(withPrefix: "NotificationServiceExtension") else { return }
+            
+            let dependencies: Dependencies = Dependencies.createEmpty()
+            dependencies.set(singleton: .appContext, to: NotificationServiceExtensionContext(using: dependencies))
+            Log.setup(with: Logger(
+                primaryPrefix: "NotificationServiceExtension",
+                customDirectory: "\(dependencies[singleton: .fileManager].appSharedDataDirectoryPath)/Logs/NotificationExtension",
+                using: dependencies
+            ))
+            // stringlint:ignore_stop
+        }
+    }
 
     private func performSetup(_ info: NotificationInfo) throws -> Int {
         LibSession.clearLoggers()
@@ -1181,7 +1197,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         
         let duration: CFTimeInterval = (CACurrentMediaTime() - startTime)
         Log.custom(resolution.logLevel, [.cat], "\(resolution) after \(.seconds(duration), unit: .ms), requestId: \(info.requestId), \(availableMemory).")
-        Log.flushAndReset {
+        Log.flush {
             info.contentHandler(silentContent)
         }
     }
@@ -1390,7 +1406,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             return
         }
         
-        Log.flushAndReset {
+        Log.flush {
             info.contentHandler(info.content)
         }
     }

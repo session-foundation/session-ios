@@ -4008,6 +4008,7 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     
     private func applyBaselineAppContext() async throws {
         try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
+        try await mockAppContext.when { $0.isShareExtension }.thenReturn(false)
     }
     
     private func applyBaselineUserDefaults() async throws {
