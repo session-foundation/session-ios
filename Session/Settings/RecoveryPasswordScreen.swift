@@ -81,6 +81,7 @@ struct RecoveryPasswordScreen: View {
                                     string: hexEncodedSeed ?? "",
                                     hasBackground: false,
                                     logo: "SessionShieldFilled", // stringlint:ignore
+                                    shouldCache: false,
                                     themeStyle: ThemeManager.currentTheme.interfaceStyle
                                 )
                                 .padding(.all, Values.smallSpacing)
