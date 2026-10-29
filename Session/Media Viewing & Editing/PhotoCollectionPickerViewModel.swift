@@ -17,7 +17,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     private let thumbnailSize: ImageDataManager.ThumbnailSize = .small
     private let thumbnailPixelDimension: CGFloat
     private let onCollectionSelected: (PhotoCollection) -> Void
-    private var photoCollections: CurrentValueSubject<[PhotoCollection], Error>
+    private var photoCollections: CurrentValueSubject<[LoadedCollection], Error>
     private var loadTask: Task<Void, Never>?
 
     // MARK: - Initialization
@@ -36,12 +36,24 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
         loadPhotoCollections()
     }
     
-    /// Fetching every album (and each album's contents, in `observation`) can take seconds with a large library, and this view
-    /// model is created on the main thread as the image picker appears
+    /// Fetching every album and each album's contents can take seconds with a large library, and this view model is created on the
+    /// main thread as the image picker appears
+    ///
+    /// **Note:** The contents are fetched here rather than in `observation` because the picker keeps this view model and
+    /// resubscribes each time the album list is shown, and `photoCollections` replays its value on the subscribing (main) thread
     private func loadPhotoCollections() {
         loadTask?.cancel()
-        loadTask = Task.detached(priority: .userInitiated) { [weak self, library, dependencies] in
-            let collections: [PhotoCollection] = library.allPhotoCollections(using: dependencies)
+        loadTask = Task.detached(priority: .userInitiated) { [weak self, library, dependencies, thumbnailSize, thumbnailPixelDimension] in
+            let collections: [LoadedCollection] = library.allPhotoCollections(using: dependencies).map { collection in
+                let contents: PhotoCollectionContents = collection.contents(using: dependencies)
+                
+                return LoadedCollection(
+                    collection: collection,
+                    title: collection.localizedTitle(),
+                    assetCount: contents.assetCount,
+                    lastAssetItem: contents.lastAssetItem(size: thumbnailSize, pixelDimension: thumbnailPixelDimension)
+                )
+            }
             
             /// A newer load was started while this one ran, so this result may be out of date
             guard !Task.isCancelled else { return }
@@ -51,6 +63,22 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     }
     
     // MARK: - Config
+    
+    private struct LoadedCollection: Equatable {
+        let collection: PhotoCollection
+        let title: String
+        let assetCount: Int
+        let lastAssetItem: PhotoPickerAssetItem?
+        
+        static func == (lhs: LoadedCollection, rhs: LoadedCollection) -> Bool {
+            return (
+                lhs.collection == rhs.collection &&
+                lhs.title == rhs.title &&
+                lhs.assetCount == rhs.assetCount &&
+                lhs.lastAssetItem?.asset == rhs.lastAssetItem?.asset
+            )
+        }
+    }
     
     public enum Section: SessionTableSection {
         case content
@@ -81,26 +109,23 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
 
     lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(photoCollections)
-        .map { [thumbnailSize, thumbnailPixelDimension, dependencies] collections -> [SectionModel] in
+        .map { collections -> [SectionModel] in
             [
                 SectionModel(
                     model: .content,
-                    elements: collections.map { collection in
-                        let contents: PhotoCollectionContents = collection.contents(using: dependencies)
-                        let lastAssetItem: PhotoPickerAssetItem? = contents.lastAssetItem(size: thumbnailSize, pixelDimension: thumbnailPixelDimension)
-                        
-                        return SessionCell.Info(
-                            id: TableItem(collection: collection),
+                    elements: collections.map { loaded in
+                        SessionCell.Info(
+                            id: TableItem(collection: loaded.collection),
                             canReuseCell: true,
                             leadingAccessory: .iconAsync(
                                 size: .extraLarge,
-                                source: lastAssetItem?.source,
+                                source: loaded.lastAssetItem?.source,
                                 shouldFill: true
                             ),
-                            title: collection.localizedTitle(),
-                            subtitle: "\(contents.assetCount)",
+                            title: loaded.title,
+                            subtitle: "\(loaded.assetCount)",
                             onTap: { [weak self] in
-                                self?.onCollectionSelected(collection)
+                                self?.onCollectionSelected(loaded.collection)
                             }
                         )
                     }
