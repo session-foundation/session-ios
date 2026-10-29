@@ -138,6 +138,8 @@ class SessionCallManagerSpec: AsyncSpec {
                         .verify { await $0.stopAndClearJobs(filters: .any) }
                         .wasCalled(exactly: 1, timeout: .seconds(5))
 
+                    /// The timeout only fires if it has started waiting before time is moved past it
+                    try await Task.sleep(for: .milliseconds(200))
                     for _ in 0..<10 { await dependencies.stepForwardInTime() }
 
                     await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasCalled(exactly: 1, timeout: .seconds(5))
@@ -216,6 +218,24 @@ class SessionCallManagerSpec: AsyncSpec {
                     try await Task.sleep(for: .milliseconds(200))
                     await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasCalled(exactly: 1)
                 }
+
+                // MARK: ---- does not suspend if the app returned to the foreground before the teardown finished
+                it("does not suspend if the app returned to the foreground before the teardown finished") {
+                    await endCallLocally()
+                    await mockJobRunner
+                        .verify { await $0.stopAndClearJobs(filters: .any) }
+                        .wasCalled(exactly: 1, timeout: .seconds(5))
+                    try await mockAppContext.when { $0.reportedApplicationState }.thenReturn(.active)
+
+                    endCallMessageGate.continuation.yield(())
+
+                    await expect { try await testCall.sendResult.get() }.toNot(throwError())
+                    await mockAppContext
+                        .verify { $0.endBackgroundTask(backgroundTaskId) }
+                        .wasCalled(exactly: 1, timeout: .seconds(5))
+                    await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasNotCalled()
+                    expect(mockStorage.syncState.state).toNot(equal(.suspended))
+                }
             }
 
             // MARK: -- when a call ends in the foreground
@@ -236,6 +256,63 @@ class SessionCallManagerSpec: AsyncSpec {
                     await mockJobRunner.verify { await $0.stopAndClearJobs(filters: .any) }.wasNotCalled()
                     await mockNetwork.verify { await $0.suspendNetworkAccess() }.wasNotCalled()
                     expect(mockStorage.syncState.state).toNot(equal(.suspended))
+                }
+            }
+
+            // MARK: -- when a call is reported
+            context("when a call is reported") {
+                // MARK: ---- stores the call's uuid for the notification extension until it ends
+                it("stores the call's uuid for the notification extension until it ends") {
+                    /// The simulator doesn't use CallKit so the call is stored without waiting for it
+                    await MainActor.run {
+                        manager.currentCall = testCall
+                        manager.reportIncomingCall(testCall, callerName: "", completion: { _ in })
+                    }
+
+                    await mockUserDefaults
+                        .verify { $0.set(testCall.uuid as Any?, forKey: UserDefaults.StringKey.ongoingCallUuid.rawValue) }
+                        .wasCalled(exactly: 1)
+                    await mockUserDefaults
+                        .verify { $0.set(String?.none as Any?, forKey: UserDefaults.StringKey.ongoingCallUuid.rawValue) }
+                        .wasNotCalled()
+
+                    await endCallLocally()
+
+                    await mockUserDefaults
+                        .verify { $0.set(String?.none as Any?, forKey: UserDefaults.StringKey.ongoingCallUuid.rawValue) }
+                        .wasCalled(exactly: 1)
+                }
+            }
+
+            // MARK: -- when the user ends a call
+            context("when the user ends a call") {
+                afterEach {
+                    WebRTCSession.current?.dropConnection()
+                    WebRTCSession.current = nil
+                }
+
+                // MARK: ---- has the end call message send in hand straight away
+                it("has the end call message send in hand straight away") {
+                    dependencies.set(singleton: .callManager, to: manager)
+                    await dependencies[singleton: .appReadiness].setAppReady()
+                    let call: SessionCall = await MainActor.run {
+                        SessionCall(
+                            for: testCall.sessionId,
+                            contactName: "",
+                            uuid: testCall.uuid,
+                            mode: .offer,
+                            using: dependencies
+                        )
+                    }
+
+                    /// `reportCurrentCallEnded` reads the send straight after this to wait for it before suspending
+                    let endCallMessageSend: Task<Void, Never>? = await MainActor.run {
+                        call.endSessionCall()
+                        return call.endCallMessageSend
+                    }
+
+                    expect(endCallMessageSend).toNot(beNil())
+                    await endCallMessageSend?.value
                 }
             }
         }

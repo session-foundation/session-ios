@@ -249,12 +249,15 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 )
             )
             
-            /// The teardown needs the database (and the `endCall` message the network too) - that message is the only way the
-            /// other party learns the call ended and it isn't a job (so the exclusion above doesn't protect it), and the call's final
-            /// state is saved by a write which suspending would cancel, so wait for them rather than cutting them off
+            /// The teardown needs the database (and the `endCall` message the network too) - while the call is still connecting
+            /// that message is the only way the other party learns the call ended and it isn't a job (so the exclusion above doesn't
+            /// protect it), and the call's final state is saved by a write which suspending would cancel, so wait for them rather than
+            /// cutting them off
             await SessionCallManager.waitForCallTeardown(teardown, using: dependencies)
             
-            if self?.currentCall?.hasEnded != false {
+            /// The wait can take long enough for the user to return to the app, and resuming only happens when entering the
+            /// foreground, so suspending now would leave the app in the foreground without database or network access
+            if self?.currentCall?.hasEnded != false && dependencies[singleton: .appContext].isInBackground {
                 await dependencies[singleton: .network].suspendNetworkAccess()
                 await dependencies[singleton: .storage].suspendDatabaseAccess()
                 Log.flush()
