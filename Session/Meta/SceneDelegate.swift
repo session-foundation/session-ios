@@ -138,6 +138,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 }
                 guard !Task.isCancelled else { return }
                 
+                /// This task is only cancelled when the app next enters the background, so if the user came back during the wait
+                /// then leave the jobs running (`stopAndClearJobs` would otherwise stop them in the foreground)
+                guard dependencies[singleton: .appContext].isInBackground else {
+                    Log.info(.cat, "Returned to the foreground before the background shutdown, skipping it.")
+                    return
+                }
+                
                 /// Since we aren't going to stop the remaining jobs if there is an ongoing call then there is no need
                 /// to add this log
                 let updatedHasOngoingCall: Bool = (
