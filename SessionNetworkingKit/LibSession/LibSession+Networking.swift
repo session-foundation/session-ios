@@ -821,6 +821,11 @@ public actor LibSessionNetwork: NetworkType {
         /// leaves the UDP payload uncapped by default, so it has to be capped here.
         config.quic_max_udp_payload = 1372
         
+        /// BBR keeps its sending rate through loss that isn't caused by congestion, which suits the jittery mobile networks
+        /// clients are on, where cubic and reno back off on any loss. libSession leaves the choice to libquic by default, so it has
+        /// to be set here.
+        config.quic_congestion_control = SESSION_NETWORK_QUIC_CONGESTION_CONTROL_BBR
+        
         /// If it's not the main app then we want to run in "Single Path Mode" (no use creating extra paths in the extensions)
         if !dependencies[singleton: .appContext].isMainApp {
             config.onionreq_single_path_mode = true
