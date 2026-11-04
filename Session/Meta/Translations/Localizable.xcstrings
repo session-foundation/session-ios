@@ -8214,6 +8214,12 @@
             "value" : "Adminisztrátor"
           }
         },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者"
+          }
+        },
         "my" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8224,6 +8230,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Администратор"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yönetici"
           }
         }
       }
@@ -31001,12 +31013,6 @@
             "value" : "أيقونة التطبيق"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tətbiq ikonu"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -31234,12 +31240,6 @@
             "value" : "تغيير اسم و أيقونة التطبيق"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tətbiq ikonunu və adını dəyişdir"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -31431,12 +31431,6 @@
             "value" : "يتطلب تغيير أيقونة التطبيق واسمه إغلاق Session. سوف تستمر الإشعارات في استخدام أيقونة واسم Session الافتراضي."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tətbiq ikonunu və adını dəyişdirərkən Session bağlanılacaq. Bildirişlər, ilkin Session ikonunu və adını istifadə etməyə davam edəcək."
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -31620,12 +31614,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "يتم عرض أيقونة التطبيق البديلة والاسم على الشاشة الرئيسية ودرج التطبيقات."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativ tətbiq ikonu və adı, əsas ekranda və tətbiq siyirməsində nümayiş olunur."
           }
         },
         "ca" : {
@@ -31825,12 +31813,6 @@
             "value" : "يتم عرض أيقونة التطبيق المحدد والاسم على الشاشة الرئيسة و درج التطبيقات."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seçilmiş tətbiq ikonu və adı, əsas ekranda və tətbiq siyirməsində nümayiş olunur."
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -32020,12 +32002,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "الأيقونة والاسم"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İkon və ad"
           }
         },
         "ca" : {
@@ -32237,12 +32213,6 @@
             "value" : "يتم عرض أيقونة التطبيق البديلة على الشاشة الرئيسية ومكتبة التطبيقات. سيظل اسم التطبيق يظهر باسم \"Session\"."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativ tətbiq ikonu, əsas ekranda və tətbiq kitabxanasında nümayiş olunur. Tətbiq adı hələ də 'Session' kimi görünəcək."
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -32432,12 +32402,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "استخدام أيقونة بديلة للتطبيق"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativ tətbiq ikonunu istifadə et"
           }
         },
         "ca" : {
@@ -32649,12 +32613,6 @@
             "value" : "استخدام أيقونة واسم بديل للتطبيق"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativ tətbiq ikonunu və adını istifadə et"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -32862,12 +32820,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تحديد أيقونة بديلة للتطبيق"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alternativ tətbiq ikonunu seç"
           }
         },
         "ca" : {
@@ -33083,12 +33035,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "أيقونة"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İkon"
           }
         },
         "ca" : {
@@ -93999,7 +93945,7 @@
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Podatke nije izbrisao %lld Service Node. ID-ovi uslužnih čvorova: {service_node_id}."
+                  "value" : "Podatke nije izbrisao %lld Service Node. ID-evi uslužnih čvorova: {service_node_id}."
                 }
               },
               "one" : {
@@ -94011,7 +93957,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Podatke nije izbrisao %lld Service Node. ID-ovi uslužnih čvorova: {service_node_id}."
+                  "value" : "Podatke nije izbrisao %lld Service Node. ID-evi uslužnih čvorova: {service_node_id}."
                 }
               }
             }
@@ -129005,6 +128951,12 @@
             "state" : "translated",
             "value" : "按回车键发送消息，SHIFT+回车键换行。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ENTER 發送訊息，SHIFT + ENTER 創建新行。"
+          }
         }
       }
     },
@@ -137290,6 +137242,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "您確定要從此裝置中刪除所有訊息、附件及帳號資料，並建立一個新帳號嗎？"
+          }
+        }
+      }
+    },
+    "databaseErrorClearDeviceWarning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This will delete all messages, attachments, and account data from this device.<br/><br/>Your account can only be restored with your Recovery Password. Without it, your account will be lost."
           }
         }
       }
@@ -197872,19 +197835,19 @@
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "I %lld osobe su reagirale {emoji} na ovu poruku."
+                  "value" : "%lld osobe su reagirale sa {emoji} na ovu poruku."
                 }
               },
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "I %lld osoba je reagirala {emoji} na ovu poruku."
+                  "value" : "%lld osoba je reagirala sa {emoji} na ovu poruku."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "I %lld osoba je reagiralo {emoji} na ovu poruku."
+                  "value" : "%lld osoba je reagiralo sa {emoji} na ovu poruku."
                 }
               }
             }
@@ -219307,12 +219270,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تعيين معلومات المجموعة"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Qrup məlumatlarını ayarla"
           }
         },
         "bal" : {
@@ -290882,6 +290839,18 @@
               }
             }
           }
+        },
+        "zh-TW" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 管理員以選中"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -300629,12 +300598,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "معلومات الرسالة"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mesaj məlumatları"
           }
         },
         "bal" : {
@@ -321836,6 +321799,12 @@
             "value" : "Вы не можете управлять ролью этого пользователя, потому что у вас нет прав администратора на уровне всего сервера."
           }
         },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bu kullanıcının rolünü değiştiremezsiniz çünkü sunucu geneli yönetici rolünüz bulunmuyor."
+          }
+        },
         "zh-CN" : {
           "stringUnit" : {
             "state" : "translated",
@@ -331962,12 +331931,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "المعلومات المعروضة في الإشعارات."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bildirişlərdə göstərilən məlumatlar."
           }
         },
         "bal" : {
@@ -358944,7 +358907,7 @@
         "hr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session skriva vaš IP usmjeravanjem vaših poruka kroz više uslužnih čvorova u Session decentraliziranoj mreži. Ovo je vaša trenutna putanja:"
+            "value" : "Session skriva vašu IP adresu usmjeravanjem vaših poruka kroz više uslužnih čvorova u Session decentraliziranoj mreži. Ovo je vaša trenutna putanja:"
           }
         },
         "hu" : {
@@ -365404,6 +365367,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更改 Session 的解锁密码。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改 Session 的解鎖密碼。"
           }
         }
       }
@@ -389535,6 +389504,12 @@
             "state" : "translated",
             "value" : "You do not have an active Pro subscription."
           }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem rendelkezik Pro előfizetéssel."
+          }
         }
       }
     },
@@ -391796,6 +391771,12 @@
     "proAccessRenewDesktop" : {
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Momentan kann der Pro-Zugang nur über eine unserer unterstützten Plattformen gekauft und erneuert werden:{pro_stores}<br/>Weil Sie Session Desktop verwenden, ist hier keine Erneuerung möglich.<br/><br/>Die Entwickler von Session arbeiten intensiv an alternativen Zahlungsmöglichkeiten, damit Pro-Zugang auch außerhalb der oben genannten Plattformen erworben werden kann. <b>Pro Roadmap</b> {icon}"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -392139,6 +392120,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renew your Pro access to start using powerful Session Pro Beta features and support the project again."
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Újítsa meg Pro csomagját, hogy hozzáférjen a legújabb Session Pro Béta funkciókhoz, és támogassa újra a projektet."
           }
         }
       }
@@ -409490,6 +409477,28 @@
               }
             }
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@arg1@"
+          },
+          "substitutions" : {
+            "arg1" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "提升成員"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -415219,6 +415228,12 @@
             "value" : "يرجى التواصل مع {platform} للحصول على تحديثات إضافية بخصوص طلب استرداد المبلغ الخاص بكم. وفقاً لسياسات استرداد المبالغ المعتمدة من قِبل {platform}، لا يستطيع مطورو Session التأثير على نتيجة طلبات الاسترداد.<br/><br/><span><b>{platform} دعم طلبات الاسترداد{icon}</b></span>"
           }
         },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte kontaktiere {platform} für weitere Aktualisierungen zu deinem Rückerstattungsantrag. Aufgrund von Rückerstattungsrichtlinien von {platform} haben Session Entwickler keine Möglichkeit das Ergebnis des Rückerstattungsantrags zu beeinflussen.<br/><br/><span><b>{platform} Rückerstattungs-Support {icon}</b></span>"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -418299,12 +418314,6 @@
             "value" : "تعذر الاتصال بالشبكة للتحقق من حالة Pro الخاصة بكم. قد تكون المعلومات المعروضة في هذه الصفحة غير دقيقة حتى تتم استعادة الاتصال.<br/><br/>يرجى التحقق من اتصال الشبكة والمحاولة مرة أخرى."
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pro statusunuzu yoxlamaq üçün şəbəkəyə bağlana bilmir. Bu səhifədə nümayiş olan məlumatlar, bağlantı bərpa olunana qədər qeyri-dəqiq ola bilər.<br/><br/>Lütfən şəbəkə bağlantınızı yoxlayıb yenidən sınayın."
-          }
-        },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
@@ -418643,12 +418652,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "جارٍ تحميل معلومات Pro الخاصة بكم. قد لا تتوفر بعض الإجراءات في هذه الصفحة حتى يكتمل التحميل."
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pro məlumatlarınız yüklənir. Bu səhifədəki bəzi əməliyyatlar yükləmə tamamlanana qədər əlçatan olmaya bilər."
           }
         },
         "cs" : {
@@ -462850,12 +462853,6 @@
             "value" : "تحديد أيقونة التطبيق"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tətbiq ikonunu seç"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -481854,12 +481851,6 @@
             "value" : "معلومات النظام: {information}"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sistem məlumatı: {information}"
-          }
-        },
         "bal" : {
           "stringUnit" : {
             "state" : "translated",
@@ -489022,12 +489013,6 @@
             "value" : "تحديث معلومات المجتمع"
           }
         },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "İcma məlumatlarını güncəllə"
-          }
-        },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
@@ -491561,7 +491546,7 @@
         "hr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session nije uspio ažurirati. Molimo idite na https://getsession.org/download i instalirajte novu verziju ručno, zatim kontaktirajte naš Centar za pomoć kako biste nas obavijestili o ovom problemu."
+            "value" : "Session se nije uspijela ažurirati. Molimo idite na https://getsession.org/download i instalirajte novu verziju ručno, zatim kontaktirajte naš Centar za pomoć kako biste nas obavijestili o ovom problemu."
           }
         },
         "hu" : {
@@ -493230,12 +493215,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "تحديث معلومات الملف الشخصي"
-          }
-        },
-        "az" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Profil məlumatlarını güncəllə"
           }
         },
         "cs" : {
