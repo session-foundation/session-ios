@@ -353,9 +353,13 @@ extension AttachmentDownloadJob {
                 return (.failedDownload, true)
             
             /// The data we were given can't be turned into the attachment, so downloading it again won't help
-            case AttachmentDownloadError.unknownEncryptionFormat, AttachmentError.legacyDecryptionFailed,
-                CryptoError.decryptionFailed:
+            case AttachmentDownloadError.unknownEncryptionFormat, AttachmentError.legacyDecryptionFailed:
                 return (.invalid, true)
+            
+            /// libSession reports any failure decrypting a file to a file this way, including failing to read the downloaded file
+            /// or to write the decrypted one (eg. when the device is out of space), so we can't tell bad data apart from a local
+            /// failure - don't retry automatically, but leave it in a state the user can retry from
+            case CryptoError.decryptionFailed: return (.failedDownload, true)
             
             /// For any other error (including cancellation) it's likely either the server is down, something weird just happened
             /// with the request or the app was backgrounded so we want to automatically retry

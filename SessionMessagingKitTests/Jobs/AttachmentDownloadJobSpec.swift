@@ -53,8 +53,8 @@ class AttachmentDownloadJobSpec: AsyncSpec {
                     await expect { try await fixture.attachmentState() }.to(equal(.invalid))
                 }
                 
-                // MARK: ---- marks the attachment as invalid when stream decryption fails
-                it("marks the attachment as invalid when stream decryption fails") {
+                // MARK: ---- marks the attachment as failed when stream decryption fails
+                it("marks the attachment as failed when stream decryption fails") {
                     try await fixture.insertAttachment(downloadUrl: AttachmentDownloadJobTestFixture.streamUrl)
                     try await fixture.mockCrypto
                         .when {
@@ -67,7 +67,7 @@ class AttachmentDownloadJobSpec: AsyncSpec {
                     let error: Error? = await fixture.runJob()
                     
                     expect((error as? JobError)?.isPermanent).to(beTrue())
-                    await expect { try await fixture.attachmentState() }.to(equal(.invalid))
+                    await expect { try await fixture.attachmentState() }.to(equal(.failedDownload))
                 }
                 
                 // MARK: ---- marks the attachment as invalid when the encryption format is unknown
