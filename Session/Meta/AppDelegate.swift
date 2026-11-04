@@ -40,6 +40,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private var hasNotifiedWindowReady: Bool = false
     private var windowReadyContinuation: CheckedContinuation<Void, Never>?
     
+    /// Read once at launch, so that recording this launch's failure doesn't change the options offered on the alert which is
+    /// already up when it's shown again (eg. after cancelling a confirmation)
+    private var previousFailedStartups: Int = 0
+    @MainActor private var hasRecordedFailedStartup: Bool = false
+    
     // MARK: - Lifecycle
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -69,6 +74,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             to: MainAppContext(initialApplicationState: application.applicationState, using: dependencies)
         )
         verifyDBKeysAvailableBeforeBackgroundLaunch()
+        previousFailedStartups = dependencies[defaults: .standard, key: .consecutiveFailedStartups]
         
         /// Kick of a task to perform the app setup
         Task(priority: .userInitiated) { [weak self, dependencies] in
@@ -456,14 +462,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         animated: Bool = true,
         presentationCompletion: (() -> Void)? = nil
     ) {
+        recordFailedStartupOnceVisible()
+        
         /// This **must** be a standard `UIAlertController` instead of a `ConfirmationModal` because we may not
         /// have access to the database when displaying this so can't extract theme information for styling purposes
         let alert: UIAlertController = UIAlertController(
             title: Constants.app_name,
-            message: error.message,
+            message: error.message(previousFailures: previousFailedStartups),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "helpReportABugExportLogs".localized(), style: .default) { [dependencies] _ in
+            Log.critical(.cat, "Startup alert: user chose to export logs (\(error.description)).")
             HelpViewModel.shareLogs(viewControllerToDismiss: alert, using: dependencies) { [weak self] in
                 // Don't bother showing the "Failed Startup" modal again if we happen to now
                 // have an initial view controller (this most likely means that the startup
@@ -475,116 +484,61 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         })
         
-        // Always offer the 'Clear Data' option
-        alert.addAction(UIAlertAction(title: "clearDevice".localized(), style: .destructive) { [weak self, dependencies] _ in
-            let alert: UIAlertController = UIAlertController(
-                title: "clearDevice".localized(),
-                message: "clearDeviceDescription".localized(),
-                preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
-                NukeDataModal.deleteAllLocalData(using: dependencies)
-            })
-            
-            alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
-                DispatchQueue.main.async {
-                    self?.showFailedStartupAlert(
-                        calledFrom: lifecycleMethod,
-                        error: error
-                    )
-                }
-            })
-            dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
-        })
-        
-        switch error {
-            // Every branch offers 'Clear Data', which is added unconditionally above - what differs is whether
-            // 'Clear Data & Restore' is offered in addition. Withheld here because a restore replays migrations
-            // against a fresh database, which does not address a database that is locked, that was suspended, or
-            // that failed to start for a reason we could not identify. A suspension in particular leaves the data
-            // intact and is usually cleared by relaunching, so a restore would destroy an account that is fine
-            //
-            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: the data is unreachable, so
-            // restoring is the only thing that recovers the account, and it must keep falling through below
-            case .databaseError(StorageError.startupFailed),
-                .databaseError(StorageError.databaseSuspended),
-                .databaseError(DatabaseError.SQLITE_LOCKED):
-                break
-
-            // Offer the 'Restore' option if it was a migration error
-            case .databaseError:
-                alert.addAction(UIAlertAction(title: "clearDeviceRestore".localized(), style: .destructive) { [weak self, dependencies] _ in
-                    let alert: UIAlertController = UIAlertController(
-                        title: "clearDeviceRestore".localized(),
-                        message: "databaseErrorRestoreDataWarning".localized(),
-                        preferredStyle: .alert
-                    )
-                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { [weak self, dependencies] _ in
-                        // Hide the top banner if there was one
-                        TopBannerController.hide()
-                        
-                        Task(priority: .userInitiated) { [weak self, dependencies] in
-                            await self?.stopPollers()
-                            self?.hasInitialRootViewController = false
-                            
-                            let loadingViewController: LoadingViewController = LoadingViewController()
-                            self?.loadingViewController = loadingViewController
-                            dependencies[singleton: .appContext].mainWindow?.rootViewController = loadingViewController
-                            dependencies[singleton: .appContext].mainWindow?.makeKeyAndVisible()
-                            self?.rootViewControllerCoordinator = RootViewControllerCoordinator()
-                            
-                            // Reset the current database for a clean migration
-                            await dependencies[singleton: .storage].resetForCleanMigration()
-
-                            // The extension cache holds a copy of the account's key and the dedupe records for its messages, and the
-                            // user was just told this deletes their account data. Leaving the dedupe records would also make every
-                            // message still on the swarm look like a duplicate, so the history could never come back
-                            dependencies[singleton: .extensionHelper].deleteCache()
-                            
-                            // The re-run the migration (should succeed since there is no data)
-                            do {
-                                try await AppSetup.performDatabaseMigrations(using: dependencies) { [weak self] progress, minEstimatedTotalTime in
-                                    self?.loadingViewController?.updateProgress(
-                                        progress: progress,
-                                        minEstimatedTotalTime: minEstimatedTotalTime
-                                    )
-                                }
-                                try await AppSetup.postMigrationSetup(using: dependencies)
-                                await AppSetup.configureSNUIKit(using: dependencies)
-                                
-                                await self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
-                            }
-                            catch {
-                                await MainActor.run {
-                                    self?.showFailedStartupAlert(
-                                        calledFrom: lifecycleMethod,
-                                        error: .failedToRestore
-                                    )
-                                }
-                            }
-                        }
-                    })
-                    
-                    alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
-                        DispatchQueue.main.async {
-                            self?.showFailedStartupAlert(
-                                calledFrom: lifecycleMethod,
-                                error: error
-                            )
-                        }
-                    })
-                    dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
+        if error.offersClearDevice(previousFailures: previousFailedStartups) {
+            alert.addAction(UIAlertAction(title: "clearDevice".localized(), style: .destructive) { [weak self, dependencies] _ in
+                Log.critical(.cat, "Startup alert: user chose to clear the device (\(error.description)).")
+                let alert: UIAlertController = UIAlertController(
+                    title: "clearDevice".localized(),
+                    message: "databaseErrorClearDeviceWarning".localized(),
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
+                    NukeDataModal.deleteAllLocalData(using: dependencies)
                 })
                 
-            default: break
+                alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
+                    Log.critical(.cat, "Startup alert: user cancelled clearing the device.")
+                    DispatchQueue.main.async {
+                        self?.showFailedStartupAlert(
+                            calledFrom: lifecycleMethod,
+                            error: error
+                        )
+                    }
+                })
+                dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
+            })
         }
         
         alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
             Log.flushAndTerminate()
         })
         
-        Log.info(.cat, "Showing startup alert due to error: \(error.description)")
+        Log.info(.cat, "Showing startup alert due to error: \(error.description), previous failed launches: \(previousFailedStartups)")
         dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
+    }
+    
+    /// Counts this launch towards the failures which unlock "Clear Device", but only once the user can see the alert: a launch
+    /// which fails in the background (eg. the database suspended or the background task expired mid-startup) is the most
+    /// common transient failure, and would otherwise unlock the option before the user has tried relaunching at all
+    @MainActor private func recordFailedStartupOnceVisible() {
+        guard !hasInitialRootViewController, !hasRecordedFailedStartup else { return }
+        
+        hasRecordedFailedStartup = true
+        
+        Task { @MainActor [weak self, dependencies] in
+            if UIApplication.shared.applicationState != .active {
+                for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
+                    break
+                }
+            }
+            
+            /// Startup may have succeeded while the alert was hidden, in which case the alert dismissed itself
+            guard self?.hasInitialRootViewController == false else { return }
+            
+            dependencies[defaults: .standard, key: .consecutiveFailedStartups] = (
+                dependencies[defaults: .standard, key: .consecutiveFailedStartups] + 1
+            )
+        }
     }
     
     /// The user must unlock the device once after reboot before the database encryption key can be accessed.
@@ -996,6 +950,7 @@ private actor RootViewControllerCoordinator {
             }
             
             appDelegate.hasInitialRootViewController = true
+            dependencies[defaults: .standard, key: .consecutiveFailedStartups] = 0
             UIViewController.attemptRotationToDeviceOrientation()
             
             /// **Note:** There is an annoying case when starting the app by interacting with a push notification where

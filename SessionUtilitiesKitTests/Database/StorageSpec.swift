@@ -278,6 +278,56 @@ class StorageSpec: AsyncSpec {
                     await expect { await storage.state.first() }.to(equal(.readyForUse))
                 }
             }
+
+            // MARK: -- when a startup read is interrupted
+            ///
+            /// The failed-startup alert decides from these errors whether clearing the device is offered straight away, so
+            /// they have to stay the ones it recognises as transient
+            context("when a startup read is interrupted") {
+                @TestState var storage: Storage!
+
+                beforeEach {
+                    storage = try Storage.createForTesting(using: dependencies)
+                    try await storage.perform(migrations: [])
+                }
+
+                // MARK: ---- fails with databaseSuspended if the database was suspended first
+                it("fails with databaseSuspended if the database was suspended first") {
+                    await storage.suspendDatabaseAccess()
+
+                    await expect { try await storage.read { db in try Int.fetchOne(db, sql: "SELECT 1") } }
+                        .to(throwError { error in
+                            switch error {
+                                case StorageError.databaseSuspended: break
+                                default: fail("Expected databaseSuspended, got \(error)")
+                            }
+                        })
+                }
+
+                // MARK: ---- fails with a CancellationError if the database is suspended during it
+                it("fails with a CancellationError if the database is suspended during it") {
+                    dependencies[feature: .forceSlowDatabaseQueries] = true
+                    let read: Task<Int?, Error> = Task {
+                        try await storage.read { db in try Int.fetchOne(db, sql: "SELECT 1") }
+                    }
+                    try await Task.sleep(for: .milliseconds(200))
+                    await storage.suspendDatabaseAccess()
+
+                    await expect { try await read.value }.to(throwError(errorType: CancellationError.self))
+                }
+
+                // MARK: ---- fails with a CancellationError if its task is cancelled
+                it("fails with a CancellationError if its task is cancelled") {
+                    dependencies[feature: .forceSlowDatabaseQueries] = true
+                    let read: Task<Int?, Error> = Task {
+                        try await storage.read { db in try Int.fetchOne(db, sql: "SELECT 1") }
+                    }
+                    try await Task.sleep(for: .milliseconds(200))
+                    read.cancel()
+
+                    await expect { try await read.value }.to(throwError(errorType: CancellationError.self))
+                }
+            }
         }
     }
 }
