@@ -44,6 +44,17 @@ public final class VoiceMessageView: UIView {
         
         return result
     }()
+    
+    private lazy var errorIconView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.contentMode = .scaleAspectFit
+        result.themeTintColor = .textPrimary
+        result.set(.width, to: 12)
+        result.set(.height, to: 12)
+        result.isHidden = true
+        
+        return result
+    }()
 
     private let loader: NVActivityIndicatorView = {
         let result: NVActivityIndicatorView = NVActivityIndicatorView(
@@ -122,6 +133,8 @@ public final class VoiceMessageView: UIView {
         // Toggle
         toggleContainer.addSubview(toggleImageView)
         toggleImageView.center(in: toggleContainer)
+        toggleContainer.addSubview(errorIconView)
+        errorIconView.center(in: toggleContainer)
         
         // Line
         let lineView = UIView()
@@ -182,16 +195,43 @@ public final class VoiceMessageView: UIView {
         
         countdownLabel.text = remainingTime.formatted(format: .hoursMinutesSeconds)
         
-        guard attachment.state == .downloaded || attachment.state == .uploaded else {
-            if !loader.isAnimating {
-                loader.startAnimating()
-            }
-            return
+        switch attachment.state {
+            case .downloaded, .uploaded: break
+            case .failedDownload, .failedUpload, .invalid:
+                loader.isHidden = true
+                loader.stopAnimating()
+                
+                toggleImageView.isHidden = true
+                errorIconView.image = UIImage(named: (attachment.state == .invalid ? "warning" : "media_retry"))?
+                    .withRenderingMode(.alwaysTemplate)
+                errorIconView.isHidden = false
+                accessibilityValue = {
+                    switch attachment.state {
+                        case .failedDownload: return "tapToRetry".localized()
+                        case .failedUpload: return "messageStatusFailedToSend".localized()
+                        default: return "unavailable".localized()
+                    }
+                }()
+                progressViewRightConstraint.constant = -VoiceMessageView.width
+                return
+                
+            default:
+                toggleImageView.isHidden = false
+                errorIconView.isHidden = true
+                accessibilityValue = nil
+                
+                if !loader.isAnimating {
+                    loader.startAnimating()
+                }
+                return
         }
-            
+        
         loader.isHidden = true
         loader.stopAnimating()
-    
+        toggleImageView.isHidden = false
+        errorIconView.isHidden = true
+        accessibilityValue = nil
+        
         toggleImageView.image = (isPlaying ? UIImage(named: "Pause") : UIImage(named: "Play"))?
             .withRenderingMode(.alwaysTemplate)
 

@@ -65,8 +65,16 @@ final class DocumentView: UIView {
         sizeLabel.themeTextColor = textColor
         sizeLabel.lineBreakMode = .byTruncatingTail
         
+        // Retry label
+        let retryLabel = UILabel()
+        retryLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
+        retryLabel.text = "tapToRetry".localized()
+        retryLabel.themeTextColor = textColor
+        retryLabel.lineBreakMode = .byTruncatingTail
+        retryLabel.isHidden = (attachment.state != .failedDownload)
+        
         // Label stack view
-        let labelStackView = UIStackView(arrangedSubviews: [ titleLabel, sizeLabel ])
+        let labelStackView = UIStackView(arrangedSubviews: [ titleLabel, sizeLabel, retryLabel ])
         labelStackView.axis = .vertical
         
         // Download image view
