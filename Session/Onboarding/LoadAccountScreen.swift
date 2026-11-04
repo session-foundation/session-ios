@@ -40,7 +40,8 @@ struct LoadAccountScreen: View {
                     EnterRecoveryPasswordScreen(
                         $recoveryPassword,
                         error: $errorString,
-                        continueWithMnemonic: continueWithMnemonic
+                        continueWithMnemonic: continueWithMnemonic,
+                        exportLogs: { HelpViewModel.shareLogs(using: dependencies) }
                     )
                 }
                 else {
@@ -110,15 +111,18 @@ struct EnterRecoveryPasswordScreen: View{
     @Binding var error: String?
     
     var continueWithMnemonic: (() -> Void)?
+    var exportLogs: (() -> Void)?
     
     init(
         _ recoveryPassword: Binding<String>,
         error: Binding<String?>,
-        continueWithMnemonic: (() -> Void)?
+        continueWithMnemonic: (() -> Void)?,
+        exportLogs: (() -> Void)?
     ) {
         self._recoveryPassword = recoveryPassword
         self._error = error
         self.continueWithMnemonic = continueWithMnemonic
+        self.exportLogs = exportLogs
     }
     
     var body: some View{
@@ -183,10 +187,27 @@ struct EnterRecoveryPasswordScreen: View{
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, Values.veryLargeSpacing)
-            .padding(.bottom, Values.largeButtonHeight)
+            .padding(.bottom, Values.largeButtonHeight + Values.largeSpacing)
             
-            VStack() {
+            VStack(spacing: Values.smallSpacing) {
                 Spacer()
+                
+                /// A user who reaches this screen because their account went missing has no other way to get logs to support,
+                /// so it has to be offered here - and named the same as everywhere else, so support can point to it in one sentence
+                Button {
+                    exportLogs?()
+                } label: {
+                    Text("helpReportABugExportLogs".localized())
+                        .font(.system(size: Values.smallFontSize))
+                        .foregroundColor(themeColor: .textSecondary)
+                        .padding(.vertical, Values.verySmallSpacing)
+                }
+                .accessibility(
+                    Accessibility(
+                        identifier: "Export logs",
+                        label: "Export logs"
+                    )
+                )
                 
                 Button {
                     continueWithMnemonic?()

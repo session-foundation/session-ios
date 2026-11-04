@@ -501,6 +501,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             
                             // Reset the current database for a clean migration
                             await dependencies[singleton: .storage].resetForCleanMigration()
+
+                            // The extension cache holds a copy of the account's key and the dedupe records for its messages, and the
+                            // user was just told this deletes their account data. Leaving the dedupe records would also make every
+                            // message still on the swarm look like a duplicate, so the history could never come back
+                            dependencies[singleton: .extensionHelper].deleteCache()
                             
                             // The re-run the migration (should succeed since there is no data)
                             do {
@@ -766,12 +771,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
         
-        try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-            sessionId: dependencies[cache: .general].sessionId,
-            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-            unreadCount: unreadCount
-        )
-        
+        /// The extension metadata is the only copy of the user's key outside the database, and this runs on every activation -
+        /// including while onboarding is showing. A launch which failed to find the identity in the database is exactly when that copy
+        /// is needed to get the account back, so writing it without a user would destroy the last copy of the key
+        if dependencies[cache: .general].userExists {
+            try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                sessionId: dependencies[cache: .general].sessionId,
+                ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                unreadCount: unreadCount
+            )
+        }
+
         await MainActor.run {
             UIApplication.shared.applicationIconBadgeNumber = unreadCount
         }

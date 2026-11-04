@@ -186,6 +186,10 @@ public class ExtensionHelper: ExtensionHelperType {
         ed25519SecretKey: [UInt8],
         unreadCount: Int?
     ) throws {
+        /// The file this replaces may hold the only copy of the user's key outside the database, so an empty key must never be
+        /// written over it - there is no legitimate reason to, since removing the account deletes the whole cache instead
+        guard !ed25519SecretKey.isEmpty else { throw ExtensionHelperError.noUserToSave }
+
         let metadata: UserMetadata = UserMetadata(
             sessionId: sessionId,
             ed25519SecretKey: ed25519SecretKey,
@@ -195,6 +199,10 @@ public class ExtensionHelper: ExtensionHelperType {
         guard let metadataAsData: Data = try? JSONEncoder(using: dependencies).encode(metadata) else { return }
         
         try write(data: metadataAsData, to: metadataPath)
+    }
+    
+    public func userMetadataExists() -> Bool {
+        return dependencies[singleton: .fileManager].fileExists(atPath: metadataPath)
     }
     
     public func loadUserMetadata() -> UserMetadata? {
@@ -1185,6 +1193,7 @@ public extension ExtensionHelper {
 
 public enum ExtensionHelperError: Error, CustomStringConvertible {
     case noEncryptionKey
+    case noUserToSave
     case failedToWriteToFile(Error)
     case failedToReadFromFile
     case failedToStoreDedupeRecord
@@ -1195,6 +1204,7 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
             case .noEncryptionKey: return "No encryption key available."
+            case .noUserToSave: return "No user to save."
             case .failedToWriteToFile(let other): return "Failed to write to file (\(other))."
             case .failedToReadFromFile: return "Failed to read from file."
             case .failedToStoreDedupeRecord: return "Failed to store a record for message deduplication."
@@ -1216,6 +1226,7 @@ public protocol ExtensionHelperType {
         ed25519SecretKey: [UInt8],
         unreadCount: Int?
     ) throws
+    func userMetadataExists() -> Bool
     func loadUserMetadata() -> ExtensionHelper.UserMetadata?
     
     // MARK: - Deduping

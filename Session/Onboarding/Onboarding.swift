@@ -92,7 +92,88 @@ extension Onboarding {
         
         return (try Interaction.fetchCount(db) > 0)
     }
-    
+
+    /// Answers "can this account be recovered?" from a single exported log: whether the database still holds the account's data,
+    /// and whether the copy of the key kept for the extensions survives and belongs to that data
+    ///
+    /// **Booleans and counts only.** This runs exactly when an account has gone missing, so nothing which identifies one - a key
+    /// or a Session ID, even truncated - may appear in it
+    static func recoveryDiagnostics(using dependencies: Dependencies) async -> String? {
+        typealias DatabaseInfo = (
+            identityRows: Int,
+            threads: Int,
+            interactions: Int,
+            userConfigSessionIds: Set<String>,
+            hasNoteToSelf: Bool?
+        )
+
+        let databasePath: String = "\(Storage.sharedDatabaseDirectoryPath)/\(Storage.dbFileName)"
+
+        guard dependencies[singleton: .fileManager].fileExists(atPath: databasePath) else { return nil }
+
+        let metadataExists: Bool = dependencies[singleton: .extensionHelper].userMetadataExists()
+        let metadata: ExtensionHelper.UserMetadata? = (metadataExists ?
+            dependencies[singleton: .extensionHelper].loadUserMetadata() :
+            nil
+        )
+        let metadataKeySessionId: SessionId? = metadata
+            .flatMap { AppSetup.identityKeyPairs(ed25519SecretKey: $0.ed25519SecretKey, using: dependencies) }
+            .map { SessionId(.standard, publicKey: $0.x25519KeyPair.publicKey) }
+        let databaseInfo: DatabaseInfo? = try? await dependencies[singleton: .storage].read { db in
+            (
+                try Identity.fetchCount(db),
+                try SessionThread.fetchCount(db),
+                try Interaction.fetchCount(db),
+                try AppSetup.userConfigSessionIds(db),
+                try metadataKeySessionId.map { try SessionThread.exists(db, id: $0.hexString) }
+            )
+        }
+        let attachmentsInfo: (files: Int, bytes: Int) = {
+            let enumerator: FileManager.DirectoryEnumerator? = dependencies[singleton: .fileManager].enumerator(
+                at: URL(fileURLWithPath: dependencies[singleton: .attachmentManager].sharedDataAttachmentsDirPath()),
+                includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]
+            )
+
+            return (enumerator?.allObjects ?? []).reduce(into: (0, 0)) { result, next in
+                guard
+                    let values: URLResourceValues = try? (next as? URL)?.resourceValues(
+                        forKeys: [.isRegularFileKey, .fileSizeKey]
+                    ),
+                    values.isRegularFile == true
+                else { return }
+
+                result.files += 1
+                result.bytes += (values.fileSize ?? 0)
+            }
+        }()
+
+        func yesNo(_ value: Bool?) -> String {
+            switch value {
+                case .some(true): return "yes"
+                case .some(false): return "no"
+                case .none: return "n/a"
+            }
+        }
+
+        // stringlint:ignore_start
+        return [
+            "database: \(dependencies[singleton: .fileManager].fileSize(of: databasePath).map { "\($0) bytes" } ?? "unknown size")",
+            "wal: \(dependencies[singleton: .fileManager].fileSize(of: "\(databasePath)-wal").map { "\($0) bytes" } ?? "missing")",
+            "identity rows: \(databaseInfo.map { "\($0.identityRows)" } ?? "unreadable")",
+            "threads: \(databaseInfo.map { "\($0.threads)" } ?? "unreadable")",
+            "interactions: \(databaseInfo.map { "\($0.interactions)" } ?? "unreadable")",
+            "accounts in user config dumps: \(databaseInfo.map { "\($0.userConfigSessionIds.count)" } ?? "unreadable")",
+            "extension metadata exists: \(yesNo(metadataExists))",
+            "decrypts: \(yesNo(metadataExists ? metadata != nil : nil))",
+            "has key: \(yesNo(metadata.map { !$0.ed25519SecretKey.isEmpty }))",
+            "key matches metadata Session ID: \(yesNo(metadataKeySessionId.map { $0 == metadata?.sessionId }))",
+            "key matches user config dumps: \(yesNo(metadataKeySessionId.flatMap { sessionId in databaseInfo.map { $0.userConfigSessionIds.contains(sessionId.hexString) } }))",
+            "key has Note to Self: \(yesNo(databaseInfo?.hasNoteToSelf))",
+            "attachments: \(attachmentsInfo.files) files, \(attachmentsInfo.bytes) bytes"
+        ].joined(separator: ", ")
+        // stringlint:ignore_stop
+    }
+
     /// Restarting is the whole remedy: the identity is on disk and the read which missed it runs again on the next
     /// launch, so the account comes back on its own. Exporting the logs is the other half, since a user who hits this
     /// is the only available source of evidence for it
@@ -259,6 +340,18 @@ extension Onboarding {
                 }
                 catch {
                     Log.critical(.onboarding, "No user found in memory and could not check the database: \(error)")
+                }
+
+                /// Only the manager created at launch logs this - the flows started from the landing screen run this same path
+                /// again and would repeat it. It enumerates the attachments directory, so it mustn't hold up the onboarding UI
+                if initialFlow == .none {
+                    Task.detached(priority: .utility) { [dependencies] in
+                        guard let diagnostics: String = await Onboarding.recoveryDiagnostics(using: dependencies) else {
+                            return
+                        }
+
+                        Log.info(.onboarding, "Recovery diagnostics - \(diagnostics).")
+                    }
                 }
             }
             
@@ -576,6 +669,17 @@ extension Onboarding {
             }
             catch {
                 Log.critical(.onboarding, "Failed to save user details to database due to error: \(error)")
+
+                /// Carrying on would run the rest of the session on an account which exists only in memory: everything written
+                /// afterwards lands in the database with no identity beside it, so the next launch finds no user over a database
+                /// full of that user's data. Undo the in-memory state and fail instead, so the user can retry
+                ///
+                /// The other flows reuse an identity which is already loaded, so clearing it would take the existing account away
+                if initialFlow == .register || initialFlow == .restore {
+                    dependencies.mutate(cache: .general) { $0.setSecretKey(ed25519SecretKey: []) }
+                    dependencies.remove(cache: .libSession)
+                    throw error
+                }
             }
             
             /// No need to show the seed again if the user is restoring (just in case only set the value if it hasn't already
@@ -657,7 +761,8 @@ public protocol OnboardingManagerType: Actor {
     /// Complete the registration process storing the created/updated user state in the database and creating
     /// the `libSession` state if needed
     ///
-    /// - Throws: `Onboarding.RegistrationError.userDataAlreadyPresent` if the database already contains user data, or
-    /// the underlying error if that could not be determined - in both cases nothing has been written
+    /// - Throws: `Onboarding.RegistrationError.userDataAlreadyPresent` if the database already contains user data, the
+    /// underlying error if that could not be determined, or the error from storing the identity during a `register` or `restore`
+    /// flow - in every case nothing has been written
     func completeRegistration() async throws
 }
