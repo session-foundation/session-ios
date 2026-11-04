@@ -336,6 +336,10 @@ public actor Storage {
             throw error
         }
         
+        /// Migrating while suspended would write to the database in the background (where iOS kills the app for holding the
+        /// file lock), and moving to `performingMigrations` would also drop the suspension, so nothing would ever resume it
+        guard await _state.getCurrent() != .suspended else { throw StorageError.databaseSuspended }
+        
         /// Update the state
         syncState.update(state: .set(to: .performingMigrations))
         await _state.send(.performingMigrations)
@@ -437,12 +441,16 @@ public actor Storage {
         /// caught and logged separately by the `write` functions anyway)
         switch migrationResult {
             case .success:
-                /// Only transition into `readyForUse` if we aren't suspended
-                guard await _state.getCurrent() != .suspended else { break }
+                /// Only transition into `readyForUse` if we aren't suspended, but the migrations are done so that is the state to
+                /// resume into (otherwise resuming would go back to `pendingMigrations`, and everything waiting for
+                /// `readyForUse`, like the `JobRunner`, would wait forever)
+                guard await _state.getCurrent() != .suspended else {
+                    preSuspendState = .readyForUse
+                    break
+                }
                 syncState.update(state: .set(to: .readyForUse))
                 await _state.send(.readyForUse)
                 
-            case .failure(DatabaseError.SQLITE_ABORT): await _state.send(.suspended)
             case .failure(let error):
                 /// Only log and transition into `migrationsFailed` if we aren't suspended
                 guard await _state.getCurrent() != .suspended else { break }

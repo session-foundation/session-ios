@@ -88,12 +88,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     await self.completePostMigrationSetup(calledFrom: .finishLaunching)
                 }
                 catch {
-                    await MainActor.run { [weak self] in
-                        self?.showFailedStartupAlert(
-                            calledFrom: .finishLaunching,
-                            error: .databaseError(error)
-                        )
-                    }
+                    await self.handleFailedEnvironmentSetup(error, calledFrom: .finishLaunching)
                 }
             }
         }
@@ -307,7 +302,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         windowReadyContinuation?.resume()
         windowReadyContinuation = nil
     }
-    
+
+    /// A setup which failed because the database was suspended isn't broken: the app went to the background part way through
+    /// startup and its background time ran out, cancelling the setup while it waited for the database to resume. Showing the
+    /// startup alert for that would offer to clear an account which is fine, so carry on with the setup once the database is
+    /// resumed instead (the wait has to be in a new task, since the setup task has been cancelled)
+    private func handleFailedEnvironmentSetup(_ error: Error, calledFrom lifecycleMethod: LifecycleMethod) async {
+        guard await dependencies[singleton: .storage].state.first() == .suspended else {
+            return await MainActor.run { [weak self] in
+                self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .databaseError(error))
+            }
+        }
+
+        Log.info(.cat, "Startup interrupted by suspension (\(error)), continuing once the database is resumed.")
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            _ = await dependencies[singleton: .storage].state.first(where: { $0 != .suspended })
+
+            try? await SessionBackgroundTask.run(
+                label: "Setup Environment", // stringlint:ignore
+                using: dependencies
+            ) { [weak self, dependencies] in
+                guard let self else { return }
+
+                do {
+                    try await AppSetup.completeEnvironmentSetup(
+                        loadingViewController: self.loadingViewController,
+                        using: dependencies
+                    )
+                    await self.completePostMigrationSetup(calledFrom: lifecycleMethod)
+                }
+                catch {
+                    await self.handleFailedEnvironmentSetup(error, calledFrom: lifecycleMethod)
+                }
+            }
+        }
+    }
+
     private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod) async {
         Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
         

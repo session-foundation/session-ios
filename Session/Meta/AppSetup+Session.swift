@@ -40,6 +40,15 @@ extension AppSetup {
         /// Wait for the window to be setup before continuing
         await ensureWindowInitialised()
         
+        try await completeEnvironmentSetup(loadingViewController: loadingViewController, using: dependencies)
+    }
+    
+    /// The part of `setupEnvironment` which needs the database, split out so it can be run again when the background time runs
+    /// out while the database is suspended part way through it (the rest of `setupEnvironment` must only run once)
+    static func completeEnvironmentSetup(
+        loadingViewController: LoadingViewController?,
+        using dependencies: Dependencies
+    ) async throws {
         var migrationsComplete = false
         while !migrationsComplete {
             do {
@@ -52,8 +61,11 @@ extension AppSetup {
                 migrationsComplete = true
             } catch {
                 /// If the failure was due to suspension, wait for the database to resume and retry - the migrator is idempotent
-                /// so re-running is always safe. When `applicationWillEnterForeground` calls `resumeDatabaseAccess`
-                /// it will move the state away from `.suspended`, which unblocks the `first` call below
+                /// so re-running is always safe. `SceneDelegate.sceneWillEnterForeground` resumes the database, which
+                /// moves the state away from `.suspended` and unblocks the `first` call below
+                ///
+                /// **Note:** If the background time runs out first this task is cancelled, which ends the wait and throws; the
+                /// caller is responsible for running this again once the database resumes
                 if await dependencies[singleton: .storage].state.first(where: { $0 != .suspended }) == .pendingMigrations {
                     Log.info(.appSetup, "Startup interrupted by suspension, retrying after resume.")
                     continue
