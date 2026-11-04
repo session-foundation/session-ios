@@ -174,13 +174,17 @@ extension Onboarding {
         // stringlint:ignore_stop
     }
 
-    /// Restarting is the whole remedy: the identity is on disk and the read which missed it runs again on the next
-    /// launch, so the account comes back on its own. Exporting the logs is the other half, since a user who hits this
-    /// is the only available source of evidence for it
+    /// Shown when registration wrote nothing: either it refused to overwrite an existing account, or storing the
+    /// identity failed
+    ///
+    /// For a refusal, restarting is the whole remedy: the identity is on disk and the read which missed it runs again on
+    /// the next launch, so the account comes back on its own. For a failed write, restarting returns to onboarding so it
+    /// can be tried again. Exporting the logs is the other half either way, since a user who hits this is the only
+    /// available source of evidence for it
     ///
     /// **Nothing here may suggest reinstalling, restoring or clearing data**, including via the message text. A
-    /// user who reaches this has no recovery password - that is why they were being offered registration - so the copy
-    /// on disk is the only one there is, and any of those three destroys it
+    /// user who was refused registration has no recovery password - that is why they were being offered registration -
+    /// so the copy on disk is the only one there is, and any of those three destroys it
     @MainActor static func showRegistrationRefusedAlert(using dependencies: Dependencies) {
         let alert: UIAlertController = UIAlertController(
             title: Constants.app_name,
