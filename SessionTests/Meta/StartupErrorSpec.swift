@@ -24,8 +24,8 @@ class StartupErrorSpec: QuickSpec {
 
             // MARK: -- for any other database error
             context("for any other database error") {
-                // MARK: ---- shows the generic database error
-                it("shows the generic database error") {
+                // MARK: ---- tells the user to restart
+                it("tells the user to restart") {
                     let errors: [(name: String, error: Error)] = [
                         ("databaseSuspended", StorageError.databaseSuspended),
                         ("startupFailed", StorageError.startupFailed),
@@ -36,8 +36,17 @@ class StartupErrorSpec: QuickSpec {
 
                     errors.forEach { name, error in
                         expect(StartupError.databaseError(error).message)
-                            .to(equal("databaseErrorGeneric".localized()), description: name)
+                            .to(equal("shareExtensionDatabaseError".localized()), description: name)
                     }
+                }
+            }
+
+            // MARK: -- for an unresolved onboarding state
+            context("for an unresolved onboarding state") {
+                // MARK: ---- tells the user to restart
+                it("tells the user to restart") {
+                    expect(StartupError.unresolvedOnboardingState.message)
+                        .to(equal("shareExtensionDatabaseError".localized()))
                 }
             }
 

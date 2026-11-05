@@ -218,8 +218,12 @@ public extension LibSession {
             }
             
             /// Retrieve the existing dumps from the database
+            ///
+            /// **A failed read must throw rather than fall back to no dumps.** Every config would then load its default (empty)
+            /// state, so the account would show as having no name, contacts or groups, and the next local change would push that
+            /// empty state to the swarm
             typealias ConfigInfo = (sessionId: SessionId, variant: ConfigDump.Variant, dump: ConfigDump?)
-            let existingDumpsByKey: [String: [ConfigDump]] = ((try? ConfigDump.fetchAll(db)) ?? [])
+            let existingDumpsByKey: [String: [ConfigDump]] = try ConfigDump.fetchAll(db)
                 .grouped(by: \.sessionId.hexString)
             var configsToLoad: [ConfigInfo] = []
             
@@ -248,14 +252,13 @@ public extension LibSession {
             ///
             /// **Note:** We exclude groups in the `invited` state as they should only have their state loaded once the invitation
             /// gets accepted
-            let allGroups: [ClosedGroup] = (try? ClosedGroup
+            let allGroups: [ClosedGroup] = try ClosedGroup
                 .filter(
                     ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
                     ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
                 .filter(ClosedGroup.Columns.invited == false)
-                .fetchAll(db))
-                .defaulting(to: [])
+                .fetchAll(db)
             let groupsByKey: [String: ClosedGroup] = allGroups
                 .reduce(into: [:]) { result, group in result[group.threadId] = group }
             allGroups.forEach { group in
@@ -274,16 +277,30 @@ public extension LibSession {
             }
                                             
             /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
+            ///
+            /// A user config which fails to load fails the whole load, for the same reason as a failed read above. A group config
+            /// which fails to load only skips that group: the failure is likely to repeat on every launch (eg. a dump libSession
+            /// can't parse), and one broken group shouldn't stop the app starting, or stop the other groups from loading
             try configsToLoad.forEach { sessionId, variant, dump in
-                configStore[sessionId, variant] = try loadState(
-                    for: variant,
-                    sessionId: sessionId,
-                    userEd25519SecretKey: userEd25519SecretKey,
-                    groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
-                        .groupIdentityPrivateKey
-                        .map { Array($0) },
-                    cachedData: dump?.data
-                )
+                do {
+                    configStore[sessionId, variant] = try loadState(
+                        for: variant,
+                        sessionId: sessionId,
+                        userEd25519SecretKey: userEd25519SecretKey,
+                        groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
+                            .groupIdentityPrivateKey
+                            .map { Array($0) },
+                        cachedData: dump?.data
+                    )
+                }
+                catch {
+                    guard sessionId.prefix == .group else {
+                        Log.critical(.libSession, "Failed to load the \(variant) config (dump stored: \(dump != nil)): \(error)")
+                        throw error
+                    }
+                    
+                    Log.critical(.libSession, "Failed to load the \(variant) config for a group (dump stored: \(dump != nil)), skipping it: \(error)")
+                }
             }
             
             /// There is a bit of an odd discrepancy between `libSession` and the database for the users profile where `libSession`

@@ -142,11 +142,9 @@ class KeychainStorageSpec: AsyncSpec {
 
                 // MARK: ------ is removed by an unscoped delete
                 ///
-                /// Whether an unscoped `SecItemDelete` spans every access group decides two things the app relies
-                /// on: that "Clear all data" really removes the app-group copy, and that an ordinary unscoped
-                /// write — which deletes before it adds — transiently un-migrates a key. Apple documents that the
-                /// search, update and delete calls default to every access group the app belongs to; this asserts
-                /// it rather than inheriting it
+                /// Whether an unscoped `SecItemDelete` spans every access group decides that "Clear all data" really
+                /// removes the app-group copy. Apple documents that the search, update and delete calls default to
+                /// every access group the app belongs to; this asserts it rather than inheriting it
                 it("is removed by an unscoped delete") {
                     try storage.set(data: value, forKey: dataKey, accessGroup: storage.appGroupAccessGroup)
                     try storage.remove(key: dataKey)
@@ -155,6 +153,151 @@ class KeychainStorageSpec: AsyncSpec {
                         .to(throwError())
                 }
             }
+
+            // MARK: -- never removes an item while overwriting it
+            ///
+            /// Removing it first would leave no item at all if the add then failed (eg. while the keychain is locked) or
+            /// the process was killed in between, and anything reading it meanwhile would be told it doesn't exist.
+            /// **The reader goes to the Security framework directly** so it can't mask a gap by reading again
+            it("never removes an item while overwriting it") {
+                try storage.set(data: value, forKey: dataKey)
+
+                let reader: Task<Int, Never> = Task.detached {
+                    var notFoundCount: Int = 0
+
+                    while !Task.isCancelled {
+                        let status: OSStatus = SecItemCopyMatching(
+                            [
+                                kSecClass: kSecClassGenericPassword,
+                                kSecAttrAccount: dataKey.rawValue,
+                                kSecMatchLimit: kSecMatchLimitOne,
+                                kSecReturnData: true
+                            ] as CFDictionary,
+                            nil
+                        )
+
+                        if status == errSecItemNotFound { notFoundCount += 1 }
+                    }
+
+                    return notFoundCount
+                }
+
+                for index in 0..<300 {
+                    try storage.set(data: (index.isMultiple(of: 2) ? value : otherValue), forKey: dataKey)
+                }
+                reader.cancel()
+                let notFoundCount: Int = await reader.value
+
+                expect(notFoundCount).to(equal(0))
+                expect(try storage.data(forKey: dataKey)).to(equal(otherValue))
+            }
+
+            // MARK: -- with a stubbed Security framework
+            context("with a stubbed Security framework") {
+                @TestState var security: SecurityStub! = SecurityStub()
+                @TestState var mockAppContext: MockAppContext! = .create(using: dependencies)
+                @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+                @TestState var stubbedStorage: KeychainStorage! = KeychainStorage(
+                    using: dependencies,
+                    security: security.functions
+                )
+
+                beforeEach {
+                    dependencies.set(singleton: .appContext, to: mockAppContext)
+                    try await mockAppContext.when { $0.isMainApp }.thenReturn(true)
+                    try await mockAppContext.when { $0.isInBackground }.thenReturn(false)
+                    try await mockAppContext.when { $0.reportedApplicationState }.thenReturn(.active)
+                    dependencies.set(singleton: .crypto, to: mockCrypto)
+                    try await mockCrypto
+                        .when { try $0.tryGenerate(.randomBytes(.any)) }
+                        .thenReturn(Data(repeating: 1, count: 48))
+                }
+
+                // MARK: ---- reports an item as not found only once a second read agrees
+                ///
+                /// A "not found" leads `getOrGenerateEncryptionKey` to replace the key, so a wrong one destroys a key
+                /// which exists
+                it("reports an item as not found only once a second read agrees") {
+                    security.copyResults = [(errSecItemNotFound, nil), (errSecSuccess, value)]
+
+                    expect(try stubbedStorage.data(forKey: dataKey)).to(equal(value))
+                }
+
+                // MARK: ---- does not replace a key when the second read fails differently
+                it("does not replace a key when the second read fails differently") {
+                    security.copyResults = [(errSecItemNotFound, nil), (errSecInteractionNotAllowed, nil)]
+
+                    expect {
+                        try stubbedStorage.getOrGenerateEncryptionKey(forKey: dataKey, length: 48, cat: .keychain)
+                    }.to(throwError { error in
+                        switch error {
+                            case KeychainStorageError.keySpecInaccessible: break
+                            default: fail("Expected keySpecInaccessible, got \(error)")
+                        }
+                    })
+                    expect(security.addCount).to(equal(0))
+                    expect(security.updateCount).to(equal(0))
+                    expect(security.deleteCount).to(equal(0))
+                }
+
+                // MARK: ---- replaces a key only when two reads report it as not found
+                it("replaces a key only when two reads report it as not found") {
+                    security.copyResults = [(errSecItemNotFound, nil), (errSecItemNotFound, nil)]
+
+                    expect {
+                        try stubbedStorage.getOrGenerateEncryptionKey(forKey: dataKey, length: 48, cat: .keychain)
+                    }.to(equal(Data(repeating: 1, count: 48)))
+                    expect(security.copyCount).to(equal(2))
+                    expect(security.addCount).to(beGreaterThan(0))
+                }
+
+                // MARK: ---- keeps the existing item when an overwrite fails
+                it("keeps the existing item when an overwrite fails") {
+                    security.updateStatus = errSecInteractionNotAllowed
+
+                    expect { try stubbedStorage.set(data: value, forKey: dataKey) }
+                        .to(throwError { error in
+                            expect((error as? KeychainStorageError)?.code).to(equal(errSecInteractionNotAllowed))
+                        })
+                    expect(security.deleteCount).to(equal(0))
+                    expect(security.addCount).to(equal(0))
+                }
+            }
         }
+    }
+}
+
+// MARK: - SecurityStub
+
+/// Answers `KeychainStorage`'s Security framework calls from a script, and counts them
+private final class SecurityStub {
+    var copyResults: [(status: OSStatus, data: Data?)] = []
+    var updateStatus: OSStatus = errSecItemNotFound
+    var addStatus: OSStatus = errSecSuccess
+    private(set) var copyCount: Int = 0
+    private(set) var addCount: Int = 0
+    private(set) var updateCount: Int = 0
+    private(set) var deleteCount: Int = 0
+
+    var functions: KeychainStorage.SecurityFunctions {
+        KeychainStorage.SecurityFunctions(
+            copyData: { [self] _ in
+                copyCount += 1
+
+                return (copyResults.isEmpty ? (errSecItemNotFound, nil) : copyResults.removeFirst())
+            },
+            add: { [self] _ in
+                addCount += 1
+                return addStatus
+            },
+            update: { [self] _, _ in
+                updateCount += 1
+                return updateStatus
+            },
+            delete: { [self] _ in
+                deleteCount += 1
+                return errSecSuccess
+            }
+        )
     }
 }

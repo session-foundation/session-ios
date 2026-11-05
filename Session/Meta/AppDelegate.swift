@@ -953,11 +953,30 @@ private actor RootViewControllerCoordinator {
         }
         
         // Navigate to the approriate screen depending on the onboarding state
-        try? await dependencies[singleton: .onboarding].loadInitialState()
-        let state: Onboarding.State? = await dependencies[singleton: .onboarding].state.first()
+        let state: Onboarding.State?
+        
+        do {
+            try await dependencies[singleton: .onboarding].loadInitialState()
+            state = await dependencies[singleton: .onboarding].state.first()
+        }
+        catch {
+            Log.critical(.cat, "Failed to load the onboarding state: \(error)")
+            state = nil
+        }
         
         switch state {
-            case .none, .unknown, .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
+            /// The `LandingScreen` reads as being logged out, and offers to create an account, so it must only be shown when there is
+            /// definitely no user; an unresolved state says nothing about whether the database holds one
+            case .none, .unknown:
+                Log.critical(.cat, "Onboarding state unresolved (\(String(describing: state))), showing the startup alert.")
+                timeoutTask.cancel()
+                
+                await MainActor.run {
+                    appDelegate.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .unresolvedOnboardingState)
+                }
+                await markFailed()
+                
+            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
                 if state == .noUserInvalidKeyPair {
                     Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
                 }

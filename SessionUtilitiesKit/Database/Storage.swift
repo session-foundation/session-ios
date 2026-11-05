@@ -138,8 +138,8 @@ public actor Storage {
         /// If a database exists but its key does not then it can never be opened, and generating a replacement would
         /// make that worse: the new key cannot decrypt the existing file, and it overwrites the evidence, so
         /// afterwards "the key was lost" is indistinguishable from "the database was corrupted" - including in a
-        /// user-supplied report. Fail with a specific error instead, which lets the app offer to reset the database
-        /// rather than presenting a dead end
+        /// user-supplied report. Fail with a specific error instead, so the startup alert can offer to export the logs
+        /// or clear the device rather than presenting a dead end
         ///
         /// **Only** an absent or unusable key counts. The keychain is also unreadable before the device's first
         /// unlock, and treating that as a lost key would offer to destroy the data of a user whose key is fine

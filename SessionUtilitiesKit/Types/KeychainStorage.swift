@@ -89,6 +89,7 @@ public extension KeychainStorageType {
 
 public class KeychainStorage: KeychainStorageType {
     private let dependencies: Dependencies
+    private let security: SecurityFunctions
     private let keychain: KeychainSwift = {
         let result: KeychainSwift = KeychainSwift()
         result.synchronizable = false // This is the default but better to be explicit
@@ -96,62 +97,27 @@ public class KeychainStorage: KeychainStorageType {
         return result
     }()
 
-    /// `KeychainSwift` applies its `accessGroup` to every query it builds, so a scoped instance is the mechanism
-    /// for reading and writing a specific group rather than the app's whole access group list
-    @ThreadSafeObject private var scopedKeychains: [String: KeychainSwift] = [:]
-
     public var appGroupAccessGroup: String { UserDefaults.applicationGroup }
 
     // MARK: - Initialization
 
-    init(using dependencies: Dependencies) {
+    init(using dependencies: Dependencies, security: SecurityFunctions = .live) {
         self.dependencies = dependencies
-    }
-
-    private func keychain(for accessGroup: String) -> KeychainSwift {
-        if let existing: KeychainSwift = scopedKeychains[accessGroup] { return existing }
-
-        let result: KeychainSwift = KeychainSwift()
-        result.synchronizable = false
-        result.accessGroup = accessGroup
-        _scopedKeychains.performUpdate { current in
-            var updated: [String: KeychainSwift] = current
-            updated[accessGroup] = result
-            return updated
-        }
-
-        return result
+        self.security = security
     }
     
     // MARK: - Functions
     
     public func data(forKey key: KeychainStorage.DataKey) throws -> Data {
-        guard let result: Data = keychain.getData(key.rawValue) else {
-            throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
-                logCategory: .keychain,
-                description: "Error retrieving data, OSStatusCode: \(keychain.lastResultCode)"
-            )
-        }
-        
-        return result
+        return try read(key, accessGroup: nil)
     }
 
     public func set(data: Data, forKey key: KeychainStorage.DataKey) throws {
-        guard keychain.set(data, forKey: key.rawValue, withAccess: .accessibleAfterFirstUnlockThisDeviceOnly) else {
-            throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
-                logCategory: .keychain,
-                description: "Error setting data, OSStatusCode: \(keychain.lastResultCode)"
-            )
-        }
+        try write(data, forKey: key, accessGroup: nil)
 
-        /// Mirror into the app group's access group, because a write here removes the app group's copy first
-        ///
-        /// An unscoped write deletes before it adds, and an unscoped delete spans **every** access group the app belongs
-        /// to - so without this, any write silently un-migrates the key and leaves it reachable only from the
-        /// team-prefixed group, which is the group a change of team ID takes away. Mirroring at this level rather than at
-        /// each call site is deliberate: there are three unscoped writers today and this covers future ones too
+        /// Mirror into the app group's access group, because an unscoped write which adds the item puts it only in the app's
+        /// default access group - the team-prefixed one, which a change of team ID takes away. Mirroring at this level rather
+        /// than at each call site is deliberate: there are three unscoped writers today and this covers future ones too
         ///
         /// A failure here must not fail the write the caller asked for. The item is still readable, and
         /// `KeychainAccessGroupMigration` re-mirrors it on the next launch
@@ -162,41 +128,94 @@ public class KeychainStorage: KeychainStorageType {
     }
     
     public func remove(key: KeychainStorage.DataKey) throws {
-        try remove(key: key.rawValue)
+        /// Unscoped, so this removes the item from every access group the app belongs to
+        let status: OSStatus = security.delete(query(for: key.rawValue, accessGroup: nil))
+        
+        guard status == errSecSuccess else {
+            throw KeychainStorageError.failure(
+                code: status,
+                logCategory: .keychain,
+                description: "Error removing data, OSStatusCode: \(status)"
+            )
+        }
     }
 
     public func data(forKey key: KeychainStorage.DataKey, accessGroup: String) throws -> Data {
-        let scoped: KeychainSwift = keychain(for: accessGroup)
-
-        guard let result: Data = scoped.getData(key.rawValue) else {
-            throw KeychainStorageError.failure(
-                code: Int32(scoped.lastResultCode),
-                logCategory: .keychain,
-                description: "Error retrieving data for access group, OSStatusCode: \(scoped.lastResultCode)"
-            )
-        }
-
-        return result
+        return try read(key, accessGroup: accessGroup)
     }
 
     public func set(data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String) throws {
-        let scoped: KeychainSwift = keychain(for: accessGroup)
-
-        guard scoped.set(data, forKey: key.rawValue, withAccess: .accessibleAfterFirstUnlockThisDeviceOnly) else {
+        try write(data, forKey: key, accessGroup: accessGroup)
+    }
+    
+    // MARK: - Internal Functions
+    
+    /// A `nil` access group searches, updates or deletes across **every** access group the app belongs to, and adds to its
+    /// default one
+    private func query(for account: String, accessGroup: String?) -> [String: Any] {
+        var result: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: account
+        ]
+        
+        if let accessGroup: String = accessGroup {
+            result[kSecAttrAccessGroup as String] = accessGroup
+        }
+        
+        return result
+    }
+    
+    /// Each status is taken from the call it describes, never from state shared with other calls: a concurrent operation could
+    /// replace it in between, and a misattributed "not found" is what makes `getOrGenerateEncryptionKey` replace a key which
+    /// still exists
+    private func read(_ key: KeychainStorage.DataKey, accessGroup: String?) throws -> Data {
+        var readQuery: [String: Any] = query(for: key.rawValue, accessGroup: accessGroup)
+        readQuery[kSecMatchLimit as String] = kSecMatchLimitOne
+        readQuery[kSecReturnData as String] = kCFBooleanTrue
+        
+        /// Callers act on "not found" by generating a replacement, which destroys the existing key if the read was wrong, so it is
+        /// only reported once a second, independent read agrees
+        var result: (status: OSStatus, data: Data?) = security.copyData(readQuery)
+        
+        if result.status == errSecItemNotFound {
+            result = security.copyData(readQuery)
+        }
+        
+        guard result.status == errSecSuccess, let data: Data = result.data else {
             throw KeychainStorageError.failure(
-                code: Int32(scoped.lastResultCode),
+                code: result.status,
                 logCategory: .keychain,
-                description: "Error setting data for access group, OSStatusCode: \(scoped.lastResultCode)"
+                description: "Error retrieving data\(accessGroup == nil ? "" : " for access group"), OSStatusCode: \(result.status)"
             )
         }
+        
+        return data
     }
-
-    private func remove(key: String) throws {
-        guard keychain.delete(key) else {
+    
+    /// Updates in place rather than deleting and then adding: a failed add (eg. while the keychain is locked), or the process being
+    /// killed between the two, would leave no item at all, and an unscoped delete removes it from every access group
+    private func write(_ data: Data, forKey key: KeychainStorage.DataKey, accessGroup: String?) throws {
+        let itemQuery: [String: Any] = query(for: key.rawValue, accessGroup: accessGroup)
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        var status: OSStatus = security.update(itemQuery, attributes)
+        
+        if status == errSecItemNotFound {
+            status = security.add(itemQuery.merging(attributes) { _, new in new })
+            
+            /// Another write can add the item between the update and the add
+            if status == errSecDuplicateItem {
+                status = security.update(itemQuery, attributes)
+            }
+        }
+        
+        guard status == errSecSuccess else {
             throw KeychainStorageError.failure(
-                code: Int32(keychain.lastResultCode),
+                code: status,
                 logCategory: .keychain,
-                description: "Error removing data, OSStatusCode: \(keychain.lastResultCode)"
+                description: "Error setting data\(accessGroup == nil ? "" : " for access group"), OSStatusCode: \(status)"
             )
         }
     }
@@ -284,7 +303,7 @@ public class KeychainStorage: KeychainStorageType {
                             .tryGenerate(.randomBytes(length))
                         defer { keySpec.resetBytes(in: 0..<keySpec.count) } // Reset content immediately after use
                         
-                        try dependencies[singleton: .keychain].set(data: keySpec, forKey: key)
+                        try set(data: keySpec, forKey: key)
                         return keySpec
                     }
                     catch {
@@ -306,6 +325,31 @@ public class KeychainStorage: KeychainStorageType {
                     throw KeychainStorageError.keySpecInaccessible
             }
         }
+    }
+}
+
+// MARK: - SecurityFunctions
+
+extension KeychainStorage {
+    /// The Security framework calls `KeychainStorage` makes, replaceable so a spec can make one fail or answer differently on
+    /// a second call, which the real keychain can't be made to do on demand
+    struct SecurityFunctions {
+        let copyData: ([String: Any]) -> (status: OSStatus, data: Data?)
+        let add: ([String: Any]) -> OSStatus
+        let update: ([String: Any], [String: Any]) -> OSStatus
+        let delete: ([String: Any]) -> OSStatus
+        
+        static let live: SecurityFunctions = SecurityFunctions(
+            copyData: { query in
+                var result: CFTypeRef?
+                let status: OSStatus = SecItemCopyMatching(query as CFDictionary, &result)
+                
+                return (status, result as? Data)
+            },
+            add: { query in SecItemAdd(query as CFDictionary, nil) },
+            update: { query, attributes in SecItemUpdate(query as CFDictionary, attributes as CFDictionary) },
+            delete: { query in SecItemDelete(query as CFDictionary) }
+        )
     }
 }
 

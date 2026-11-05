@@ -447,6 +447,7 @@
 		FD0150412CA2433D005B08A1 /* BencodeEncoderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */; };
 		FD0150422CA2433D005B08A1 /* VersionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01503F2CA2433D005B08A1 /* VersionSpec.swift */; };
 		FD0150452CA243BB005B08A1 /* LibSessionUtilSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */; };
+		7C0421F3444B925CEF415A4D /* LibSessionLoadStateSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = C571B09A45CCB68183A32431 /* LibSessionLoadStateSpec.swift */; };
 		FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */; };
 		20C37E0112880A9BA14D603D /* LibSessionErasedGroupStubSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */; };
 		FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01504D2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift */; };
@@ -2270,6 +2271,7 @@
 		FD01503D2CA2433D005B08A1 /* BencodeDecoderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeDecoderSpec.swift; sourceTree = "<group>"; };
 		FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeEncoderSpec.swift; sourceTree = "<group>"; };
 		FD01503F2CA2433D005B08A1 /* VersionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSpec.swift; sourceTree = "<group>"; };
+		C571B09A45CCB68183A32431 /* LibSessionLoadStateSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionLoadStateSpec.swift; sourceTree = "<group>"; };
 		FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionSpec.swift; sourceTree = "<group>"; };
 		A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionErasedGroupStubSpec.swift; sourceTree = "<group>"; };
 		FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionUtilSpec.swift; sourceTree = "<group>"; };
@@ -5617,6 +5619,7 @@
 		FD8ECF802934385900C0D1BB /* LibSession */ = {
 			isa = PBXGroup;
 			children = (
+				C571B09A45CCB68183A32431 /* LibSessionLoadStateSpec.swift */,
 				FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */,
 				A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */,
 				FD481A8F2CAD16EA00ECC4CF /* LibSessionGroupInfoSpec.swift */,
@@ -8558,6 +8561,7 @@
 				FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */,
 				FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */,
 				FDEF308B2F2971A70004C5BD /* MockFileManager.swift in Sources */,
+				7C0421F3444B925CEF415A4D /* LibSessionLoadStateSpec.swift in Sources */,
 				FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */,
 				20C37E0112880A9BA14D603D /* LibSessionErasedGroupStubSpec.swift in Sources */,
 				FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */,
