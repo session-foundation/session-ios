@@ -155,9 +155,7 @@ class OnboardingSpec: AsyncSpec {
             
             dependencies.set(defaults: .standard, to: mockUserDefaults)
             try await mockUserDefaults.defaultInitialSetup()
-            try await mockUserDefaults
-                .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                .thenReturn(true)
+            try await mockUserDefaults.mockMainAppLease(isActive: true, using: dependencies)
             try await mockUserDefaults
                 .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                 .thenReturn(false)

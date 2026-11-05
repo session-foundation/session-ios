@@ -589,7 +589,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
         /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
-        guard dependencies[defaults: .appGroup, key: .isMainAppActive] == true else { return }
+        guard dependencies.isMainAppActive else { return }
         
         /// There is a warning which can happen on launch because the Database read can be blocked by another database operation
         /// which could result in this blocking the main thread, as a result we want to check the identity exists on a background thread
@@ -677,7 +677,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if notification.request.content.userInfo["remote"] != nil {
             /// Only suppress if we're genuinely active, not mid-transition
-            guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+            guard dependencies.isMainAppActive else {
                 dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
                     completionHandler([.badge, .banner, .sound, .list])
                 }

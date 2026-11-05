@@ -22,6 +22,8 @@ final class MainAppContext: AppContext {
     
     var mainWindow: UIWindow?
     var wasWokenUpByPushNotification: Bool = false
+    private let mainAppLeaseRenewalInterval: TimeInterval
+    private var mainAppLeaseTimer: Timer?
     
     @MainActor var statusBarHeight: CGFloat { UIApplication.shared.statusBarFrame.size.height }
     var openSystemSettingsAction: UIAlertAction? {
@@ -42,9 +44,14 @@ final class MainAppContext: AppContext {
 
     /// - Parameter initialApplicationState: The state at launch - a launch straight into the background never posts
     ///   `didEnterBackgroundNotification`, so the observers below can't be relied on to establish it
-    init(initialApplicationState: UIApplication.State, using dependencies: Dependencies) {
+    init(
+        initialApplicationState: UIApplication.State,
+        mainAppLeaseRenewalInterval: TimeInterval = MainAppLease.renewalInterval,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.reportedApplicationState = initialApplicationState
+        self.mainAppLeaseRenewalInterval = mainAppLeaseRenewalInterval
         
         NotificationCenter.default.addObserver(
             self,
@@ -70,6 +77,12 @@ final class MainAppContext: AppContext {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationWillTerminate(notification:)),
+            name: UIApplication.willTerminateNotification,
+            object: nil
+        )
     }
     
     deinit {
@@ -93,7 +106,7 @@ final class MainAppContext: AppContext {
         Log.assertOnMainThread()
         
         self.reportedApplicationState = .background
-        dependencies[defaults: .appGroup, key: .isMainAppActive] = false
+        endMainAppLease(reason: "entered background")
 
         NotificationCenter.default.post(
             name: .sessionDidEnterBackground,
@@ -101,7 +114,9 @@ final class MainAppContext: AppContext {
         )
     }
 
-    /// This fires for any intrrruption (eg. system alerts, permission prompts, CallKit) so don't change `reportedApplicationState`
+    /// This fires for any interruption (eg. Control Center, system alerts, permission prompts, CallKit) while the app stays on screen,
+    /// so it changes neither `reportedApplicationState` nor the main app lease - ending the lease here would let the notification
+    /// extension post notifications for messages the app is already showing
     @objc private func applicationWillResignActive(notification: NSNotification) {
         Log.assertOnMainThread()
 
@@ -114,14 +129,45 @@ final class MainAppContext: AppContext {
     @objc private func applicationDidBecomeActive(notification: NSNotification) {
         Log.assertOnMainThread()
 
-        Log.info(.appContext, "Setting 'isMainAppActive' to true.")
         self.reportedApplicationState = .active
-        dependencies[defaults: .appGroup, key: .isMainAppActive] = true
+        startMainAppLease()
 
         NotificationCenter.default.post(
             name: .sessionDidBecomeActive,
             object: nil
         )
+    }
+    
+    @objc private func applicationWillTerminate(notification: NSNotification) {
+        Log.assertOnMainThread()
+        
+        endMainAppLease(reason: "terminating")
+    }
+    
+    // MARK: - Main App Lease
+    
+    private func startMainAppLease() {
+        mainAppLeaseTimer?.invalidate()
+        
+        let until: Date = dependencies.renewMainAppLease()
+        Log.info(.appContext, "Main app lease started, \(MainAppLease.state(until: until, now: dependencies.dateNow)).")
+        
+        /// The timer is deliberately scheduled on the main run loop: if the main thread hangs the app can't respond to anything, so
+        /// renewals need to stop and let the lease lapse so the notification extension starts handling pushes again. The `common`
+        /// mode keeps it firing while the user is scrolling
+        let timer: Timer = Timer(timeInterval: mainAppLeaseRenewalInterval, repeats: true) { [dependencies] _ in
+            dependencies.renewMainAppLease()
+        }
+        timer.tolerance = (mainAppLeaseRenewalInterval / 6)
+        RunLoop.main.add(timer, forMode: .common)
+        mainAppLeaseTimer = timer
+    }
+    
+    private func endMainAppLease(reason: String) {
+        mainAppLeaseTimer?.invalidate()
+        mainAppLeaseTimer = nil
+        dependencies.endMainAppLease()
+        Log.info(.appContext, "Main app lease ended (\(reason)).")
     }
     
     // MARK: - AppContext Functions

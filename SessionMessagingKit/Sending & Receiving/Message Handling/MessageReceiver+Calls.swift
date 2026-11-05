@@ -104,7 +104,7 @@ extension MessageReceiver {
         
         // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
         // requiring main-thread execution
-        let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+        let isMainAppActive: Bool = dependencies.isMainAppActive
         
         // It is enough just ignoring the pre offers, other call messages
         // for this call would be dropped because of no Session call instance

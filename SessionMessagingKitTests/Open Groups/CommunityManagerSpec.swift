@@ -251,6 +251,7 @@ class CommunityManagerSpec: AsyncSpec {
             dependencies.set(defaults: .appGroup, to: mockAppGroupDefaults)
             try await mockAppGroupDefaults.defaultInitialSetup()
             try await mockAppGroupDefaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+            try await mockAppGroupDefaults.mockMainAppLease(isActive: false, using: dependencies)
             
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             try await mockJobRunner
@@ -2570,9 +2571,7 @@ class CommunityManagerSpec: AsyncSpec {
             context("when accessing the default rooms publisher") {
                 // MARK: ---- adds a job to retrieve the default rooms if we have none
                 it("adds a job to retrieve the default rooms if we have none") {
-                    try await mockAppGroupDefaults
-                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                        .thenReturn(true)
+                    try await mockAppGroupDefaults.mockMainAppLease(isActive: true, using: dependencies)
                     try await mockStorage.write { db in
                         try OpenGroup(
                             server: Network.SOGS.defaultServer,
@@ -2602,9 +2601,7 @@ class CommunityManagerSpec: AsyncSpec {
                 
                 // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
                 it("does not start a job to retrieve the default rooms if we already have rooms") {
-                    try await mockAppGroupDefaults
-                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
-                        .thenReturn(true)
+                    try await mockAppGroupDefaults.mockMainAppLease(isActive: true, using: dependencies)
                     await communityManager.updateRooms(
                         rooms: [Network.SOGS.Room.mock],
                         roomsToPoll: .useExisting,
