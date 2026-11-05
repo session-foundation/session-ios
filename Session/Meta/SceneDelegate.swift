@@ -64,6 +64,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             /// The database has to be resumed before waiting for the initial app setup: if the app went to the background part
             /// way through startup then the setup is itself waiting for this resume, so waiting on it first would never finish.
             /// On a launch which was never suspended this does nothing
+            ///
+            /// Resuming early is safe because it only reverses `suspendDatabaseAccess` (restoring the state from before the
+            /// suspension) and needs nothing from the setup, unlike creating the network below. Anything waiting on the database,
+            /// such as the migrations, continues from that state
             await dependencies[singleton: .storage].resumeDatabaseAccess()
             
             /// Wait for the initial app setup to complete before resuming network access. Setup
