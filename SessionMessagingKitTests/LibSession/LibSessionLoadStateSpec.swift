@@ -66,8 +66,10 @@ class LibSessionLoadStateSpec: AsyncSpec {
                     }.to(throwError())
                 }
 
-                // MARK: ---- fails when a user config can't be loaded
-                it("fails when a user config can't be loaded") {
+                // MARK: ---- loads the default for a user config which can't be loaded
+                ///
+                /// The failure would repeat on every launch, so failing the load would stop the app starting at all
+                it("loads the default for a user config which can't be loaded") {
                     try await mockStorage.write { db in
                         try ConfigDump(
                             variant: .userProfile,
@@ -77,11 +79,14 @@ class LibSessionLoadStateSpec: AsyncSpec {
                         ).insert(db)
                     }
 
-                    await expect {
-                        try await mockStorage.read { db in
-                            try cache.loadState(db, userEd25519SecretKey: userEd25519SecretKey)
-                        }
-                    }.to(throwError())
+                    try await mockStorage.read { db in
+                        try cache.loadState(db, userEd25519SecretKey: userEd25519SecretKey)
+                    }
+                    
+                    ConfigDump.Variant.userVariants.forEach { variant in
+                        expect(cache.hasConfig(for: variant, sessionId: userSessionId))
+                            .to(beTrue(), description: "\(variant)")
+                    }
                 }
 
                 // MARK: ---- skips the whole of a group whose config can't be loaded

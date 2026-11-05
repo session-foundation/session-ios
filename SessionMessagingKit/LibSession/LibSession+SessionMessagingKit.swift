@@ -304,10 +304,11 @@ public extension LibSession {
                                             
             /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
             ///
-            /// A user config which fails to load fails the whole load, for the same reason as a failed read above. A group with a
-            /// config which fails to load is skipped entirely, including any of its configs which already loaded: the failure is
-            /// likely to repeat on every launch (eg. a dump libSession can't parse), and one broken group shouldn't stop the app
-            /// starting, or stop the other groups from loading
+            /// Unlike a failed read, a dump which fails to load (eg. one libSession can't parse) fails the same way on every launch,
+            /// so failing the load for it would stop the app starting at all:
+            /// - a user config loads its default (empty) state instead, which a newer config from the swarm replaces when one arrives
+            /// - a group is skipped entirely, including any of its configs which already loaded, so one broken group can't stop the
+            ///   others loading
             var skippedGroupIds: Set<SessionId> = []
 
             try configsToLoad.forEach { sessionId, variant, dump in
@@ -326,8 +327,15 @@ public extension LibSession {
                 }
                 catch {
                     guard sessionId.prefix == .group else {
-                        Log.critical(.libSession, "Failed to load the \(variant) config (dump stored: \(dump != nil)): \(error)")
-                        throw error
+                        Log.critical(.libSession, "Failed to load the \(variant) config (dump stored: \(dump != nil)), loading its default: \(error)")
+                        configStore[sessionId, variant] = try loadState(
+                            for: variant,
+                            sessionId: sessionId,
+                            userEd25519SecretKey: userEd25519SecretKey,
+                            groupEd25519SecretKey: nil,
+                            cachedData: nil
+                        )
+                        return
                     }
                     
                     Log.critical(.libSession, "Failed to load the \(variant) config for a group (dump stored: \(dump != nil)), skipping the group: \(error)")
