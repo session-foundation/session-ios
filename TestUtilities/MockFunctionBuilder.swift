@@ -96,7 +96,9 @@ extension MockFunctionBuilder: MockFunctionHandler {
         self.capturedGenerics = generics
         self.capturedArguments = args
         
-        return MockHelper.unsafePlaceholder()
+        /// The `when` block discards this value but it's still destroyed, and destroying a placeholder for a type which holds a
+        /// reference (eg. an existential) crashes in optimised builds, so use a real value where one is available
+        return MockFallbackRegistry.shared.makeFallback(for: Output.self) ?? MockHelper.unsafePlaceholder()
     }
 }
 
