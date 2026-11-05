@@ -447,6 +447,7 @@
 		FD0150412CA2433D005B08A1 /* BencodeEncoderSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */; };
 		FD0150422CA2433D005B08A1 /* VersionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01503F2CA2433D005B08A1 /* VersionSpec.swift */; };
 		FD0150452CA243BB005B08A1 /* LibSessionUtilSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */; };
+		7C0421F3444B925CEF415A4D /* LibSessionLoadStateSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = C571B09A45CCB68183A32431 /* LibSessionLoadStateSpec.swift */; };
 		FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */; };
 		20C37E0112880A9BA14D603D /* LibSessionErasedGroupStubSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */; };
 		FD01504E2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD01504D2CA243E7005B08A1 /* TypeConversionUtilitiesSpec.swift */; };
@@ -1008,6 +1009,7 @@
 		FDA10000202608130000005B /* StorageSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA10000202608130000005A /* StorageSpec.swift */; };
 		FDA1000030000002000000A1 /* MnemonicSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000001000000A1 /* MnemonicSpec.swift */; };
 		FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */; };
+		89703A99C521C133D63FCCFC /* StartupErrorSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B13EE7E382B17763E6F22F5 /* StartupErrorSpec.swift */; };
 		625643A4B4C043BE9D3974C3 /* ForegroundSceneGateSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */; };
 		A68275C9ADDA97ED7D601164 /* SessionCallManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 776965097C448BE80AA797FD /* SessionCallManagerSpec.swift */; };
 		8F296D67356267D9EE81B001 /* MainAppContextSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */; };
@@ -2269,6 +2271,7 @@
 		FD01503D2CA2433D005B08A1 /* BencodeDecoderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeDecoderSpec.swift; sourceTree = "<group>"; };
 		FD01503E2CA2433D005B08A1 /* BencodeEncoderSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeEncoderSpec.swift; sourceTree = "<group>"; };
 		FD01503F2CA2433D005B08A1 /* VersionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionSpec.swift; sourceTree = "<group>"; };
+		C571B09A45CCB68183A32431 /* LibSessionLoadStateSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionLoadStateSpec.swift; sourceTree = "<group>"; };
 		FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionSpec.swift; sourceTree = "<group>"; };
 		A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionErasedGroupStubSpec.swift; sourceTree = "<group>"; };
 		FD0150442CA243BB005B08A1 /* LibSessionUtilSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibSessionUtilSpec.swift; sourceTree = "<group>"; };
@@ -2700,6 +2703,7 @@
 		FDA10000202608130000005A /* StorageSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSpec.swift; sourceTree = "<group>"; };
 		FDA1000030000001000000A1 /* MnemonicSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicSpec.swift; sourceTree = "<group>"; };
 		FDA1000030000004000000A1 /* MnemonicWordSetSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MnemonicWordSetSpec.swift; sourceTree = "<group>"; };
+		1B13EE7E382B17763E6F22F5 /* StartupErrorSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupErrorSpec.swift; sourceTree = "<group>"; };
 		198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundSceneGateSpec.swift; sourceTree = "<group>"; };
 		776965097C448BE80AA797FD /* SessionCallManagerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCallManagerSpec.swift; sourceTree = "<group>"; };
 		8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppContextSpec.swift; sourceTree = "<group>"; };
@@ -5615,6 +5619,7 @@
 		FD8ECF802934385900C0D1BB /* LibSession */ = {
 			isa = PBXGroup;
 			children = (
+				C571B09A45CCB68183A32431 /* LibSessionLoadStateSpec.swift */,
 				FD0150432CA243BB005B08A1 /* LibSessionSpec.swift */,
 				A64B505C8F0900CB1FE7C5B6 /* LibSessionErasedGroupStubSpec.swift */,
 				FD481A8F2CAD16EA00ECC4CF /* LibSessionGroupInfoSpec.swift */,
@@ -5735,6 +5740,7 @@
 		31D3EF5A374DE49D047B9917 /* Meta */ = {
 			isa = PBXGroup;
 			children = (
+				1B13EE7E382B17763E6F22F5 /* StartupErrorSpec.swift */,
 				198831ED1CD1B69E07D8099F /* ForegroundSceneGateSpec.swift */,
 				8E687678AB6CFE9CD65B4B3C /* MainAppContextSpec.swift */,
 			);
@@ -8386,6 +8392,7 @@
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FDA10000202608130000004B /* KeychainStorageSpec.swift in Sources */,
 				FDA1000030000005000000A1 /* MnemonicWordSetSpec.swift in Sources */,
+				89703A99C521C133D63FCCFC /* StartupErrorSpec.swift in Sources */,
 				625643A4B4C043BE9D3974C3 /* ForegroundSceneGateSpec.swift in Sources */,
 				A68275C9ADDA97ED7D601164 /* SessionCallManagerSpec.swift in Sources */,
 				8F296D67356267D9EE81B001 /* MainAppContextSpec.swift in Sources */,
@@ -8554,6 +8561,7 @@
 				FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */,
 				FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */,
 				FDEF308B2F2971A70004C5BD /* MockFileManager.swift in Sources */,
+				7C0421F3444B925CEF415A4D /* LibSessionLoadStateSpec.swift in Sources */,
 				FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */,
 				20C37E0112880A9BA14D603D /* LibSessionErasedGroupStubSpec.swift in Sources */,
 				FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */,

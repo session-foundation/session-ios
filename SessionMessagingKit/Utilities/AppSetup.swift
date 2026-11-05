@@ -77,6 +77,16 @@ public enum AppSetup {
         func readUserInfo() async throws -> UserInfo? {
             return try await dependencies[singleton: .storage].read { db -> UserInfo? in
                 guard let ed25519KeyPair: KeyPair = try Identity.fetchUserEd25519KeyPair(db) else {
+                    /// Half a key pair is still an account on disk, and returning `nil` here would offer to create a new one over it
+                    let storedEd25519KeyCount: Int = try Identity
+                        .filter(ids: [Identity.Variant.ed25519PublicKey, Identity.Variant.ed25519SecretKey])
+                        .fetchCount(db)
+                    
+                    guard storedEd25519KeyCount == 0 else {
+                        Log.critical(.appSetup, "Only \(storedEd25519KeyCount) of the 2 ed25519 identity keys are stored.")
+                        throw StorageError.invalidData
+                    }
+                    
                     return nil
                 }
                 
@@ -91,7 +101,7 @@ public enum AppSetup {
                     userSessionId: userSessionId,
                     using: dependencies
                 )
-                try? cache.loadState(db, userEd25519SecretKey: ed25519KeyPair.secretKey)
+                try cache.loadState(db, userEd25519SecretKey: ed25519KeyPair.secretKey)
                 dependencies.set(cache: .libSession, to: cache)
                 
                 return (
@@ -188,8 +198,8 @@ public extension AppSetup {
     
     /// Whether a key held for the extensions may be stored as the identity of a database which has none
     ///
-    /// No user action leaves a database with its data but without its identity: clearing the device removes the extension cache,
-    /// and "Clear Device and Restore" removes it along with the whole database. So the state only arises by accident, and the key
+    /// No user action leaves a database with its data but without its identity: clearing the device removes the extension cache
+    /// along with the whole database. So the state only arises by accident, and the key
     /// is only accepted when it provably belongs to the data - the Session ID it derives must be the one every user config dump
     /// was written for, which a key from any other account cannot produce
     static func canRecoverIdentity(

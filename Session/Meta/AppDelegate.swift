@@ -464,6 +464,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "helpReportABugExportLogs".localized(), style: .default) { [dependencies] _ in
+            Log.critical(.cat, "Startup alert: user chose to export logs (\(error.description)).")
             HelpViewModel.shareLogs(viewControllerToDismiss: alert, using: dependencies) { [weak self] in
                 // Don't bother showing the "Failed Startup" modal again if we happen to now
                 // have an initial view controller (this most likely means that the startup
@@ -475,11 +476,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         })
         
-        // Always offer the 'Clear Data' option
         alert.addAction(UIAlertAction(title: "clearDevice".localized(), style: .destructive) { [weak self, dependencies] _ in
+            Log.critical(.cat, "Startup alert: user chose to clear the device (\(error.description)).")
             let alert: UIAlertController = UIAlertController(
                 title: "clearDevice".localized(),
-                message: "clearDeviceDescription".localized(),
+                message: "databaseErrorClearDeviceWarning".localized(),
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
@@ -487,6 +488,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             })
             
             alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
+                Log.critical(.cat, "Startup alert: user cancelled clearing the device.")
                 DispatchQueue.main.async {
                     self?.showFailedStartupAlert(
                         calledFrom: lifecycleMethod,
@@ -497,88 +499,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
         })
         
-        switch error {
-            // Every branch offers 'Clear Data', which is added unconditionally above - what differs is whether
-            // 'Clear Data & Restore' is offered in addition. Withheld here because a restore replays migrations
-            // against a fresh database, which does not address a database that is locked, that was suspended, or
-            // that failed to start for a reason we could not identify. A suspension in particular leaves the data
-            // intact and is usually cleared by relaunching, so a restore would destroy an account that is fine
-            //
-            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: the data is unreachable, so
-            // restoring is the only thing that recovers the account, and it must keep falling through below
-            case .databaseError(StorageError.startupFailed),
-                .databaseError(StorageError.databaseSuspended),
-                .databaseError(DatabaseError.SQLITE_LOCKED):
-                break
-
-            // Offer the 'Restore' option if it was a migration error
-            case .databaseError:
-                alert.addAction(UIAlertAction(title: "clearDeviceRestore".localized(), style: .destructive) { [weak self, dependencies] _ in
-                    let alert: UIAlertController = UIAlertController(
-                        title: "clearDeviceRestore".localized(),
-                        message: "databaseErrorRestoreDataWarning".localized(),
-                        preferredStyle: .alert
-                    )
-                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { [weak self, dependencies] _ in
-                        // Hide the top banner if there was one
-                        TopBannerController.hide()
-                        
-                        Task(priority: .userInitiated) { [weak self, dependencies] in
-                            await self?.stopPollers()
-                            self?.hasInitialRootViewController = false
-                            
-                            let loadingViewController: LoadingViewController = LoadingViewController()
-                            self?.loadingViewController = loadingViewController
-                            dependencies[singleton: .appContext].mainWindow?.rootViewController = loadingViewController
-                            dependencies[singleton: .appContext].mainWindow?.makeKeyAndVisible()
-                            self?.rootViewControllerCoordinator = RootViewControllerCoordinator()
-                            
-                            // Reset the current database for a clean migration
-                            await dependencies[singleton: .storage].resetForCleanMigration()
-
-                            // The extension cache holds a copy of the account's key and the dedupe records for its messages, and the
-                            // user was just told this deletes their account data. Leaving the dedupe records would also make every
-                            // message still on the swarm look like a duplicate, so the history could never come back
-                            dependencies[singleton: .extensionHelper].deleteCache()
-                            
-                            // The re-run the migration (should succeed since there is no data)
-                            do {
-                                try await AppSetup.performDatabaseMigrations(using: dependencies) { [weak self] progress, minEstimatedTotalTime in
-                                    self?.loadingViewController?.updateProgress(
-                                        progress: progress,
-                                        minEstimatedTotalTime: minEstimatedTotalTime
-                                    )
-                                }
-                                try await AppSetup.postMigrationSetup(using: dependencies)
-                                await AppSetup.configureSNUIKit(using: dependencies)
-                                
-                                await self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
-                            }
-                            catch {
-                                await MainActor.run {
-                                    self?.showFailedStartupAlert(
-                                        calledFrom: lifecycleMethod,
-                                        error: .failedToRestore
-                                    )
-                                }
-                            }
-                        }
-                    })
-                    
-                    alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
-                        DispatchQueue.main.async {
-                            self?.showFailedStartupAlert(
-                                calledFrom: lifecycleMethod,
-                                error: error
-                            )
-                        }
-                    })
-                    dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
-                })
-                
-            default: break
-        }
-        
         alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
             Log.flushAndTerminate()
         })
@@ -586,6 +506,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info(.cat, "Showing startup alert due to error: \(error.description)")
         dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
+    
     
     /// The user must unlock the device once after reboot before the database encryption key can be accessed.
     private func verifyDBKeysAvailableBeforeBackgroundLaunch() {
@@ -1032,11 +953,33 @@ private actor RootViewControllerCoordinator {
         }
         
         // Navigate to the approriate screen depending on the onboarding state
-        try? await dependencies[singleton: .onboarding].loadInitialState()
-        let state: Onboarding.State? = await dependencies[singleton: .onboarding].state.first()
+        let state: Onboarding.State?
+        
+        do {
+            try await dependencies[singleton: .onboarding].loadInitialState()
+
+            /// Read in a new task because this can run in a cancelled one (when the setup's background time runs out), where
+            /// `first()` on a stream generally returns `nil` before the current value arrives
+            state = await Task { await dependencies[singleton: .onboarding].state.first() }.value
+        }
+        catch {
+            Log.critical(.cat, "Failed to load the onboarding state: \(error)")
+            state = nil
+        }
         
         switch state {
-            case .none, .unknown, .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
+            /// The `LandingScreen` reads as being logged out, and offers to create an account, so it must only be shown when there is
+            /// definitely no user; an unresolved state says nothing about whether the database holds one
+            case .none, .unknown:
+                Log.critical(.cat, "Onboarding state unresolved (\(String(describing: state))), showing the startup alert.")
+                timeoutTask.cancel()
+                
+                await MainActor.run {
+                    appDelegate.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .unresolvedOnboardingState)
+                }
+                await markFailed()
+                
+            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
                 if state == .noUserInvalidKeyPair {
                     Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
                 }
