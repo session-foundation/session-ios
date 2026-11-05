@@ -1832,6 +1832,43 @@ class ExtensionHelperSpec: AsyncSpec {
                     expect(extensionHelper.unreadMessageCount()).to(equal(5))
                 }
                 
+                // MARK: ---- only reads as many message request dedupe records as it needs
+                it("only reads as many message request dedupe records as it needs") {
+                    let dedupeRecords: [String] = (0..<200).map { "record\($0)" }
+                    try await mockFileManager
+                        .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                        .thenReturn(["a"])
+                    try await mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/unread"
+                            )
+                        }
+                        .thenReturn(["030405", "b"])
+                    try await mockFileManager
+                        .when {
+                            try $0.contentsOfDirectory(
+                                atPath: "/test/extensionCache/conversations/a/dedupe"
+                            )
+                        }
+                        .thenReturn(dedupeRecords)
+                    try await mockCrypto
+                        .when { $0.generate(.hash(message: Array("a".utf8) + Array("messageRequest".utf8))) }
+                        .thenReturn([3, 4, 5])
+                    try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                    try await mockFileManager
+                        .when { try $0.attributesOfItem(atPath: .any) }
+                        .thenReturn([FileAttributeKey.creationDate: Date(timeIntervalSince1970: 1234567900)])
+                    
+                    /// More dedupe records than unread messages means the user has seen the message request banner
+                    expect(extensionHelper.unreadMessageCount()).to(equal(0))
+                    
+                    /// One read for the last-cleared record, then only until the dedupe count exceeds the unread count
+                    await mockFileManager
+                        .verify { try $0.attributesOfItem(atPath: .any) }
+                        .wasCalled(exactly: 3)
+                }
+                
                 // MARK: ---- adds the total from multiple conversations
                 it("adds the total from multiple conversations") {
                     try await mockFileManager
