@@ -32,6 +32,10 @@ class MockExtensionHelper: ExtensionHelperType, Mockable {
         try handler.mockThrowingNoReturn(args: [sessionId, ed25519SecretKey, unreadCount])
     }
     
+    func userMetadataExists() -> Bool {
+        return handler.mock()
+    }
+    
     func loadUserMetadata() -> ExtensionHelper.UserMetadata? {
         return handler.mock()
     }

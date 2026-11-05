@@ -276,8 +276,39 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     }.to(throwError(TestError.mock))
                 }
+
+                // MARK: ---- refuses to replace the file without a key
+                it("refuses to replace the file without a key") {
+                    expect {
+                        try extensionHelper.saveUserMetadata(
+                            sessionId: .invalid,
+                            ed25519SecretKey: [],
+                            unreadCount: 1
+                        )
+                    }.to(throwError { error in
+                        switch error {
+                            case ExtensionHelperError.noUserToSave: break
+                            default: fail("Expected noUserToSave, got \(error)")
+                        }
+                    })
+                    await mockFileManager
+                        .verify { _ = try $0.replaceItem(atPath: .any, withItemAtPath: .any) }
+                        .wasNotCalled()
+                }
             }
-            
+
+            // MARK: -- when checking whether user metadata exists
+            context("when checking whether user metadata exists") {
+                // MARK: ---- checks the metadata file
+                it("checks the metadata file") {
+                    try await mockFileManager
+                        .when { $0.fileExists(atPath: "/test/extensionCache/metadata") }
+                        .thenReturn(true)
+
+                    expect(extensionHelper.userMetadataExists()).to(beTrue())
+                }
+            }
+
             // MARK: -- when loading user metadata
             context("when loading user metadata") {
                 // MARK: ---- loads the data correctly

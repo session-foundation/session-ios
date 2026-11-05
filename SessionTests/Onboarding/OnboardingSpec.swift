@@ -177,6 +177,8 @@ class OnboardingSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(())
+            try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(false)
+            try await mockExtensionHelper.when { $0.loadUserMetadata() }.thenReturn(nil)
             
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             try await mockJobRunner
@@ -1132,6 +1134,452 @@ class OnboardingSpec: AsyncSpec {
                         )
                     }
                     .wasCalled(exactly: 1, timeout: .milliseconds(100))
+            }
+        }
+        
+        // MARK: - Recovery diagnostics
+        describe("Onboarding when gathering recovery diagnostics") {
+            @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
+            
+            let testMetadata: ExtensionHelper.UserMetadata = ExtensionHelper.UserMetadata(
+                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                unreadCount: 0
+            )
+            
+            beforeEach {
+                /// Recreate the state these diagnostics exist for: an account whose identity rows are gone while its
+                /// conversations and config remain
+                try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                manager = Onboarding.Manager(flow: .register, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+                try await manager.completeRegistration()
+                try await mockStorage.write { db in
+                    _ = try Identity.deleteAll(db)
+                }
+                
+                dependencies.set(singleton: .fileManager, to: mockFileManager)
+                try await mockFileManager.defaultInitialSetup()
+                try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(true)
+                try await mockFileManager
+                    .when {
+                        $0.enumerator(
+                            at: .any,
+                            includingPropertiesForKeys: .any,
+                            options: [],
+                            errorHandler: nil
+                        )
+                    }
+                    .thenReturn(nil)
+                try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(true)
+                try await mockExtensionHelper.when { $0.loadUserMetadata() }.thenReturn(testMetadata)
+            }
+            
+            // MARK: -- reports a key which belongs to the data on disk
+            it("reports a key which belongs to the data on disk") {
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).to(contain("database: 1024 bytes, wal: 1024 bytes"))
+                expect(diagnostics).to(contain("identity rows: 0"))
+                expect(diagnostics).to(contain("threads: 1"))
+                expect(diagnostics).to(contain("accounts in user config dumps: 1"))
+                expect(diagnostics).to(contain("extension metadata exists: yes"))
+                expect(diagnostics).to(contain("decrypts: yes"))
+                expect(diagnostics).to(contain("has key: yes"))
+                expect(diagnostics).to(contain("key matches metadata Session ID: yes"))
+                expect(diagnostics).to(contain("key matches user config dumps: yes"))
+                expect(diagnostics).to(contain("key has Note to Self: yes"))
+            }
+            
+            // MARK: -- reports a key which belongs to another account
+            it("reports a key which belongs to another account") {
+                try await mockCrypto
+                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                    .thenReturn(Array(Array(Data(hex: TestConstants.publicKey)).reversed()))
+                
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).to(contain("has key: yes"))
+                expect(diagnostics).to(contain("key matches metadata Session ID: no"))
+                expect(diagnostics).to(contain("key matches user config dumps: no"))
+                expect(diagnostics).to(contain("key has Note to Self: no"))
+            }
+            
+            // MARK: -- reports a key which has already been lost
+            ///
+            /// Before the badge update stopped writing without a user, the first launch without an identity replaced the
+            /// key with an empty one - which is what an affected user's log shows
+            it("reports a key which has already been lost") {
+                try await mockExtensionHelper
+                    .when { $0.loadUserMetadata() }
+                    .thenReturn(ExtensionHelper.UserMetadata(sessionId: .invalid, ed25519SecretKey: [], unreadCount: 0))
+                
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).to(contain("decrypts: yes"))
+                expect(diagnostics).to(contain("has key: no"))
+                expect(diagnostics).to(contain("key matches metadata Session ID: n/a"))
+                expect(diagnostics).to(contain("key matches user config dumps: n/a"))
+            }
+            
+            // MARK: -- reports metadata which cannot be read
+            it("reports metadata which cannot be read") {
+                try await mockExtensionHelper.when { $0.loadUserMetadata() }.thenReturn(nil)
+                
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).to(contain("extension metadata exists: yes"))
+                expect(diagnostics).to(contain("decrypts: no"))
+                expect(diagnostics).to(contain("has key: n/a"))
+            }
+            
+            // MARK: -- reports missing metadata
+            it("reports missing metadata") {
+                try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(false)
+                
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).to(contain("extension metadata exists: no"))
+                expect(diagnostics).to(contain("decrypts: n/a"))
+                await mockExtensionHelper.verify { $0.loadUserMetadata() }.wasNotCalled()
+            }
+            
+            // MARK: -- contains no key material or Session IDs
+            it("contains no key material or Session IDs") {
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).toNot(beNil())
+                [TestConstants.publicKey, TestConstants.edPublicKey, TestConstants.edSecretKey].forEach { value in
+                    expect(diagnostics).toNot(contain(String(value.prefix(8))))
+                    expect(diagnostics).toNot(contain(String(value.suffix(8))))
+                }
+            }
+            
+            // MARK: -- does nothing without a database file
+            it("does nothing without a database file") {
+                try await mockFileManager.when { $0.fileExists(atPath: .any) }.thenReturn(false)
+                
+                let diagnostics: String? = await Onboarding.recoveryDiagnostics(using: dependencies)
+                
+                expect(diagnostics).to(beNil())
+            }
+            
+            // MARK: -- are only gathered by the manager created at launch
+            ///
+            /// The flows started from the landing screen run the same path, so without the gate they would repeat the line on
+            /// every tap. The launch manager runs last so its call proves the detached work had time to happen at all
+            it("are only gathered by the manager created at launch") {
+                manager = Onboarding.Manager(flow: .restore, using: dependencies)
+                try await manager.loadInitialState()
+                manager = Onboarding.Manager(flow: .register, using: dependencies)
+                try await manager.loadInitialState()
+                manager = Onboarding.Manager(flow: .none, using: dependencies)
+                try await manager.loadInitialState()
+                
+                await mockExtensionHelper
+                    .verify { $0.userMetadataExists() }
+                    .wasCalled(atLeast: 1, timeout: .milliseconds(500))
+                try await Task.sleep(nanoseconds: 100_000_000)
+                await mockExtensionHelper
+                    .verify { $0.userMetadataExists() }
+                    .wasCalled(exactly: 1)
+            }
+        }
+        
+        // MARK: - Unread badge update
+        describe("the unread badge update") {
+            // MARK: -- with no user
+            context("with no user") {
+                beforeEach {
+                    try await mockGeneralCache.when { $0.userExists }.thenReturn(false)
+                    try await mockGeneralCache.when { $0.sessionId }.thenReturn(.invalid)
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                }
+                
+                // MARK: ---- does not replace the key held for the extensions
+                ///
+                /// This runs on every activation, including while onboarding is showing - which is when the extensions' copy
+                /// is the only key left to recover a lost account with
+                it("does not replace the key held for the extensions") {
+                    await AppDelegate.updateUnreadBadgeCount(using: dependencies)
+                    
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.saveUserMetadata(sessionId: .any, ed25519SecretKey: .any, unreadCount: .any)
+                        }
+                        .wasNotCalled()
+                }
+            }
+            
+            // MARK: -- with a user
+            context("with a user") {
+                // MARK: ---- saves the user metadata for the extensions
+                it("saves the user metadata for the extensions") {
+                    await AppDelegate.updateUnreadBadgeCount(using: dependencies)
+                    
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.saveUserMetadata(
+                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                unreadCount: 0
+                            )
+                        }
+                        .wasCalled(exactly: 1)
+                }
+            }
+        }
+        
+        // MARK: - an Onboarding Cache - Failing to store the identity
+        describe("an Onboarding Cache when storing the identity fails") {
+            // MARK: -- during a restore
+            context("during a restore") {
+                beforeEach {
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    manager = Onboarding.Manager(flow: .restore, using: dependencies)
+                    try await manager.loadInitialState()
+                    await manager.setDisplayName("TestCompleteName")
+                    
+                    /// The likeliest real cause: the app is backgrounded while the restore is finishing
+                    await mockStorage.suspendDatabaseAccess()
+                }
+                
+                // MARK: ---- throws instead of completing
+                ///
+                /// Completing would run the session on an account which exists only in memory, and everything written
+                /// afterwards would sit in the database with no identity for the next launch to find
+                it("throws instead of completing") {
+                    await expect { try await manager.completeRegistration() }
+                        .to(throwError { error in
+                            switch error {
+                                case StorageError.databaseSuspended: break
+                                default: fail("Expected databaseSuspended, got \(error)")
+                            }
+                        })
+                    await expect { await manager.state.first() }.toNot(equal(.completed))
+                }
+                
+                // MARK: ---- clears the account from memory
+                it("clears the account from memory") {
+                    _ = try? await manager.completeRegistration()
+                    
+                    await mockGeneralCache
+                        .verify { $0.setSecretKey(ed25519SecretKey: []) }
+                        .wasCalled(exactly: 1)
+                }
+                
+                // MARK: ---- does not save the key for the extensions
+                it("does not save the key for the extensions") {
+                    _ = try? await manager.completeRegistration()
+                    
+                    await mockExtensionHelper
+                        .verify {
+                            try $0.saveUserMetadata(sessionId: .any, ed25519SecretKey: .any, unreadCount: .any)
+                        }
+                        .wasNotCalled()
+                }
+            }
+            
+            // MARK: -- for an account which is already loaded
+            context("for an account which is already loaded") {
+                // MARK: ---- still completes
+                ///
+                /// These flows reuse the identity already in memory, so clearing it on failure would take that account away
+                it("still completes") {
+                    manager = Onboarding.Manager(flow: .none, using: dependencies)
+                    try await manager.loadInitialState()
+                    await mockStorage.suspendDatabaseAccess()
+                    
+                    await expect { try await manager.completeRegistration() }.toNot(throwError())
+                    await expect { await manager.state.first() }.toEventually(equal(.completed))
+                    await mockGeneralCache
+                        .verify { $0.setSecretKey(ed25519SecretKey: []) }
+                        .wasNotCalled()
+                }
+            }
+        }
+        
+        // MARK: - Automatic identity recovery
+        describe("automatic identity recovery") {
+            @TestState var mockAppContext: MockAppContext! = .create(using: dependencies)
+            
+            let testMetadata: ExtensionHelper.UserMetadata = ExtensionHelper.UserMetadata(
+                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                unreadCount: 0
+            )
+            
+            // MARK: -- decides
+            context("decides") {
+                // MARK: ---- to recover only when every check passes
+                it("to recover only when every check passes") {
+                    let keySessionId: SessionId = SessionId(.standard, hex: TestConstants.publicKey)
+                    let otherSessionId: SessionId = SessionId(.standard, hex: String(TestConstants.publicKey.reversed()))
+                    let dumpCases: [Set<String>] = [
+                        [],
+                        [keySessionId.hexString],
+                        [otherSessionId.hexString],
+                        [keySessionId.hexString, otherSessionId.hexString]
+                    ]
+                    
+                    for identityRowCount in [0, 1, 4] {
+                        for metadataSessionId in [keySessionId, otherSessionId, .invalid] {
+                            for userConfigSessionIds in dumpCases {
+                                let expected: Bool = (
+                                    identityRowCount == 0 &&
+                                    metadataSessionId == keySessionId &&
+                                    userConfigSessionIds == [keySessionId.hexString]
+                                )
+                                
+                                expect(
+                                    AppSetup.canRecoverIdentity(
+                                        identityRowCount: identityRowCount,
+                                        metadataSessionId: metadataSessionId,
+                                        keySessionId: keySessionId,
+                                        userConfigSessionIds: userConfigSessionIds
+                                    )
+                                ).to(
+                                    equal(expected),
+                                    description: "rows: \(identityRowCount), metadata matches: \(metadataSessionId == keySessionId), dumps: \(userConfigSessionIds.count)"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // MARK: -- for a database which lost its identity
+            context("for a database which lost its identity") {
+                beforeEach {
+                    /// Recreate the state recovery exists for: an account whose identity rows are gone while its
+                    /// conversations and config remain
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    manager = Onboarding.Manager(flow: .register, using: dependencies)
+                    try await manager.loadInitialState()
+                    await manager.setDisplayName("TestCompleteName")
+                    try await manager.completeRegistration()
+                    try await mockStorage.write { db in
+                        _ = try Identity.deleteAll(db)
+                    }
+                    
+                    dependencies.set(singleton: .appContext, to: mockAppContext)
+                    try await mockAppContext.when { $0.isMainApp }.thenReturn(true)
+                    try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(true)
+                    try await mockExtensionHelper.when { $0.loadUserMetadata() }.thenReturn(testMetadata)
+                }
+                
+                // MARK: ---- restores the identity from the extension metadata
+                it("restores the identity from the extension metadata") {
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    let keyPair: KeyPair? = try await mockStorage.read { db in
+                        try Identity.fetchUserEd25519KeyPair(db)
+                    }
+                    
+                    expect(didRecover).to(beTrue())
+                    expect(keyPair?.secretKey).to(equal(Array(Data(hex: TestConstants.edSecretKey))))
+                    expect(keyPair?.publicKey).to(equal(Array(Data(hex: TestConstants.edPublicKey))))
+                    await expect {
+                        try await mockStorage.read { db in try Identity.fetchCount(db) }
+                    }.to(equal(4))
+                }
+                
+                // MARK: ---- does nothing in an extension
+                it("does nothing in an extension") {
+                    try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    
+                    expect(didRecover).to(beFalse())
+                    await mockExtensionHelper.verify { $0.loadUserMetadata() }.wasNotCalled()
+                }
+                
+                // MARK: ---- does nothing when any identity row remains
+                it("does nothing when any identity row remains") {
+                    let existingPublicKey: Data = Data([1, 2, 3, 4])
+                    try await mockStorage.write { db in
+                        try Identity(variant: .x25519PublicKey, data: existingPublicKey).insert(db)
+                    }
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    let storedRows: [Identity] = try await mockStorage.read { db in try Identity.fetchAll(db) }
+                    
+                    expect(didRecover).to(beFalse())
+                    expect(storedRows.map(\.data)).to(equal([existingPublicKey]))
+                }
+                
+                // MARK: ---- does nothing when the key belongs to another account
+                it("does nothing when the key belongs to another account") {
+                    try await mockCrypto
+                        .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                        .thenReturn(Array(Array(Data(hex: TestConstants.publicKey)).reversed()))
+                    try await mockExtensionHelper
+                        .when { $0.loadUserMetadata() }
+                        .thenReturn(
+                            ExtensionHelper.UserMetadata(
+                                sessionId: SessionId(.standard, publicKey: Array(Array(Data(hex: TestConstants.publicKey)).reversed())),
+                                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                                unreadCount: 0
+                            )
+                        )
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    
+                    expect(didRecover).to(beFalse())
+                    await expect {
+                        try await mockStorage.read { db in try Identity.fetchCount(db) }
+                    }.to(equal(0))
+                }
+                
+                // MARK: ---- does nothing when the metadata's key was already lost
+                it("does nothing when the metadata's key was already lost") {
+                    try await mockExtensionHelper
+                        .when { $0.loadUserMetadata() }
+                        .thenReturn(ExtensionHelper.UserMetadata(sessionId: .invalid, ed25519SecretKey: [], unreadCount: 0))
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    
+                    expect(didRecover).to(beFalse())
+                }
+                
+                // MARK: ---- does not read the metadata when there is no file
+                it("does not read the metadata when there is no file") {
+                    try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(false)
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    
+                    expect(didRecover).to(beFalse())
+                    await mockExtensionHelper.verify { $0.loadUserMetadata() }.wasNotCalled()
+                }
+                
+                // MARK: ---- returns rather than throwing when the write fails
+                it("returns rather than throwing when the write fails") {
+                    await mockStorage.suspendDatabaseAccess()
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    
+                    expect(didRecover).to(beFalse())
+                }
+            }
+            
+            // MARK: -- for a database with no account data
+            context("for a database with no account data") {
+                // MARK: ---- does nothing
+                ///
+                /// What "Clear Device and Restore" used to leave behind: a recreated database, but the extension's copy of the key
+                it("does nothing") {
+                    dependencies.set(singleton: .appContext, to: mockAppContext)
+                    try await mockAppContext.when { $0.isMainApp }.thenReturn(true)
+                    try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(true)
+                    try await mockExtensionHelper.when { $0.loadUserMetadata() }.thenReturn(testMetadata)
+                    
+                    let didRecover: Bool = await AppSetup.recoverIdentityIfPossible(using: dependencies)
+                    
+                    expect(didRecover).to(beFalse())
+                    await expect {
+                        try await mockStorage.read { db in try Identity.fetchCount(db) }
+                    }.to(equal(0))
+                }
             }
         }
     }
