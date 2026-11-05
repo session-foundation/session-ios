@@ -66,15 +66,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         appDelegate.handleSceneWillEnterForeground()
         
         Task(priority: .userInitiated) { [dependencies = appDelegate.dependencies] in
-            /// Wait for the initial app setup to complete before resuming database/network access.
-            /// On a cold launch the database migrations may not have run yet, and setup
+            /// The database has to be resumed before waiting for the initial app setup: if the app went to the background part
+            /// way through startup then the setup is itself waiting for this resume, so waiting on it first would never finish.
+            /// On a launch which was never suspended this does nothing
+            ///
+            /// Resuming early is safe because it only reverses `suspendDatabaseAccess` (restoring the state from before the
+            /// suspension) and needs nothing from the setup, unlike creating the network below. Anything waiting on the database,
+            /// such as the migrations, continues from that state
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            
+            /// Wait for the initial app setup to complete before resuming network access. Setup
             /// (`AppSetup.setupEnvironment`) processes the launch environment variables — including
             /// the service network and custom file server config; creating the network before that
             /// runs leaves it configured with defaults (e.g. the default file server pubkey), which
             /// then can't be reconfigured. On a warm foreground the app is already ready so this
             /// returns immediately. Mirrors the background-fetch path in AppDelegate.
             await dependencies[singleton: .appReadiness].isReady()
-            await dependencies[singleton: .storage].resumeDatabaseAccess()
             await dependencies[singleton: .network].resumeNetworkAccess()
         }
     }
