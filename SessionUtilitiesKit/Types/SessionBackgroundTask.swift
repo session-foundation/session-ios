@@ -36,28 +36,7 @@ public enum SessionBackgroundTask {
         
         /// Use a continuation to bridge the sync expiration handler into Swift cancellation, fired proactively with ~5s remaining
         let workTask: Task<T, Error> = Task(priority: priority) { try await work() }
-        
-        /// The expiration handler, `onCancel`, and `defer` may all run concurrently so we need thread safety
-        let taskIdBox = Locked<UIBackgroundTaskIdentifier>(.invalid)
-        let endTask: () -> Void = {
-            let id: UIBackgroundTaskIdentifier = taskIdBox.withLock { id -> UIBackgroundTaskIdentifier in
-                let current = id
-                
-                /// Replace the stored value with `invalid` to prevent calling `endBackgroundTask` more than once
-                id = .invalid
-                return current
-            }
-            
-            guard id != .invalid else { return }
-            dependencies[singleton: .appContext].endBackgroundTask(id)
-        }
-
-        let taskId: UIBackgroundTaskIdentifier = dependencies[singleton: .appContext].beginBackgroundTask {
-            workTask.cancel()
-            endTask()
-        }
-        taskIdBox.withLock { $0 = taskId }
-        Log.info(.backgroundTask, "Starting background task: \(label) (\(taskId))")
+        let (taskId, endTask) = begin(label: label, using: dependencies) { workTask.cancel() }
         
         return try await withTaskCancellationHandler(
             operation: {
@@ -74,5 +53,39 @@ public enum SessionBackgroundTask {
                 endTask()
             }
         )
+    }
+    
+    /// Begins a background task before returning, for work that must be covered from a synchronous point onwards (`run` only
+    /// begins one once its caller gets to run), the returned `end` closure must be called once the work is done
+    public static func begin(
+        label: String,
+        using dependencies: Dependencies,
+        onExpiration: @escaping () -> Void = {}
+    ) -> (id: UIBackgroundTaskIdentifier, end: () -> Void) {
+        guard dependencies[singleton: .appContext].isMainApp else { return (.invalid, {}) }
+        
+        /// The expiration handler and the caller's `end` may run concurrently so we need thread safety
+        let taskIdBox = Locked<UIBackgroundTaskIdentifier>(.invalid)
+        let endTask: () -> Void = {
+            let id: UIBackgroundTaskIdentifier = taskIdBox.withLock { id -> UIBackgroundTaskIdentifier in
+                let current = id
+                
+                /// Replace the stored value with `invalid` to prevent calling `endBackgroundTask` more than once
+                id = .invalid
+                return current
+            }
+            
+            guard id != .invalid else { return }
+            dependencies[singleton: .appContext].endBackgroundTask(id)
+        }
+
+        let taskId: UIBackgroundTaskIdentifier = dependencies[singleton: .appContext].beginBackgroundTask {
+            onExpiration()
+            endTask()
+        }
+        taskIdBox.withLock { $0 = taskId }
+        Log.info(.backgroundTask, "Starting background task: \(label) (\(taskId))")
+        
+        return (taskId, endTask)
     }
 }

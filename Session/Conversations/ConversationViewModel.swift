@@ -1247,9 +1247,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
                 // Start downloading any pending attachments for this contact (UI will automatically be
                 // updated due to the database observation)
-                try Attachment
-                    .stateInfo(authorId: threadId, state: .pendingDownload)
-                    .fetchAll(db)
+                //
+                // The launch-time `FailedAttachmentDownloadsJob` marks pending attachments without a download
+                // job (which is all of them for an untrusted contact) as `failedDownload` (as well as any left
+                // `downloading` by a killed process) so we need to include those as well, `invalid` is excluded
+                // as downloading it again will fail the same way
+                try [Attachment.State.pendingDownload, .failedDownload]
+                    .flatMap { try Attachment.stateInfo(authorId: threadId, state: $0).fetchAll(db) }
                     .forEach { attachmentDownloadInfo in
                         dependencies[singleton: .jobRunner].add(
                             db,

@@ -84,12 +84,56 @@ public enum AttachmentDownloadJob: JobExecutor {
             
             return (attachment, false)
         }
-        try Task.checkCancellation()
         
         /// If we've already downloaded the attachment then we can just succeed immediately
         guard !alreadyDownloaded else {
             return .success
         }
+        
+        do {
+            try await download(attachment, threadId: threadId, details: details, job: job, using: dependencies)
+        }
+        catch {
+            let (targetState, permanentFailure): (Attachment.State, Bool) = failureOutcome(for: error)
+            
+            /// The attachment is now `downloading`, which the UI shows as in progress with no way to retry, and only the
+            /// launch-time `FailedAttachmentDownloadsJob` would otherwise move it on - so every failure needs to leave it in
+            /// a state the user can see and act on
+            ///
+            /// This runs in an unstructured task because the most common failure is cancellation (the job is `requiresForeground`
+            /// so is cancelled when the app is backgrounded, and can be preempted by a higher priority download) and a database
+            /// write made from a cancelled task throws `CancellationError` without writing anything
+            await Task { [interactionId = job.interactionId] in
+                try? await dependencies[singleton: .storage].write { db in
+                    _ = try Attachment
+                        .filter(id: details.attachmentId)
+                        .updateAll(db, Attachment.Columns.state.set(to: targetState))
+                    db.addAttachmentEvent(
+                        id: details.attachmentId,
+                        messageId: interactionId,
+                        type: .updated(.state(targetState))
+                    )
+                }
+            }.value
+            
+            /// Trigger the failure, but force to a `permanentFailure` if desired
+            switch permanentFailure {
+                case true: throw JobRunnerError.permanentFailure(error)
+                case false: throw error
+            }
+        }
+        
+        return .success
+    }
+    
+    private static func download(
+        _ attachment: Attachment,
+        threadId: String,
+        details: Details,
+        job: Job,
+        using dependencies: Dependencies
+    ) async throws {
+        try Task.checkCancellation()
         
         /// Since we don't know what type of conversation this download originated with try to retrieve the auth data from the
         /// `CommunityManager` and if that fails we just assume it's for a non-Community conversation
@@ -113,99 +157,47 @@ public enum AttachmentDownloadJob: JobExecutor {
                 }) ?? false)
         }
 
-        let parsedDownloadUrl: ParsedDownloadUrlType
+        /// If we know this is a community thread but couldn't resolve it's auth data (eg. the community data isn't loaded
+        /// yet) then fail in a retryable way rather than misclassifying it as a file server download - a community url won't
+        /// parse as a file server url so that would otherwise result in a permanent failure
+        guard !isCommunityThread || maybeAuthMethod is Authentication.Community else {
+            throw NetworkError.serviceUnavailable
+        }
+        
+        let parsedDownloadUrl: ParsedDownloadUrlType = try Network
+            .parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) ?? {
+                throw NetworkError.invalidURL
+            }()
         let response: (temporaryFilePath: String, metadata: FileMetadata)
 
-        do {
-            /// If we know this is a community thread but couldn't resolve it's auth data (eg. the community data isn't loaded
-            /// yet) then fail in a retryable way rather than misclassifying it as a file server download - a community url won't
-            /// parse as a file server url so that would otherwise result in a permanent failure
-            guard !isCommunityThread || maybeAuthMethod is Authentication.Community else {
-                throw NetworkError.serviceUnavailable
-            }
-
-            parsedDownloadUrl = try Network
-                .parsedDownloadUrl(for: attachment.downloadUrl, authMethod: maybeAuthMethod) ?? {
-                    throw NetworkError.invalidURL
-                }()
-
-            switch maybeAuthMethod {
-                case let authMethod as Authentication.Community:
-                    /// Communities don't support file streaming so we should use the legacy API for these
-                    let request: Network.PreparedRequest<Data> = try Network.SOGS.preparedDownload(
-                        url: parsedDownloadUrl.url,
-                        authMethod: authMethod,
-                        using: dependencies
-                    )
-                    let responseData: Data = try await request.send(using: dependencies)
-
-                    /// Store the encrypted data temporarily
-                    let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
-                    try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
-                    response = (
-                        temporaryFilePath,
-                        FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(responseData.count))
-                    )
-
-                default:
-                    response = try await dependencies[singleton: .network].download(
-                        downloadUrl: parsedDownloadUrl.originalUrlString,
-                        stallTimeout: Network.fileDownloadTimeout,
-                        requestTimeout: Network.fileDownloadTimeout,
-                        overallTimeout: Network.fileRequestOverallTimeout,
-                        partialMinInterval: Network.fileDownloadMinInterval,
-                        desiredPathIndex: details.desiredPathIndex,
-                        onProgress: nil
-                    )
-            }
-        }
-        catch {
-            let targetState: Attachment.State
-            let permanentFailure: Bool
-            
-            switch error {
-                /// If we get a 404 then we got a successful response from the server but the attachment doesn't
-                /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
-                /// a retry download loop
-                case NetworkError.notFound, NetworkError.invalidURL:
-                    targetState = .invalid
-                    permanentFailure = true
-                    
-                /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
-                /// likely something else is going on that caused the failure
-                case NetworkError.badRequest, NetworkError.unauthorised,
-                    StorageServerError.signatureVerificationFailed:
-                    targetState = .failedDownload
-                    permanentFailure = true
-                    
-                /// For any other error it's likely either the server is down or something weird just happened with the request
-                /// so we want to automatically retry
-                default:
-                    targetState = .failedDownload
-                    permanentFailure = false
-            }
-            
-            /// To prevent the attachment from showing a state of downloading forever, we need to update the attachment
-            /// state here based on the type of error that occurred
-            ///
-            /// **Note:** We **MUST** use the `'with()` function here as it will update the
-            /// `isValid` and `duration` values based on the downloaded data and the state
-            try? await dependencies[singleton: .storage].write { db in
-                _ = try Attachment
-                    .filter(id: details.attachmentId)
-                    .updateAll(db, Attachment.Columns.state.set(to: targetState))
-                db.addAttachmentEvent(
-                    id: details.attachmentId,
-                    messageId: job.interactionId,
-                    type: .updated(.state(targetState))
+        switch maybeAuthMethod {
+            case let authMethod as Authentication.Community:
+                /// Communities don't support file streaming so we should use the legacy API for these
+                let request: Network.PreparedRequest<Data> = try Network.SOGS.preparedDownload(
+                    url: parsedDownloadUrl.url,
+                    authMethod: authMethod,
+                    using: dependencies
                 )
-            }
-            
-            /// Trigger the failure, but force to a `permanentFailure` if desired
-            switch permanentFailure {
-                case true: throw JobRunnerError.permanentFailure(error)
-                case false: throw error
-            }
+                let responseData: Data = try await request.send(using: dependencies)
+
+                /// Store the encrypted data temporarily
+                let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath()
+                try responseData.write(to: URL(fileURLWithPath: temporaryFilePath), options: .atomic)
+                response = (
+                    temporaryFilePath,
+                    FileMetadata(id: parsedDownloadUrl.fileId, size: UInt64(responseData.count))
+                )
+
+            default:
+                response = try await dependencies[singleton: .network].download(
+                    downloadUrl: parsedDownloadUrl.originalUrlString,
+                    stallTimeout: Network.fileDownloadTimeout,
+                    requestTimeout: Network.fileDownloadTimeout,
+                    overallTimeout: Network.fileRequestOverallTimeout,
+                    partialMinInterval: Network.fileDownloadMinInterval,
+                    desiredPathIndex: details.desiredPathIndex,
+                    onProgress: nil
+                )
         }
         
         defer {
@@ -285,8 +277,6 @@ public enum AttachmentDownloadJob: JobExecutor {
                 type: .updated(.state(.downloaded))
             )
         }
-        
-        return .success
     }
 }
 
@@ -347,6 +337,33 @@ extension AttachmentDownloadJob {
             /// Community attachments carry no key, so they really are in plaintext
             default:
                 return .plaintext
+        }
+    }
+    
+    static func failureOutcome(for error: Error) -> (state: Attachment.State, permanentFailure: Bool) {
+        switch error {
+            /// If we get a 404 then we got a successful response from the server but the attachment doesn't
+            /// exist, in this case update the attachment to an "invalid" state so the user doesn't get stuck in
+            /// a retry download loop
+            case NetworkError.notFound, NetworkError.invalidURL: return (.invalid, true)
+            
+            /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
+            /// likely something else is going on that caused the failure
+            case NetworkError.badRequest, NetworkError.unauthorised, StorageServerError.signatureVerificationFailed:
+                return (.failedDownload, true)
+            
+            /// The data we were given can't be turned into the attachment, so downloading it again won't help
+            case AttachmentDownloadError.unknownEncryptionFormat, AttachmentError.legacyDecryptionFailed:
+                return (.invalid, true)
+            
+            /// libSession reports any failure decrypting a file to a file this way, including failing to read the downloaded file
+            /// or to write the decrypted one (eg. when the device is out of space), so we can't tell bad data apart from a local
+            /// failure - don't retry automatically, but leave it in a state the user can retry from
+            case CryptoError.decryptionFailed: return (.failedDownload, true)
+            
+            /// For any other error (including cancellation) it's likely either the server is down, something weird just happened
+            /// with the request or the app was backgrounded so we want to automatically retry
+            default: return (.failedDownload, false)
         }
     }
     

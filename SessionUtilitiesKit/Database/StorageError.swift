@@ -8,11 +8,10 @@ public enum StorageError: Error {
     case databaseSuspended
     case startupFailed
 
-    /// A database file exists but its encryption key does not, so it can never be opened
+    /// A database file exists but the keychain reports its encryption key as absent, so it can't be opened
     ///
-    /// Distinct from `startupFailed` because it is the one startup failure that is definitely unrecoverable in
-    /// place, which makes offering to reset the database the correct remedy rather than a destructive guess. A
-    /// missing key with **no** database is an ordinary fresh install and is not this case
+    /// This is not proof the key is gone: the keychain can fail to find an item which exists, and a later launch may read it.
+    /// A missing key with **no** database is an ordinary fresh install and is not this case
     case databaseKeyMissingWithActiveDatabase
     case migrationFailed
     case migrationNoLongerSupported

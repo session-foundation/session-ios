@@ -23,6 +23,7 @@ class SessionProGateSpec: AsyncSpec {
         @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockAppContext: MockAppContext! = .create(using: dependencies)
         @TestState var manager: SessionProManager!
 
         beforeEach {
@@ -34,6 +35,11 @@ class SessionProGateSpec: AsyncSpec {
 
             dependencies.set(singleton: .storage, to: mockStorage)
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+
+            /// Not the main app by default, so the manager's main app only background work (which needs a lot more stubbing) stays off
+            dependencies.set(singleton: .appContext, to: mockAppContext)
+            try await mockAppContext.when { $0.isMainApp }.thenReturn(false)
+            try await mockAppContext.when { $0.isShareExtension }.thenReturn(false)
 
             dependencies.set(singleton: .network, to: mockNetwork)
             try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn(0)
@@ -152,5 +158,101 @@ class SessionProGateSpec: AsyncSpec {
                 }
             }
         }
+        
+        // MARK: - a SessionProManager
+        describe("a SessionProManager") {
+            /// Initialisation finishing is the last thing the background work does before returning, so waiting on it (via
+            /// `sessionProExpiringCTAInfo`) means anything the manager was going to touch on startup has been touched
+            ///
+            /// **Note:** The wait is bounded because the main app path doesn't finish initialising with Pro enabled in this setup, so
+            /// a regression which sent an extension down it would otherwise hang the test run rather than fail
+            func createManagerAndWaitForInitialisation(sessionProEnabled: Bool) async {
+                createManager(sessionProEnabled: sessionProEnabled)
+                
+                let initialisation: InitialisationFlag = InitialisationFlag()
+                Task { [manager] in
+                    _ = await manager?.sessionProExpiringCTAInfo()
+                    initialisation.markFinished()
+                }
+                await expect(initialisation.hasFinished).toEventually(beTrue(), timeout: .seconds(5))
+            }
+            
+            // MARK: -- in the main app
+            context("in the main app") {
+                beforeEach {
+                    try await mockAppContext.when { $0.isMainApp }.thenReturn(true)
+                }
+                
+                // MARK: ---- uses the network on startup
+                it("uses the network on startup") {
+                    await createManagerAndWaitForInitialisation(sessionProEnabled: false)
+                    
+                    await mockNetwork
+                        .verify { $0.networkStatus }
+                        .wasCalled(timeout: .seconds(1))
+                }
+            }
+            
+            // MARK: -- in the share extension
+            context("in the share extension") {
+                beforeEach {
+                    try await mockAppContext.when { $0.isShareExtension }.thenReturn(true)
+                }
+
+                // MARK: ---- uses the network on startup
+                it("uses the network on startup") {
+                    await createManagerAndWaitForInitialisation(sessionProEnabled: false)
+
+                    await mockNetwork
+                        .verify { $0.networkStatus }
+                        .wasCalled(timeout: .seconds(1))
+                }
+            }
+
+            // MARK: -- in the notification extension
+            context("in the notification extension") {
+                beforeEach {
+                    dependencies[singleton: .storage] = nil as Storage?
+                }
+                
+                // MARK: ---- does not use the network on startup
+                it("does not use the network on startup") {
+                    await createManagerAndWaitForInitialisation(sessionProEnabled: false)
+                    
+                    await mockNetwork
+                        .verify { $0.networkStatus }
+                        .wasNotCalled(timeout: .milliseconds(200))
+                }
+                
+                // MARK: ---- does not use the network on startup when Session Pro is enabled
+                it("does not use the network on startup when Session Pro is enabled") {
+                    await createManagerAndWaitForInitialisation(sessionProEnabled: true)
+                    
+                    await mockNetwork
+                        .verify { $0.networkStatus }
+                        .wasNotCalled(timeout: .milliseconds(200))
+                }
+                
+                // MARK: ---- does not open the database on startup
+                it("does not open the database on startup") {
+                    await createManagerAndWaitForInitialisation(sessionProEnabled: true)
+                    try await Task.sleep(for: .milliseconds(200))
+                    
+                    let storage: Storage? = dependencies[singleton: .storage]
+                    expect(storage).to(beNil())
+                }
+            }
+        }
     }
+}
+
+// MARK: - InitialisationFlag
+
+private final class InitialisationFlag: @unchecked Sendable {
+    private let lock: NSLock = NSLock()
+    private var _hasFinished: Bool = false
+    
+    var hasFinished: Bool { lock.withLock { _hasFinished } }
+    
+    func markFinished() { lock.withLock { _hasFinished = true } }
 }

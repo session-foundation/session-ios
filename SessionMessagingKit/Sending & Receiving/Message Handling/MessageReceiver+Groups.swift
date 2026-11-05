@@ -1041,7 +1041,7 @@ extension MessageReceiver {
         /// Show a notification if we aren't suppressing notifications (rely on the `NotificationManagerType` to determine whether
         /// the notification should be shown or not
         if !suppressNotifications {
-            let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
+            let isMainAppActive: Bool = dependencies.isMainAppActive
             try? dependencies[singleton: .notificationsManager].notifyUser(
                 cat: .messageReceiver,
                 message: message,

@@ -88,6 +88,32 @@ private class ConfigStore {
     subscript (sessionId: SessionId) -> [LibSession.Config] {
         get { return ConfigDump.Variant.allCases.compactMap { store[Key(sessionId: sessionId, variant: $0)] } }
     }
+
+    /// Removes and frees every config stored for `sessionId`
+    func removeAll(for sessionId: SessionId) {
+        let configs: [LibSession.Config] = ConfigDump.Variant.allCases.compactMap { variant in
+            store.removeValue(forKey: Key(sessionId: sessionId, variant: variant))
+        }
+
+        /// A `groupKeys` config holds the group's info and members configs as well, so those must only be freed through it
+        for config in configs {
+            guard case .groupKeys(let keysConf, let infoConf, let membersConf) = config else { continue }
+
+            groups_keys_free(keysConf)
+            config_free(infoConf)
+            config_free(membersConf)
+            return
+        }
+
+        configs.forEach { config in
+            switch config {
+                case .groupKeys: break    // Handled above
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
+                    config_free(conf)
+            }
+        }
+    }
     
     deinit {
         /// Group configs are a little complicated because they contain the info & members confs so we need some special handling to
@@ -218,8 +244,12 @@ public extension LibSession {
             }
             
             /// Retrieve the existing dumps from the database
+            ///
+            /// **A failed read must throw rather than fall back to no dumps.** Every config would then load its default (empty)
+            /// state, so the account would show as having no name, contacts or groups, and the next local change would push that
+            /// empty state to the swarm
             typealias ConfigInfo = (sessionId: SessionId, variant: ConfigDump.Variant, dump: ConfigDump?)
-            let existingDumpsByKey: [String: [ConfigDump]] = ((try? ConfigDump.fetchAll(db)) ?? [])
+            let existingDumpsByKey: [String: [ConfigDump]] = try ConfigDump.fetchAll(db)
                 .grouped(by: \.sessionId.hexString)
             var configsToLoad: [ConfigInfo] = []
             
@@ -248,14 +278,13 @@ public extension LibSession {
             ///
             /// **Note:** We exclude groups in the `invited` state as they should only have their state loaded once the invitation
             /// gets accepted
-            let allGroups: [ClosedGroup] = (try? ClosedGroup
+            let allGroups: [ClosedGroup] = try ClosedGroup
                 .filter(
                     ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
                     ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
                 )
                 .filter(ClosedGroup.Columns.invited == false)
-                .fetchAll(db))
-                .defaulting(to: [])
+                .fetchAll(db)
             let groupsByKey: [String: ClosedGroup] = allGroups
                 .reduce(into: [:]) { result, group in result[group.threadId] = group }
             allGroups.forEach { group in
@@ -274,16 +303,45 @@ public extension LibSession {
             }
                                             
             /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
+            ///
+            /// Unlike a failed read, a dump which fails to load (eg. one libSession can't parse) fails the same way on every launch,
+            /// so failing the load for it would stop the app starting at all:
+            /// - a user config loads its default (empty) state instead, which a newer config from the swarm replaces when one arrives
+            /// - a group is skipped entirely, including any of its configs which already loaded, so one broken group can't stop the
+            ///   others loading
+            var skippedGroupIds: Set<SessionId> = []
+
             try configsToLoad.forEach { sessionId, variant, dump in
-                configStore[sessionId, variant] = try loadState(
-                    for: variant,
-                    sessionId: sessionId,
-                    userEd25519SecretKey: userEd25519SecretKey,
-                    groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
-                        .groupIdentityPrivateKey
-                        .map { Array($0) },
-                    cachedData: dump?.data
-                )
+                guard !skippedGroupIds.contains(sessionId) else { return }
+
+                do {
+                    configStore[sessionId, variant] = try loadState(
+                        for: variant,
+                        sessionId: sessionId,
+                        userEd25519SecretKey: userEd25519SecretKey,
+                        groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
+                            .groupIdentityPrivateKey
+                            .map { Array($0) },
+                        cachedData: dump?.data
+                    )
+                }
+                catch {
+                    guard sessionId.prefix == .group else {
+                        Log.critical(.libSession, "Failed to load the \(variant) config (dump stored: \(dump != nil)), loading its default: \(error)")
+                        configStore[sessionId, variant] = try loadState(
+                            for: variant,
+                            sessionId: sessionId,
+                            userEd25519SecretKey: userEd25519SecretKey,
+                            groupEd25519SecretKey: nil,
+                            cachedData: nil
+                        )
+                        return
+                    }
+                    
+                    Log.critical(.libSession, "Failed to load the \(variant) config for a group (dump stored: \(dump != nil)), skipping the group: \(error)")
+                    skippedGroupIds.insert(sessionId)
+                    configStore.removeAll(for: sessionId)
+                }
             }
             
             /// There is a bit of an odd discrepancy between `libSession` and the database for the users profile where `libSession`

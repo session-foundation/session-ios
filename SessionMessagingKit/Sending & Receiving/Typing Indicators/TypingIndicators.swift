@@ -111,7 +111,9 @@ public extension TypingIndicators {
     
     // MARK: - Indicator
     
-    class Indicator {
+    /// An `actor` because `refreshTimeout` is called for every keystroke and every incoming typing message, so calls overlap
+    /// and must not replace `stopTask` concurrently (doing so over-releases the running `Task`)
+    actor Indicator {
         let threadId: String
         let threadVariant: SessionThread.Variant
         let direction: Direction

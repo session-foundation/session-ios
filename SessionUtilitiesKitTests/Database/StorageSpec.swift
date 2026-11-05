@@ -1,6 +1,7 @@
 // Copyright © 2026 Session Technology Foundation. All rights reserved.
 
 import Foundation
+import GRDB
 import TestUtilities
 
 import Quick
@@ -210,6 +211,109 @@ class StorageSpec: AsyncSpec {
                         })
                 }
             }
+
+            // MARK: -- when migrating
+            context("when migrating") {
+                @TestState var storage: Storage!
+
+                beforeEach {
+                    storage = try Storage.createForTesting(using: dependencies)
+                    _ = await storage.state.first(where: { $0 == .pendingMigrations })
+                }
+
+                // MARK: ---- refuses to migrate while suspended
+                ///
+                /// Migrating would write to the database in the background, and moving out of `suspended` would leave nothing
+                /// to resume it, so a startup waiting for the resume would never finish
+                it("refuses to migrate while suspended") {
+                    await storage.suspendDatabaseAccess()
+
+                    await expect { try await storage.perform(migrations: [StorageSpecMigration.self]) }
+                        .to(throwError { error in
+                            switch error {
+                                case StorageError.databaseSuspended: break
+                                default: fail("Expected databaseSuspended, got \(error)")
+                            }
+                        })
+                    await expect { await storage.state.first() }.to(equal(.suspended))
+                }
+
+                // MARK: ---- migrates once resumed
+                it("migrates once resumed") {
+                    await storage.suspendDatabaseAccess()
+                    _ = try? await storage.perform(migrations: [StorageSpecMigration.self])
+                    await storage.resumeDatabaseAccess()
+
+                    await expect { await storage.state.first() }.to(equal(.pendingMigrations))
+                    try await storage.perform(migrations: [StorageSpecMigration.self])
+                    await expect { await storage.state.first() }.to(equal(.readyForUse))
+                }
+
+                // MARK: ---- marks a migration which aborts as failed rather than suspended
+                ///
+                /// Nothing resumes a database which wasn't suspended by `suspendDatabaseAccess`, so reporting this as a
+                /// suspension would leave startup waiting forever
+                it("marks a migration which aborts as failed rather than suspended") {
+                    await expect { try await storage.perform(migrations: [StorageSpecAbortingMigration.self]) }
+                        .to(throwError())
+                    await expect { await storage.state.first() }.to(equal(.migrationsFailed))
+                }
+
+                // MARK: ---- resumes ready for use when a migration finishes while suspended
+                ///
+                /// A migration between statements can't be interrupted, so it can finish after the suspension; resuming into
+                /// `pendingMigrations` would then leave everything waiting for `readyForUse` (like the `JobRunner`) waiting forever
+                it("resumes ready for use when a migration finishes while suspended") {
+                    let migrating: Task<Void, Error> = Task {
+                        try await storage.perform(migrations: [StorageSpecBlockingMigration.self])
+                    }
+                    await Task.detached { StorageSpecBlockingMigration.started.wait() }.value
+                    let suspending: Task<Void, Never> = Task { await storage.suspendDatabaseAccess() }
+                    _ = await storage.state.first(where: { $0 == .suspended })
+                    StorageSpecBlockingMigration.finish.signal()
+                    try await migrating.value
+                    await suspending.value
+                    await storage.resumeDatabaseAccess()
+
+                    await expect { await storage.state.first() }.to(equal(.readyForUse))
+                }
+            }
         }
+    }
+}
+
+// MARK: - Test Types
+
+private enum StorageSpecMigration: Migration {
+    static let identifier: String = "StorageSpecMigration"
+    static let minExpectedRunDuration: TimeInterval = 0
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
+
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        try db.execute(sql: "CREATE TABLE storageSpecTable (id INTEGER PRIMARY KEY)")
+    }
+}
+
+private enum StorageSpecAbortingMigration: Migration {
+    static let identifier: String = "StorageSpecAbortingMigration"
+    static let minExpectedRunDuration: TimeInterval = 0
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
+
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        throw DatabaseError(resultCode: .SQLITE_ABORT)
+    }
+}
+
+private enum StorageSpecBlockingMigration: Migration {
+    static let identifier: String = "StorageSpecBlockingMigration"
+    static let minExpectedRunDuration: TimeInterval = 0
+    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
+    static let started: DispatchSemaphore = DispatchSemaphore(value: 0)
+    static let finish: DispatchSemaphore = DispatchSemaphore(value: 0)
+
+    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
+        started.signal()
+        finish.wait()
+        try db.execute(sql: "CREATE TABLE storageSpecBlockingTable (id INTEGER PRIMARY KEY)")
     }
 }

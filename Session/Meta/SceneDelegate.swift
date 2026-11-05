@@ -20,6 +20,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var loadMessagesTask: Task<Void, Never>?
     private var jobRunnerShutdownTask: Task<Void, Never>?
     
+    /// When backgrounding, the longest we wait for the remaining jobs before suspending the database anyway, and the background
+    /// time we keep back for stopping the jobs, checkpointing and suspending
+    private static let maxBackgroundDrainDuration: TimeInterval = 20
+    private static let backgroundSuspendReserve: TimeInterval = 10
+    
     private var appDelegate: AppDelegate? {
         UIApplication.shared.delegate as? AppDelegate
     }
@@ -58,17 +63,25 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         /// `appDidFinishLaunching` seems to fix this odd behaviour (even though it doesn't match
         /// Apple's documentation on the matter)
         appDelegate.dependencies[singleton: .notificationsManager].setDelegate(appDelegate)
+        appDelegate.handleSceneWillEnterForeground()
         
         Task(priority: .userInitiated) { [dependencies = appDelegate.dependencies] in
-            /// Wait for the initial app setup to complete before resuming database/network access.
-            /// On a cold launch the database migrations may not have run yet, and setup
+            /// The database has to be resumed before waiting for the initial app setup: if the app went to the background part
+            /// way through startup then the setup is itself waiting for this resume, so waiting on it first would never finish.
+            /// On a launch which was never suspended this does nothing
+            ///
+            /// Resuming early is safe because it only reverses `suspendDatabaseAccess` (restoring the state from before the
+            /// suspension) and needs nothing from the setup, unlike creating the network below. Anything waiting on the database,
+            /// such as the migrations, continues from that state
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            
+            /// Wait for the initial app setup to complete before resuming network access. Setup
             /// (`AppSetup.setupEnvironment`) processes the launch environment variables — including
             /// the service network and custom file server config; creating the network before that
             /// runs leaves it configured with defaults (e.g. the default file server pubkey), which
             /// then can't be reconfigured. On a warm foreground the app is already ready so this
             /// returns immediately. Mirrors the background-fetch path in AppDelegate.
             await dependencies[singleton: .appReadiness].isReady()
-            await dependencies[singleton: .storage].resumeDatabaseAccess()
             await dependencies[singleton: .network].resumeNetworkAccess()
         }
     }
@@ -112,8 +125,32 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 )
                 guard !Task.isCancelled else { return }
                 
-                await dependencies[singleton: .jobRunner].allQueuesDrained()
+                /// Sends and uploads are left to finish, but they can outlast the background time, and when this task is cancelled
+                /// for running out of it the database below is never suspended (so iOS suspends the app with the database open
+                /// and kills it with `0xdead10cc`). The jobs are persisted, so they resume next time the app runs
+                let drainTimeLimit: TimeInterval = await MainActor.run {
+                    max(
+                        0,
+                        min(
+                            SceneDelegate.maxBackgroundDrainDuration,
+                            UIApplication.shared.backgroundTimeRemaining - SceneDelegate.backgroundSuspendReserve
+                        )
+                    )
+                }
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await dependencies[singleton: .jobRunner].allQueuesDrained() }
+                    group.addTask { try? await Task.sleep(nanoseconds: UInt64(drainTimeLimit * 1_000_000_000)) }
+                    await group.next()
+                    group.cancelAll()
+                }
                 guard !Task.isCancelled else { return }
+                
+                /// This task is only cancelled when the app next enters the background, so if the user came back during the wait
+                /// then leave the jobs running (`stopAndClearJobs` would otherwise stop them in the foreground)
+                guard dependencies[singleton: .appContext].isInBackground else {
+                    Log.info(.cat, "Returned to the foreground before the background shutdown, skipping it.")
+                    return
+                }
                 
                 /// Since we aren't going to stop the remaining jobs if there is an ongoing call then there is no need
                 /// to add this log

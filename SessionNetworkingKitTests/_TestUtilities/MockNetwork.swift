@@ -13,6 +13,12 @@ class MockNetwork: NetworkType, Mockable {
     
     required init(handler: MockHandler<NetworkType>) {
         self.handler = handler
+        
+        /// Stubbing `send` would otherwise give it a placeholder `ResponseInfoType`, which crashes when destroyed in optimised builds
+        MockFallbackRegistry.register(
+            for: (info: ResponseInfoType, value: Data?).self,
+            provider: { (info: MockResponseInfo.mock, value: nil) }
+        )
     }
     
     required init(handlerForBuilder: any MockFunctionHandler) {

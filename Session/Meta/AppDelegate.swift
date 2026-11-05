@@ -32,6 +32,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     let dependencies: Dependencies = Dependencies.createEmpty()
     @MainActor var hasInitialRootViewController: Bool = false
     private var rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
+    private lazy var foregroundSceneGate: ForegroundSceneGate = ForegroundSceneGate { [dependencies] in
+        dependencies[singleton: .appContext].isMainAppAndForeground
+    }
     var startTime: CFTimeInterval = 0
     var loadingViewController: LoadingViewController? = LoadingViewController()
     private var hasNotifiedWindowReady: Bool = false
@@ -61,7 +64,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 #endif
         
         /// These should be the first things we do (the startup process can fail without them)
-        dependencies.set(singleton: .appContext, to: MainAppContext(using: dependencies))
+        dependencies.set(
+            singleton: .appContext,
+            to: MainAppContext(initialApplicationState: application.applicationState, using: dependencies)
+        )
         verifyDBKeysAvailableBeforeBackgroundLaunch()
         
         /// Kick of a task to perform the app setup
@@ -82,12 +88,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     await self.completePostMigrationSetup(calledFrom: .finishLaunching)
                 }
                 catch {
-                    await MainActor.run { [weak self] in
-                        self?.showFailedStartupAlert(
-                            calledFrom: .finishLaunching,
-                            error: .databaseError(error)
-                        )
-                    }
+                    await self.handleFailedEnvironmentSetup(error, calledFrom: .finishLaunching)
                 }
             }
         }
@@ -116,6 +117,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// Update state of current call
         if dependencies[singleton: .callManager].currentCall == nil {
             dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+            dependencies[defaults: .appGroup, key: .ongoingCallUuid] = nil
             dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         }
         
@@ -301,7 +303,45 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         windowReadyContinuation?.resume()
         windowReadyContinuation = nil
     }
-    
+
+    /// A setup which failed because the database was suspended isn't broken: the app went to the background part way through
+    /// startup and its background time ran out, cancelling the setup while it waited for the database to resume. Showing the
+    /// startup alert for that would offer to clear an account which is fine, so carry on with the setup once the database is
+    /// resumed instead (the wait has to be in a new task, since the setup task has been cancelled)
+    ///
+    /// **The state must be read from `syncState`, not `state`.** This usually runs in that cancelled task, and `first()` on a stream
+    /// in a cancelled task generally returns `nil` before the current value arrives, which would show the alert for exactly this case
+    private func handleFailedEnvironmentSetup(_ error: Error, calledFrom lifecycleMethod: LifecycleMethod) async {
+        guard dependencies[singleton: .storage].syncState.state == .suspended else {
+            return await MainActor.run { [weak self] in
+                self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .databaseError(error))
+            }
+        }
+
+        Log.info(.cat, "Startup interrupted by suspension (\(error)), continuing once the database is resumed.")
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            _ = await dependencies[singleton: .storage].state.first(where: { $0 != .suspended })
+
+            try? await SessionBackgroundTask.run(
+                label: "Setup Environment", // stringlint:ignore
+                using: dependencies
+            ) { [weak self, dependencies] in
+                guard let self else { return }
+
+                do {
+                    try await AppSetup.completeEnvironmentSetup(
+                        loadingViewController: self.loadingViewController,
+                        using: dependencies
+                    )
+                    await self.completePostMigrationSetup(calledFrom: lifecycleMethod)
+                }
+                catch {
+                    await self.handleFailedEnvironmentSetup(error, calledFrom: lifecycleMethod)
+                }
+            }
+        }
+    }
+
     private func completePostMigrationSetup(calledFrom lifecycleMethod: LifecycleMethod) async {
         Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
         
@@ -322,6 +362,46 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// May as well run this on the background thread
         dependencies[singleton: .audioSession].setup()
         
+        /// A launch iOS makes in the background (eg. to run a `BGAppRefreshTask`) has no scene in the foreground, and `HomeVC`
+        /// won't render its conversation list until there is one - so the `rootViewController` setup can't complete, and its timeout
+        /// would present the startup alert where nobody can see it. The rest of startup has to wait for a scene to get there
+        guard foregroundSceneGate.isOpen(elseDefer: { [weak self] in
+            Task(priority: .userInitiated) { await self?.completeDeferredStartup(calledFrom: lifecycleMethod) }
+        }) else {
+            Log.info(.cat, "No scene in the foreground, deferring rootViewController setup until one enters it")
+            
+            /// Work which doesn't need a scene still needs the user's onboarding state (eg. the background fetch syncs push tokens,
+            /// which waits on it), and loading it is otherwise part of the `rootViewController` setup
+            try? await dependencies[singleton: .onboarding].loadInitialState()
+            return
+        }
+        
+        await completeRootViewControllerSetup(calledFrom: lifecycleMethod)
+    }
+    
+    private func completeDeferredStartup(calledFrom lifecycleMethod: LifecycleMethod) async {
+        try? await SessionBackgroundTask.run(
+            label: "Deferred Startup", // stringlint:ignore
+            using: dependencies
+        ) { [weak self, dependencies] in
+            /// A background fetch may have suspended the database while startup was waiting, and `SceneDelegate` won't resume it
+            /// until `appReadiness` is set at the end of startup, which can't happen without the database
+            await dependencies[singleton: .storage].resumeDatabaseAccess()
+            
+            /// The process has probably been suspended by the OS while waiting, and a launch in the background never gets the
+            /// `sceneDidEnterBackground` which would normally have suspended the network first - so its connections are likely dead,
+            /// and resuming a network which isn't suspended doesn't reconnect it. Suspending here means the resume `SceneDelegate`
+            /// performs once startup completes re-establishes them
+            await dependencies[singleton: .network].suspendNetworkAccess()
+            await self?.completeRootViewControllerSetup(calledFrom: lifecycleMethod)
+        }
+    }
+    
+    func handleSceneWillEnterForeground() {
+        foregroundSceneGate.sceneWillEnterForeground()
+    }
+    
+    private func completeRootViewControllerSetup(calledFrom lifecycleMethod: LifecycleMethod) async {
         /// Setup the UI if needed, then trigger any post-UI setup actions
         ///
         /// **Note:** If we didn't successfully ensure the `rootViewController` then don't continue as the user is in an invalid
@@ -384,6 +464,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "helpReportABugExportLogs".localized(), style: .default) { [dependencies] _ in
+            Log.critical(.cat, "Startup alert: user chose to export logs (\(error.description)).")
             HelpViewModel.shareLogs(viewControllerToDismiss: alert, using: dependencies) { [weak self] in
                 // Don't bother showing the "Failed Startup" modal again if we happen to now
                 // have an initial view controller (this most likely means that the startup
@@ -395,11 +476,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         })
         
-        // Always offer the 'Clear Data' option
         alert.addAction(UIAlertAction(title: "clearDevice".localized(), style: .destructive) { [weak self, dependencies] _ in
+            Log.critical(.cat, "Startup alert: user chose to clear the device (\(error.description)).")
             let alert: UIAlertController = UIAlertController(
                 title: "clearDevice".localized(),
-                message: "clearDeviceDescription".localized(),
+                message: "databaseErrorClearDeviceWarning".localized(),
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
@@ -407,6 +488,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             })
             
             alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
+                Log.critical(.cat, "Startup alert: user cancelled clearing the device.")
                 DispatchQueue.main.async {
                     self?.showFailedStartupAlert(
                         calledFrom: lifecycleMethod,
@@ -417,82 +499,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
         })
         
-        switch error {
-            // Every branch offers 'Clear Data', which is added unconditionally above - what differs is whether
-            // 'Clear Data & Restore' is offered in addition. Withheld here because a restore replays migrations
-            // against a fresh database, which does not address a database that is locked, that was suspended, or
-            // that failed to start for a reason we could not identify. A suspension in particular leaves the data
-            // intact and is usually cleared by relaunching, so a restore would destroy an account that is fine
-            //
-            // 'databaseKeyMissingWithActiveDatabase' is deliberately not in this list: the data is unreachable, so
-            // restoring is the only thing that recovers the account, and it must keep falling through below
-            case .databaseError(StorageError.startupFailed),
-                .databaseError(StorageError.databaseSuspended),
-                .databaseError(DatabaseError.SQLITE_LOCKED):
-                break
-
-            // Offer the 'Restore' option if it was a migration error
-            case .databaseError:
-                alert.addAction(UIAlertAction(title: "clearDeviceRestore".localized(), style: .destructive) { [weak self, dependencies] _ in
-                    let alert: UIAlertController = UIAlertController(
-                        title: "clearDeviceRestore".localized(),
-                        message: "databaseErrorRestoreDataWarning".localized(),
-                        preferredStyle: .alert
-                    )
-                    alert.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { [weak self, dependencies] _ in
-                        // Hide the top banner if there was one
-                        TopBannerController.hide()
-                        
-                        Task(priority: .userInitiated) { [weak self, dependencies] in
-                            await self?.stopPollers()
-                            self?.hasInitialRootViewController = false
-                            
-                            let loadingViewController: LoadingViewController = LoadingViewController()
-                            self?.loadingViewController = loadingViewController
-                            dependencies[singleton: .appContext].mainWindow?.rootViewController = loadingViewController
-                            dependencies[singleton: .appContext].mainWindow?.makeKeyAndVisible()
-                            self?.rootViewControllerCoordinator = RootViewControllerCoordinator()
-                            
-                            // Reset the current database for a clean migration
-                            await dependencies[singleton: .storage].resetForCleanMigration()
-                            
-                            // The re-run the migration (should succeed since there is no data)
-                            do {
-                                try await AppSetup.performDatabaseMigrations(using: dependencies) { [weak self] progress, minEstimatedTotalTime in
-                                    self?.loadingViewController?.updateProgress(
-                                        progress: progress,
-                                        minEstimatedTotalTime: minEstimatedTotalTime
-                                    )
-                                }
-                                try await AppSetup.postMigrationSetup(using: dependencies)
-                                
-                                await self?.completePostMigrationSetup(calledFrom: lifecycleMethod)
-                            }
-                            catch {
-                                await MainActor.run {
-                                    self?.showFailedStartupAlert(
-                                        calledFrom: lifecycleMethod,
-                                        error: .failedToRestore
-                                    )
-                                }
-                            }
-                        }
-                    })
-                    
-                    alert.addAction(UIAlertAction(title: "cancel".localized(), style: .default) { _ in
-                        DispatchQueue.main.async {
-                            self?.showFailedStartupAlert(
-                                calledFrom: lifecycleMethod,
-                                error: error
-                            )
-                        }
-                    })
-                    dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: nil)
-                })
-                
-            default: break
-        }
-        
         alert.addAction(UIAlertAction(title: "quit".localized(), style: .default) { _ in
             Log.flushAndTerminate()
         })
@@ -500,6 +506,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info(.cat, "Showing startup alert due to error: \(error.description)")
         dependencies[singleton: .appContext].mainWindow?.rootViewController?.present(alert, animated: animated, completion: presentationCompletion)
     }
+    
     
     /// The user must unlock the device once after reboot before the database encryption key can be accessed.
     private func verifyDBKeysAvailableBeforeBackgroundLaunch() {
@@ -543,7 +550,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
         /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
-        guard dependencies[defaults: .appGroup, key: .isMainAppActive] == true else { return }
+        guard dependencies.isMainAppActive else { return }
         
         /// There is a warning which can happen on launch because the Database read can be blocked by another database operation
         /// which could result in this blocking the main thread, as a result we want to check the identity exists on a background thread
@@ -631,7 +638,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if notification.request.content.userInfo["remote"] != nil {
             /// Only suppress if we're genuinely active, not mid-transition
-            guard dependencies[defaults: .appGroup, key: .isMainAppActive] else {
+            guard dependencies.isMainAppActive else {
                 dependencies[singleton: .appReadiness].runNowOrWhenAppDidBecomeReady {
                     completionHandler([.badge, .banner, .sound, .list])
                 }
@@ -720,12 +727,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
         
-        try? dependencies[singleton: .extensionHelper].saveUserMetadata(
-            sessionId: dependencies[cache: .general].sessionId,
-            ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
-            unreadCount: unreadCount
-        )
-        
+        /// The extension metadata is the only copy of the user's key outside the database, and this runs on every activation -
+        /// including while onboarding is showing. A launch which failed to find the identity in the database is exactly when that copy
+        /// is needed to get the account back, so writing it without a user would destroy the last copy of the key
+        if dependencies[cache: .general].userExists {
+            try? dependencies[singleton: .extensionHelper].saveUserMetadata(
+                sessionId: dependencies[cache: .general].sessionId,
+                ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                unreadCount: unreadCount
+            )
+        }
+
         await MainActor.run {
             UIApplication.shared.applicationIconBadgeNumber = unreadCount
         }
@@ -858,6 +870,9 @@ private actor RootViewControllerCoordinator {
 
         /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
         /// the option to export their logs)
+        ///
+        /// **Note:** This relies on a scene being in the foreground - `HomeVC` can't finish loading without one, so in the background
+        /// this would always fire and present the alert off-screen (which is why `completePostMigrationSetup` defers until then)
         let timeoutTask: Task<Void, Error> = Task { @MainActor in
             try await Task.sleep(for: .seconds(AppDelegate.maxRootViewControllerInitialQueryDuration))
             
@@ -938,11 +953,33 @@ private actor RootViewControllerCoordinator {
         }
         
         // Navigate to the approriate screen depending on the onboarding state
-        try? await dependencies[singleton: .onboarding].loadInitialState()
-        let state: Onboarding.State? = await dependencies[singleton: .onboarding].state.first()
+        let state: Onboarding.State?
+        
+        do {
+            try await dependencies[singleton: .onboarding].loadInitialState()
+
+            /// Read in a new task because this can run in a cancelled one (when the setup's background time runs out), where
+            /// `first()` on a stream generally returns `nil` before the current value arrives
+            state = await Task { await dependencies[singleton: .onboarding].state.first() }.value
+        }
+        catch {
+            Log.critical(.cat, "Failed to load the onboarding state: \(error)")
+            state = nil
+        }
         
         switch state {
-            case .none, .unknown, .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
+            /// The `LandingScreen` reads as being logged out, and offers to create an account, so it must only be shown when there is
+            /// definitely no user; an unresolved state says nothing about whether the database holds one
+            case .none, .unknown:
+                Log.critical(.cat, "Onboarding state unresolved (\(String(describing: state))), showing the startup alert.")
+                timeoutTask.cancel()
+                
+                await MainActor.run {
+                    appDelegate.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .unresolvedOnboardingState)
+                }
+                await markFailed()
+                
+            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
                 if state == .noUserInvalidKeyPair {
                     Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
                 }
@@ -1000,6 +1037,33 @@ private actor RootViewControllerCoordinator {
         isRunning = false
         pendingContinuations.forEach { $0.resume(returning: false) }
         pendingContinuations = []
+    }
+}
+
+// MARK: - ForegroundSceneGate
+
+/// Holds back work which can't complete until a scene is in the foreground
+@MainActor final class ForegroundSceneGate {
+    private let hasForegroundScene: @MainActor () -> Bool
+    private var deferredWork: (() -> Void)?
+    
+    init(hasForegroundScene: @escaping @MainActor () -> Bool) {
+        self.hasForegroundScene = hasForegroundScene
+    }
+    
+    /// - Returns: `true` if a scene is already in the foreground (so the caller should carry on), otherwise `false` with `work` held
+    ///   until `sceneWillEnterForeground()`
+    func isOpen(elseDefer work: @escaping () -> Void) -> Bool {
+        guard !hasForegroundScene() else { return true }
+        
+        deferredWork = work
+        return false
+    }
+    
+    func sceneWillEnterForeground() {
+        let work: (() -> Void)? = deferredWork
+        deferredWork = nil
+        work?()
     }
 }
 

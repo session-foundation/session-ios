@@ -157,8 +157,8 @@ struct PNModeScreen: View {
         
         do { try await dependencies[singleton: .onboarding].completeRegistration() }
         catch {
-            /// Nothing was written, so the account that registration refused to overwrite is still intact - don't
-            /// navigate to the home screen, which would present it as if the registration had worked
+            /// Nothing was written (either registration refused to overwrite an existing account, or storing the identity
+            /// failed) - don't navigate to the home screen, which would present it as if the registration had worked
             return await MainActor.run { [dependencies] in
                 Onboarding.showRegistrationRefusedAlert(using: dependencies)
             }
