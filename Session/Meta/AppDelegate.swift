@@ -957,7 +957,10 @@ private actor RootViewControllerCoordinator {
         
         do {
             try await dependencies[singleton: .onboarding].loadInitialState()
-            state = await dependencies[singleton: .onboarding].state.first()
+
+            /// Read in a new task because this can run in a cancelled one (when the setup's background time runs out), where
+            /// `first()` on a stream generally returns `nil` before the current value arrives
+            state = await Task { await dependencies[singleton: .onboarding].state.first() }.value
         }
         catch {
             Log.critical(.cat, "Failed to load the onboarding state: \(error)")

@@ -84,10 +84,10 @@ class LibSessionLoadStateSpec: AsyncSpec {
                     }.to(throwError())
                 }
 
-                // MARK: ---- skips a group whose config can't be loaded
+                // MARK: ---- skips the whole of a group whose config can't be loaded
                 ///
                 /// The failure would repeat on every launch, so failing the load would stop the app starting at all
-                it("skips a group whose config can't be loaded") {
+                it("skips the whole of a group whose config can't be loaded") {
                     try await mockStorage.write { db in
                         try SessionThread(
                             id: groupSessionId.hexString,
@@ -114,6 +114,8 @@ class LibSessionLoadStateSpec: AsyncSpec {
                     }
 
                     expect(cache.hasConfig(for: .groupInfo, sessionId: groupSessionId)).to(beFalse())
+                    expect(cache.hasConfig(for: .groupMembers, sessionId: groupSessionId)).to(beFalse())
+                    expect(cache.hasConfig(for: .groupKeys, sessionId: groupSessionId)).to(beFalse())
                     expect(cache.hasConfig(for: .userProfile, sessionId: userSessionId)).to(beTrue())
                 }
             }

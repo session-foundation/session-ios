@@ -88,6 +88,32 @@ private class ConfigStore {
     subscript (sessionId: SessionId) -> [LibSession.Config] {
         get { return ConfigDump.Variant.allCases.compactMap { store[Key(sessionId: sessionId, variant: $0)] } }
     }
+
+    /// Removes and frees every config stored for `sessionId`
+    func removeAll(for sessionId: SessionId) {
+        let configs: [LibSession.Config] = ConfigDump.Variant.allCases.compactMap { variant in
+            store.removeValue(forKey: Key(sessionId: sessionId, variant: variant))
+        }
+
+        /// A `groupKeys` config holds the group's info and members configs as well, so those must only be freed through it
+        for config in configs {
+            guard case .groupKeys(let keysConf, let infoConf, let membersConf) = config else { continue }
+
+            groups_keys_free(keysConf)
+            config_free(infoConf)
+            config_free(membersConf)
+            return
+        }
+
+        configs.forEach { config in
+            switch config {
+                case .groupKeys: break    // Handled above
+                case .userProfile(let conf), .contacts(let conf), .convoInfoVolatile(let conf),
+                    .userGroups(let conf), .local(let conf), .groupInfo(let conf), .groupMembers(let conf):
+                    config_free(conf)
+            }
+        }
+    }
     
     deinit {
         /// Group configs are a little complicated because they contain the info & members confs so we need some special handling to
@@ -278,10 +304,15 @@ public extension LibSession {
                                             
             /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
             ///
-            /// A user config which fails to load fails the whole load, for the same reason as a failed read above. A group config
-            /// which fails to load only skips that group: the failure is likely to repeat on every launch (eg. a dump libSession
-            /// can't parse), and one broken group shouldn't stop the app starting, or stop the other groups from loading
+            /// A user config which fails to load fails the whole load, for the same reason as a failed read above. A group with a
+            /// config which fails to load is skipped entirely, including any of its configs which already loaded: the failure is
+            /// likely to repeat on every launch (eg. a dump libSession can't parse), and one broken group shouldn't stop the app
+            /// starting, or stop the other groups from loading
+            var skippedGroupIds: Set<SessionId> = []
+
             try configsToLoad.forEach { sessionId, variant, dump in
+                guard !skippedGroupIds.contains(sessionId) else { return }
+
                 do {
                     configStore[sessionId, variant] = try loadState(
                         for: variant,
@@ -299,7 +330,9 @@ public extension LibSession {
                         throw error
                     }
                     
-                    Log.critical(.libSession, "Failed to load the \(variant) config for a group (dump stored: \(dump != nil)), skipping it: \(error)")
+                    Log.critical(.libSession, "Failed to load the \(variant) config for a group (dump stored: \(dump != nil)), skipping the group: \(error)")
+                    skippedGroupIds.insert(sessionId)
+                    configStore.removeAll(for: sessionId)
                 }
             }
             
