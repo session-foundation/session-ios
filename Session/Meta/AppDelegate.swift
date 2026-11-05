@@ -307,8 +307,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// startup and its background time ran out, cancelling the setup while it waited for the database to resume. Showing the
     /// startup alert for that would offer to clear an account which is fine, so carry on with the setup once the database is
     /// resumed instead (the wait has to be in a new task, since the setup task has been cancelled)
+    ///
+    /// **The state must be read from `syncState`, not `state`.** This usually runs in that cancelled task, and `first()` on a stream
+    /// in a cancelled task generally returns `nil` before the current value arrives, which would show the alert for exactly this case
     private func handleFailedEnvironmentSetup(_ error: Error, calledFrom lifecycleMethod: LifecycleMethod) async {
-        guard await dependencies[singleton: .storage].state.first() == .suspended else {
+        guard dependencies[singleton: .storage].syncState.state == .suspended else {
             return await MainActor.run { [weak self] in
                 self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .databaseError(error))
             }
