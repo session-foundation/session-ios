@@ -15,6 +15,14 @@ struct VoiceMessageView_SwiftUI: View {
     
     private var attachment: Attachment
     
+    private var errorImage: UIImage? {
+        switch attachment.state {
+            case .failedDownload, .failedUpload: return UIImage(named: "media_retry")?.withRenderingMode(.alwaysTemplate)
+            case .invalid: return UIImage(named: "warning")?.withRenderingMode(.alwaysTemplate)
+            default: return nil
+        }
+    }
+    
     public init(attachment: Attachment) {
         self.attachment = attachment
     }
@@ -45,6 +53,7 @@ struct VoiceMessageView_SwiftUI: View {
                                 width: 8,
                                 height: 8
                             )
+                            .opacity(errorImage == nil ? 1 : 0)
                     }
                     
                     if attachment.state == .downloading {
@@ -52,6 +61,16 @@ struct VoiceMessageView_SwiftUI: View {
                             .frame(
                                 width: Self.toggleContainerSize,
                                 height: Self.toggleContainerSize
+                            )
+                    }
+                    else if let errorImage: UIImage = errorImage {
+                        Image(uiImage: errorImage)
+                            .resizable()
+                            .foregroundColor(themeColor: .textPrimary)
+                            .scaledToFit()
+                            .frame(
+                                width: 12,
+                                height: 12
                             )
                     }
                 }

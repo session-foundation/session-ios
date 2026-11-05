@@ -1356,9 +1356,39 @@ extension ConversationVC:
             return true
         }
         
-        switch cellViewModel.cellType {
-            case .voiceMessage: viewModel.playOrPauseAudio(for: cellViewModel)
+        func retryDownload(of attachment: Attachment) {
+            let threadId: String = self.viewModel.state.threadId
             
+            Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
+                try? await dependencies[singleton: .storage].write { db in
+                    dependencies[singleton: .jobRunner].add(
+                        db,
+                        job: Job(
+                            variant: .attachmentDownload,
+                            threadId: threadId,
+                            interactionId: cellViewModel.id,
+                            details: AttachmentDownloadJob.Details(attachmentId: attachment.id)
+                        )
+                    )
+                }
+            }
+        }
+        
+        switch cellViewModel.cellType {
+            case .voiceMessage:
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
+                    return viewModel.playOrPauseAudio(for: cellViewModel)
+                }
+                
+                switch attachment.state {
+                    case .failedDownload: retryDownload(of: attachment)
+                    
+                    // Failed uploads should be handled via the "resend" process instead
+                    case .failedUpload: break
+                    
+                    default: viewModel.playOrPauseAudio(for: cellViewModel)
+                }
+                
             case .mediaMessage:
                 guard
                     let albumView: MediaAlbumView = (cell as? VisibleMessageCell)?.albumView,
@@ -1375,26 +1405,7 @@ extension ConversationVC:
                     // Failed uploads should be handled via the "resend" process instead
                     case .failedUpload: break
                         
-                    case .failedDownload:
-                        let threadId: String = self.viewModel.state.threadId
-                        
-                        // Retry downloading the failed attachment
-                        Task(priority: .userInitiated) { [dependencies = viewModel.dependencies] in
-                            try? await dependencies[singleton: .storage].write { db in
-                                dependencies[singleton: .jobRunner].add(
-                                    db,
-                                    job: Job(
-                                        variant: .attachmentDownload,
-                                        threadId: threadId,
-                                        interactionId: cellViewModel.id,
-                                        details: AttachmentDownloadJob.Details(
-                                            attachmentId: mediaView.attachment.id
-                                        )
-                                    )
-                                )
-                            }
-                        }
-                        break
+                    case .failedDownload: retryDownload(of: mediaView.attachment)
                         
                     default:
                         // Ignore invalid media
@@ -1450,7 +1461,10 @@ extension ConversationVC:
             case .audio:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
-                    let attachment: Attachment = cellViewModel.attachments.first,
+                    let attachment: Attachment = cellViewModel.attachments.first
+                else { return }
+                guard attachment.state != .failedDownload else { return retryDownload(of: attachment) }
+                guard
                     let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
                         .createTemporaryFileForOpening(
                             downloadUrl: attachment.downloadUrl,
@@ -1477,7 +1491,10 @@ extension ConversationVC:
             case .genericAttachment:
                 guard
                     !handleLinkTapIfNeeded(cell: cell, targetView: (cell as? VisibleMessageCell)?.documentView),
-                    let attachment: Attachment = cellViewModel.attachments.first,
+                    let attachment: Attachment = cellViewModel.attachments.first
+                else { return }
+                guard attachment.state != .failedDownload else { return retryDownload(of: attachment) }
+                guard
                     let path: String = try? viewModel.dependencies[singleton: .attachmentManager]
                         .createTemporaryFileForOpening(
                             downloadUrl: attachment.downloadUrl,
