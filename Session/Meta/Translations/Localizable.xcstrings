@@ -122627,7 +122627,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Əsas ekrana əlavə edildi"
+            "value" : "Ana ekrana əlavə edildi"
           }
         },
         "bal" : {
@@ -123112,7 +123112,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Əsas ekrana əlavə et"
+            "value" : "Ana ekrana əlavə et"
           }
         },
         "bal" : {
@@ -240441,7 +240441,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bu qrup 30 gün ərzində güncəllənməyib. Mesaj göndərərkən və ya qrup məlumatlarına baxarkən problemlərlə üzləşə bilərsiniz."
+            "value" : "Bu qrup 30 gündən çoxdur ki, güncəllənməyib. Mesaj göndərərkən və ya qrup bilgilərinə baxarkən problemlərlə üzləşə bilərsiniz."
           }
         },
         "ca" : {
@@ -261236,7 +261236,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Məlumat"
+            "value" : "Bilgi"
           }
         },
         "bal" : {
@@ -449052,7 +449052,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ölkə məlumatları yüklənir..."
+            "value" : "Ölkə bilgiləri yüklənir..."
           }
         },
         "bal" : {
@@ -491869,7 +491869,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qrup Məlumatını Yenilə"
+            "value" : "Qrup bilgilərini güncəllə"
           }
         },
         "ca" : {
