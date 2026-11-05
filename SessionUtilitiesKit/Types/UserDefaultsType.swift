@@ -262,6 +262,9 @@ public extension UserDefaults.StringKey {
     
     /// The app-icon name of the previously selected app icon disguise
     static let lastSelectedAppIconDisguise: UserDefaults.StringKey = "lastSelectedAppIconDisguise"
+    
+    /// The uuid of the call `isCallOngoing` refers to
+    static let ongoingCallUuid: UserDefaults.StringKey = "ongoingCallUuid"
 }
 
 // MARK: - Keys

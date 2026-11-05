@@ -358,8 +358,8 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
         }
     }
     
-    public func endCall(with sessionId: String) {
-        Task(priority: .userInitiated) { [uuid, dependencies] in
+    @discardableResult public func endCall(with sessionId: String) -> Task<Void, Never> {
+        return Task(priority: .userInitiated) { [uuid, dependencies] in
             do {
                 let disappearingMessagesConfig: DisappearingMessagesConfiguration? = try await dependencies[singleton: .storage].read { db in
                     /// Ensure a thread exists for the `sessionId` and that it's a `contact` thread

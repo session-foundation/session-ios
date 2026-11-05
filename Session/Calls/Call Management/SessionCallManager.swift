@@ -29,6 +29,8 @@ public extension CXProviderConfiguration {
 // MARK: - SessionCallManager
 
 public final class SessionCallManager: NSObject, CallManagerProtocol {
+    private static let callTeardownTimeout: DispatchTimeInterval = .seconds(10)
+    
     let dependencies: Dependencies
     
     let provider: CXProvider?
@@ -97,8 +99,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     
     public func reportOutgoingCall(_ call: SessionCall) {
         Log.assertOnMainThread()
-        dependencies[defaults: .appGroup, key: .isCallOngoing] = true
-        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+        storeOngoingCall(call)
         
         call.stateDidChange = {
             if call.hasStartedConnecting {
@@ -114,8 +115,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     public func reportIncomingCall(_ call: CurrentCallProtocol, callerName: String, completion: @escaping (Error?) -> Void) {
         // If CallKit isn't supported then we don't have anything to report the call to
         guard Preferences.isCallKitSupported else {
-            dependencies[defaults: .appGroup, key: .isCallOngoing] = true
-            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+            storeOngoingCall(call)
             completion(nil)
             return
         }
@@ -132,14 +132,13 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         disableUnsupportedFeatures(callUpdate: update)
 
         // Report the incoming call to the system
-        self.provider?.reportNewIncomingCall(with: call.callId, update: update) { [dependencies] error in
+        self.provider?.reportNewIncomingCall(with: call.callId, update: update) { error in
             guard error == nil else {
                 self.reportCurrentCallEnded(reason: .failed)
                 completion(error)
                 return
             }
-            dependencies[defaults: .appGroup, key: .isCallOngoing] = true
-            dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+            self.storeOngoingCall(call)
             completion(nil)
         }
     }
@@ -152,23 +151,36 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             return
         }
         
+        /// Once the call is reported ended iOS stops keeping the app running for it, but the teardown below still uses the database,
+        /// so when in the background hold a background task from before any of it until the database is suspended (otherwise iOS
+        /// can suspend the app with the database open, which crashes with `0xdead10cc`)
+        let backgroundTask: (id: UIBackgroundTaskIdentifier, end: () -> Void)? = (dependencies[singleton: .appContext].isInBackground ?
+            SessionBackgroundTask.begin(label: "Suspend after call", using: dependencies) :
+            nil
+        )
+        
         guard let call = currentCall else {
             self.cleanUpPreviousCall()
-            self.suspendDatabaseIfCallEndedInBackground()
+            self.suspendDatabaseIfCallEndedInBackground(endingBackgroundTask: backgroundTask, after: [])
             return
         }
         
+        let endCallMessageSend: Task<Void, Never>? = call.endCallMessageSend
+        let callMessageUpdate: Task<Void, Never>
         self.provider?.reportCall(with: call.callId, endedAt: nil, reason: reason)
         
         switch (reason) {
-            case .answeredElsewhere: call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
-            case .unanswered: call.updateCallMessage(mode: .unanswered, using: dependencies)
-            case .declinedElsewhere: call.updateCallMessage(mode: .local, using: dependencies)
-            default: call.updateCallMessage(mode: .remote, using: dependencies)
+            case .answeredElsewhere: callMessageUpdate = call.updateCallMessage(mode: .answeredElsewhere, using: dependencies)
+            case .unanswered: callMessageUpdate = call.updateCallMessage(mode: .unanswered, using: dependencies)
+            case .declinedElsewhere: callMessageUpdate = call.updateCallMessage(mode: .local, using: dependencies)
+            default: callMessageUpdate = call.updateCallMessage(mode: .remote, using: dependencies)
         }
         
         self.cleanUpPreviousCall()
-        self.suspendDatabaseIfCallEndedInBackground()
+        self.suspendDatabaseIfCallEndedInBackground(
+            endingBackgroundTask: backgroundTask,
+            after: [callMessageUpdate, endCallMessageSend].compactMap { $0 }
+        )
     }
     
     public func currentWebRTCSessionMatches(callId: String) -> Bool {
@@ -179,6 +191,14 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
     }
     
     // MARK: - Util
+    
+    /// The notification extension reads these to decide whether an incoming call message belongs to a call the main app is
+    /// already handling
+    private func storeOngoingCall(_ call: CurrentCallProtocol) {
+        dependencies[defaults: .appGroup, key: .isCallOngoing] = true
+        dependencies[defaults: .appGroup, key: .ongoingCallUuid] = call.uuid
+        dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
+    }
     
     private func drainPendingSignalingIfNeeded() {
         guard
@@ -211,24 +231,58 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         callUpdate.supportsDTMF = false
     }
     
-    public func suspendDatabaseIfCallEndedInBackground() {
+    private func suspendDatabaseIfCallEndedInBackground(
+        endingBackgroundTask backgroundTask: (id: UIBackgroundTaskIdentifier, end: () -> Void)?,
+        after teardown: [Task<Void, Never>]
+    ) {
         Log.info(.calls, "Called suspendDatabaseIfCallEndedInBackground.")
         
-        if dependencies[singleton: .appContext].isInBackground {
-            /// Stop all jobs except for message sending and when completed suspend the database
-            Task.detached(priority: .userInitiated) { [weak self, dependencies] in
-                await dependencies[singleton: .jobRunner].stopAndClearJobs(
-                    filters: JobRunner.Filters(
-                        exclude: [.variant(.messageSend)]
-                    )
+        guard let backgroundTask else { return }
+        
+        /// Stop all jobs except for message sending and when completed suspend the database
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            defer { backgroundTask.end() }
+            
+            await dependencies[singleton: .jobRunner].stopAndClearJobs(
+                filters: JobRunner.Filters(
+                    exclude: [.variant(.messageSend)]
                 )
-                
-                if self?.currentCall?.hasEnded != false {
-                    await dependencies[singleton: .network].suspendNetworkAccess()
-                    await dependencies[singleton: .storage].suspendDatabaseAccess()
-                    Log.flush()
-                }
+            )
+            
+            /// The teardown needs the database (and the `endCall` message the network too) - while the call is still connecting
+            /// that message is the only way the other party learns the call ended and it isn't a job (so the exclusion above doesn't
+            /// protect it), and the call's final state is saved by a write which suspending would cancel, so wait for them rather than
+            /// cutting them off
+            await SessionCallManager.waitForCallTeardown(teardown, using: dependencies)
+            
+            /// The wait can take long enough for the user to return to the app, and resuming only happens when entering the
+            /// foreground, so suspending now would leave the app in the foreground without database or network access
+            if self?.currentCall?.hasEnded != false && dependencies[singleton: .appContext].isInBackground {
+                await dependencies[singleton: .network].suspendNetworkAccess()
+                await dependencies[singleton: .storage].suspendDatabaseAccess()
+                Log.flush()
             }
+        }
+    }
+    
+    private static func waitForCallTeardown(_ teardown: [Task<Void, Never>], using dependencies: Dependencies) async {
+        let (outcome, continuation) = AsyncStream<Bool>.makeStream()
+        let teardownWatcher: Task<Void, Never> = Task {
+            for task in teardown { await task.value }
+            continuation.yield(true)
+        }
+        let timeout: Task<Void, Never> = Task {
+            try? await dependencies.sleep(for: callTeardownTimeout)
+            continuation.yield(false)
+        }
+        
+        let didFinish: Bool = (await outcome.first(where: { _ in true }) ?? false)
+        continuation.finish()
+        teardownWatcher.cancel()
+        timeout.cancel()
+        
+        if !didFinish {
+            Log.warn(.calls, "Suspending before the call teardown finished.")
         }
     }
     
@@ -328,6 +382,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
         WebRTCSession.current = nil
         currentCall = nil
         dependencies[defaults: .appGroup, key: .isCallOngoing] = false
+        dependencies[defaults: .appGroup, key: .ongoingCallUuid] = nil
         dependencies[defaults: .appGroup, key: .lastCallPreOffer] = nil
         
         if dependencies[singleton: .appContext].isNotInForeground {
