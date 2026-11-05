@@ -3,8 +3,19 @@
 import SwiftUI
 
 public struct QRCodeView: View {
-    let qrCodeImage: UIImage?
+    private struct GenerationInput: Equatable {
+        let string: String
+        let hasBackground: Bool
+        let logo: String?
+        let shouldCache: Bool
+    }
+    
+    private let providedImage: UIImage?
+    private let generationInput: GenerationInput?
+    @State private var generatedImage: UIImage?
     let themeStyle: UIUserInterfaceStyle
+    
+    private var qrCodeImage: UIImage? { providedImage ?? generatedImage }
     var backgroundThemeColor: ThemeValue {
         switch themeStyle {
             case .light:
@@ -28,7 +39,8 @@ public struct QRCodeView: View {
         qrCodeImage: UIImage?,
         themeStyle: UIUserInterfaceStyle
     ) {
-        self.qrCodeImage = qrCodeImage
+        self.providedImage = qrCodeImage
+        self.generationInput = nil
         self.themeStyle = themeStyle
     }
     
@@ -36,9 +48,16 @@ public struct QRCodeView: View {
         string: String,
         hasBackground: Bool,
         logo: String?,
+        shouldCache: Bool = true,
         themeStyle: UIUserInterfaceStyle
     ) {
-        self.qrCodeImage = QRCode.generate(for: string, hasBackground: hasBackground, iconName: logo)
+        /// Generating on the main thread takes up to a second on older devices (this `init` runs inside the parent's `body`),
+        /// so only take an already generated image here and generate any other in `body`'s `task`
+        self.providedImage = nil
+        self.generationInput = GenerationInput(string: string, hasBackground: hasBackground, logo: logo, shouldCache: shouldCache)
+        self._generatedImage = State(
+            initialValue: (shouldCache ? QRCode.cachedImage(for: string, hasBackground: hasBackground, iconName: logo) : nil)
+        )
         self.themeStyle = themeStyle
     }
     
@@ -67,5 +86,17 @@ public struct QRCodeView: View {
             )
         }
         .frame(maxWidth: .infinity)
+        .task(id: generationInput) {
+            guard let input: GenerationInput = generationInput else { return }
+            
+            generatedImage = await Task.detached(priority: .userInitiated) {
+                QRCode.generate(
+                    for: input.string,
+                    hasBackground: input.hasBackground,
+                    iconName: input.logo,
+                    shouldCache: input.shouldCache
+                )
+            }.value
+        }
     }
 }
