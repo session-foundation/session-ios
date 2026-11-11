@@ -2891,8 +2891,14 @@ class ExtensionHelperSpec: AsyncSpec {
                             .wasCalled(exactly: 1)
                     }
                     
-                    // MARK: ------ removes the file when the failure was permanent
-                    it("removes the file when the failure was permanent") {
+                    // MARK: ------ keeps counting a message kept for a transient failure as unread
+                    it("keeps counting a message kept for a transient failure as unread") {
+                        try await mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/0a0b0c/read") }
+                            .thenReturn([])
+                        try await mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/0a0b0c/unread") }
+                            .thenReturn(["d"])
                         try await mockCrypto
                             .when {
                                 try $0.generate(
@@ -2908,7 +2914,54 @@ class ExtensionHelperSpec: AsyncSpec {
                                     )
                                 )
                             }
-                            .thenThrow(CryptoError.decryptionFailed)
+                            .thenThrow(CryptoError.missingUserSecretKey)
+                        
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        await mockFileManager
+                            .verify { try $0.removeItem(atPath: "/test/extensionCache/conversations/0a0b0c/unread/d") }
+                            .wasNotCalled()
+                        await mockFileManager
+                            .verify { try $0.moveItem(atPath: .any, toPath: .any) }
+                            .wasNotCalled()
+                    }
+                    
+                    // MARK: ------ removes the file when the failure was permanent
+                    it("removes the file when the failure was permanent") {
+                        /// An unexpired message, so that only the failure decides whether the file is kept
+                        try await mockCrypto
+                            .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                            .thenReturn(
+                                try! JSONEncoder(using: dependencies)
+                                    .encode(
+                                        Network.StorageServer.Message(
+                                            snode: nil,
+                                            publicKey: "05\(TestConstants.publicKey)",
+                                            namespace: .default,
+                                            rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
+                                                base64EncodedDataString: "TestData",
+                                                expirationMs: (1234567890 * 1000) + 1,
+                                                hash: "TestHash",
+                                                timestampMs: 1234567890
+                                            )
+                                        )
+                                    )
+                            )
+                        try await mockCrypto
+                            .when {
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Array<UInt8>.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
+                                    )
+                                )
+                            }
+                            .thenThrow(MessageError.decodingFailed)
                         
                         await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                         expect(existingFiles.contains(messagePath)).to(beFalse())
@@ -2948,6 +3001,115 @@ class ExtensionHelperSpec: AsyncSpec {
                                 using: dependencies
                             )
                         }.toNot(throwError())
+                    }
+                    
+                    // MARK: ------ for a group message
+                    context("for a group message") {
+                        @TestState var groupId: String! = "03\(TestConstants.publicKey)"
+                        
+                        func stubGroupMessage(expirationMs: Int64) async throws {
+                            try await mockCrypto
+                                .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                                .thenReturn(
+                                    try! JSONEncoder(using: dependencies)
+                                        .encode(
+                                            Network.StorageServer.Message(
+                                                snode: nil,
+                                                publicKey: groupId,
+                                                namespace: .groupMessages,
+                                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
+                                                    base64EncodedDataString: "TestData",
+                                                    expirationMs: expirationMs,
+                                                    hash: "TestHash",
+                                                    timestampMs: 1234567890
+                                                )
+                                            )
+                                        )
+                                )
+                        }
+                        
+                        beforeEach {
+                            try await mockCrypto
+                                .when {
+                                    try $0.generate(
+                                        .decodedMessage(
+                                            encodedMessage: Array<UInt8>.any,
+                                            origin: .swarm(
+                                                publicKey: .any,
+                                                namespace: .groupMessages,
+                                                serverHash: .any,
+                                                serverTimestampMs: .any,
+                                                serverExpirationTimestamp: .any
+                                            )
+                                        )
+                                    )
+                                }
+                                .thenThrow(MessageError.decodingFailed)
+                        }
+                        
+                        // MARK: -------- keeps the file when it can't be decrypted until the message expires
+                        it("keeps the file when it can't be decrypted until the message expires") {
+                            try await stubGroupMessage(expirationMs: (1234567890 * 1000) + 1)
+                            
+                            await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                            expect(existingFiles.contains(messagePath)).to(beTrue())
+                        }
+                        
+                        // MARK: -------- stops counting a kept message as unread
+                        it("stops counting a kept message as unread") {
+                            try await stubGroupMessage(expirationMs: (1234567890 * 1000) + 1)
+                            try await mockFileManager
+                                .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/0a0b0c/read") }
+                                .thenReturn([])
+                            try await mockFileManager
+                                .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/0a0b0c/unread") }
+                                .thenReturn(["d"])
+                            
+                            await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                            await mockFileManager
+                                .verify {
+                                    try $0.moveItem(
+                                        atPath: "/test/extensionCache/conversations/0a0b0c/unread/d",
+                                        toPath: "/test/extensionCache/conversations/0a0b0c/read/d"
+                                    )
+                                }
+                                .wasCalled(exactly: 1)
+                            await mockFileManager
+                                .verify { try $0.removeItem(atPath: "/test/extensionCache/conversations/0a0b0c/unread/d") }
+                                .wasNotCalled()
+                        }
+                        
+                        // MARK: -------- removes the file when the group has no keys config
+                        it("removes the file when the group has no keys config") {
+                            try await stubGroupMessage(expirationMs: (1234567890 * 1000) + 1)
+                            try await mockCrypto
+                                .when {
+                                    try $0.generate(
+                                        .decodedMessage(
+                                            encodedMessage: Array<UInt8>.any,
+                                            origin: .swarm(
+                                                publicKey: .any,
+                                                namespace: .groupMessages,
+                                                serverHash: .any,
+                                                serverTimestampMs: .any,
+                                                serverExpirationTimestamp: .any
+                                            )
+                                        )
+                                    )
+                                }
+                                .thenThrow(LibSessionError.invalidConfigObject("groupKeys", "nil"))
+                            
+                            await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                            expect(existingFiles.contains(messagePath)).to(beFalse())
+                        }
+                        
+                        // MARK: -------- removes the file when it can't be decrypted once the message has expired
+                        it("removes the file when it can't be decrypted once the message has expired") {
+                            try await stubGroupMessage(expirationMs: (1234567890 * 1000) - 1)
+                            
+                            await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                            expect(existingFiles.contains(messagePath)).to(beFalse())
+                        }
                     }
                     
                     // MARK: ------ keeps the dedupe record of a message which imported successfully

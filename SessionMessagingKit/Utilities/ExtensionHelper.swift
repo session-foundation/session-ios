@@ -940,18 +940,47 @@ public class ExtensionHelper: ExtensionHelperType {
         )
     }
     
-    /// Whether a message which failed to import should be left on disk for the next load: these errors come from the state the app
-    /// was in at the time (startup incomplete, or the database suspended part way through) rather than from the message itself
-    internal static func isTransientImportFailure(_ error: Error) -> Bool {
+    /// What happens to the file of a message which failed to import
+    internal enum ImportRetry: Equatable {
+        case none
+        case keep
+        
+        /// Kept for the next load, but no longer counted towards the extension's unread badge, since the message may never become
+        /// readable
+        case keepAsRead
+    }
+    
+    internal static func importRetry(
+        for message: Network.StorageServer.Message,
+        after error: Error,
+        nowMs: Int64
+    ) -> ImportRetry {
         switch error {
+            /// These come from the state the app was in at the time (startup incomplete, or the database suspended part way through)
+            /// rather than from the message, so the message is kept however long that lasts
             case CryptoError.missingUserSecretKey,
                 StorageError.databaseSuspended,
                 DatabaseError.SQLITE_ABORT,
                 DatabaseError.SQLITE_INTERRUPT,
                 is CancellationError:
-                return true
+                return .keep
+            
+            /// A group message can't be decrypted until the app has the group key it was sent with, which can arrive after the
+            /// message (eg. when the app's group keys have fallen behind the extension's). A poll which fetched the message without
+            /// the key has already moved past it, so this file may be the only copy. A message whose key never arrives is kept until
+            /// it would have expired on the swarm
+            ///
+            /// **Note:** A group with no keys config at all isn't included - the extension decrypts with configs the app replicated
+            /// for it, so in the app that means the user has left or been removed from the group, and no key is coming
+            case MessageError.decodingFailed, CryptoError.invalidKey:
+                guard
+                    message.namespace == .groupMessages &&
+                    message.expirationTimestampMs > nowMs
+                else { return .none }
                 
-            default: return false
+                return .keepAsRead
+                
+            default: return .none
         }
     }
     
@@ -962,7 +991,7 @@ public class ExtensionHelper: ExtensionHelperType {
             swarmPublicKey: String,
             configMessages: [MessageData],
             standardMessages: [MessageData],
-            standardMessagePaths: [String: String]
+            standardMessageFiles: [String: (path: String, message: Network.StorageServer.Message)]
         )
         typealias StandardMessageFailures = (conversation: ConversationMessages, failureCount: Int, errors: [String: Error])
         
@@ -1088,7 +1117,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 }
             )
             processedFilePaths.insert(contentsOf: Set(allMessagePaths))
-            var standardMessagePaths: [String: String] = [:]
+            var standardMessageFiles: [String: (path: String, message: Network.StorageServer.Message)] = [:]
             
             /// We need to sort the messages as we don't know what order they were read from disk in and some messages (eg. a
             /// `VisibleMessage` and it's corresponding `UnsendRequest`) need to be processed in a particular order or they
@@ -1101,7 +1130,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         let plaintext: Data = try read(from: path, usingKey: encKey)
                         let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
                             .decode(Network.StorageServer.Message.self, from: plaintext)
-                        standardMessagePaths[message.hash] = path
+                        standardMessageFiles[message.hash] = (path, message)
                         
                         return result.appending(message, toArrayOn: message.namespace)
                     }
@@ -1133,7 +1162,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 swarmPublicKey: swarmPublicKey,
                 configMessages: (sortedConfigMessages ?? []),
                 standardMessages: sortedStandardMessages,
-                standardMessagePaths: standardMessagePaths
+                standardMessageFiles: standardMessageFiles
             )
         }
         var standardMessageFailures: [StandardMessageFailures] = []
@@ -1189,12 +1218,23 @@ public class ExtensionHelper: ExtensionHelperType {
         /// The extension saved a dedupe record alongside each message, so one which failed here would otherwise be dropped as a
         /// duplicate when a poll fetches it again. The record is keyed by the conversation, which for a 1:1 message is the sender and
         /// can't be known without decrypting, but it lives in the same conversation directory as the file the message came from
+        let nowMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * 1000)
+        
         standardMessageFailures.forEach { failure in
             let conversationPath: String = URL(fileURLWithPath: conversationsPath)
                 .appendingPathComponent(failure.conversation.conversationHash)
                 .path
-            let retryErrors: [String: Error] = failure.errors.filter { ExtensionHelper.isTransientImportFailure($0.value) }
-            let retryPaths: [String] = retryErrors.keys.compactMap { failure.conversation.standardMessagePaths[$0] }
+            let retries: [String: (path: String, retry: ImportRetry, error: Error)] = failure.errors
+                .reduce(into: [:]) { result, next in
+                    guard let file = failure.conversation.standardMessageFiles[next.key] else { return }
+                    
+                    let retry: ImportRetry = ExtensionHelper.importRetry(for: file.message, after: next.value, nowMs: nowMs)
+                    
+                    guard retry != .none else { return }
+                    
+                    result[next.key] = (file.path, retry, next.value)
+                }
+            let retryPaths: [String] = retries.values.map { $0.path }
             
             failure.errors.keys.forEach { hash in
                 guard let path: String = dedupeRecordPath(conversationPath: conversationPath, hash) else { return }
@@ -1202,13 +1242,16 @@ public class ExtensionHelper: ExtensionHelperType {
                 try? removeDedupeRecord(atPath: path)
             }
             processedFilePaths.subtract(retryPaths)
+            retries.values
+                .filter { $0.retry == .keepAsRead }
+                .forEach { moveToReadDirectory(conversationPath: conversationPath, unreadPath: $0.path) }
             
             if retryPaths.count < failure.failureCount {
                 Log.error(.cat, "Discarding \(failure.failureCount - retryPaths.count) standard message(s) as they could not be processed.")
             }
             
             if !retryPaths.isEmpty {
-                Log.warn(.cat, "Keeping \(retryPaths.count) standard message(s) to retry, as they could not be processed due to error(s): \(Set(retryErrors.values.map { "\($0)" }).sorted().joined(separator: ", ")).")
+                Log.warn(.cat, "Keeping \(retryPaths.count) standard message(s) to retry, as they could not be processed due to error(s): \(Set(retries.values.map { "\($0.error)" }).sorted().joined(separator: ", ")).")
             }
         }
         
@@ -1244,6 +1287,24 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(successConfigCount + failureConfigCount) config messages.")
+    }
+    
+    private func moveToReadDirectory(conversationPath: String, unreadPath: String) {
+        let unreadDirectory: String = URL(fileURLWithPath: conversationPath).appendingPathComponent(conversationUnreadDir).path
+        
+        guard URL(fileURLWithPath: unreadPath).deletingLastPathComponent().path == unreadDirectory else { return }
+        
+        let readDirectory: String = URL(fileURLWithPath: conversationPath).appendingPathComponent(conversationReadDir).path
+        let readPath: String = URL(fileURLWithPath: readDirectory)
+            .appendingPathComponent(URL(fileURLWithPath: unreadPath).lastPathComponent)
+            .path
+        
+        do {
+            try dependencies[singleton: .fileManager].ensureDirectoryExists(at: readDirectory)
+            try dependencies[singleton: .fileManager].protectFileOrFolder(at: readDirectory)
+            try dependencies[singleton: .fileManager].moveItem(atPath: unreadPath, toPath: readPath)
+        }
+        catch { Log.warn(.cat, "Failed to stop counting a kept message as unread due to error: \(error)") }
     }
     
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
