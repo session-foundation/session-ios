@@ -52,6 +52,87 @@ class SwarmPollerSpec: AsyncSpec {
                         }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
+                
+                // MARK: ---- reports the failure against the message's server hash
+                it("reports the failure against the message's server hash") {
+                    let result: PollResult<SwarmPoller.PollResponse> = try await fixture.mockStorage.write { db in
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .poller,
+                            source: .pushNotification,
+                            swarmPublicKey: fixture.groupId.hexString,
+                            shouldStoreMessages: true,
+                            ignoreDedupeFiles: true,
+                            forceSynchronousProcessing: true,
+                            sortedMessages: [(
+                                namespace: .groupMessages,
+                                messages: [fixture.message(hash: "TestHash")],
+                                lastHash: nil
+                            )],
+                            using: fixture.dependencies
+                        ).2
+                    }
+                    
+                    expect(result.rawMessageCount).to(equal(1))
+                    expect(result.validMessageCount).to(equal(0))
+                    expect(Array(result.messageErrors.keys)).to(equal(["TestHash"]))
+                }
+                
+                // MARK: ---- does not count a message which failed to be handled as valid
+                it("does not count a message which failed to be handled as valid") {
+                    let content = SNProtoContent.builder()
+                    let dataMessage = SNProtoDataMessage.builder()
+                    dataMessage.setBody("Test")
+                    content.setDataMessage(try dataMessage.build())
+                    try await fixture.mockCrypto
+                        .when {
+                            try $0.tryGenerate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .groupMessages,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenReturn(
+                            DecodedMessage(
+                                content: try content.build().serializedData(),
+                                sender: SessionId(.standard, hex: TestConstants.blind15PublicKey),
+                                decodedPro: nil,
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890
+                            )
+                        )
+                    
+                    let result: PollResult<SwarmPoller.PollResponse> = try await fixture.mockStorage.write { db in
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .poller,
+                            source: .pushNotification,
+                            swarmPublicKey: fixture.groupId.hexString,
+                            shouldStoreMessages: true,
+                            ignoreDedupeFiles: true,
+                            forceSynchronousProcessing: true,
+                            sortedMessages: [(
+                                namespace: .groupMessages,
+                                messages: [fixture.message(hash: "TestHash")],
+                                lastHash: nil
+                            )],
+                            using: fixture.dependencies
+                        ).2
+                    }
+                    
+                    /// The message must have decoded, or this is the parse failure covered above
+                    expect(result.messageErrors["TestHash"]).toNot(beNil())
+                    expect(result.messageErrors["TestHash"] as? CryptoError).to(beNil())
+                    expect(result.rawMessageCount).to(equal(1))
+                    expect(result.validMessageCount).to(equal(0))
+                }
             }
 
             // MARK: -- when a config message fails to merge on the notification extension import path
