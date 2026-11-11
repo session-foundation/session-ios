@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
@@ -232,8 +233,12 @@ public class ExtensionHelper: ExtensionHelperType {
     
     // stringlint:ignore_contents
     private func dedupeRecordPath(_ threadId: String, _ uniqueIdentifier: String) -> String? {
+        return conversationPath(threadId).flatMap { dedupeRecordPath(conversationPath: $0, uniqueIdentifier) }
+    }
+    
+    // stringlint:ignore_contents
+    private func dedupeRecordPath(conversationPath: String, _ uniqueIdentifier: String) -> String? {
         guard
-            let conversationPath: String = conversationPath(threadId),
             let hash: [UInt8] = dependencies[singleton: .crypto].generate(
                 .hash(message: Array("DedupeRecordSalt-\(uniqueIdentifier)".utf8))
             )
@@ -319,6 +324,10 @@ public class ExtensionHelper: ExtensionHelperType {
             throw ExtensionHelperError.failedToRemoveDedupeRecord
         }
         
+        try removeDedupeRecord(atPath: path)
+    }
+    
+    private func removeDedupeRecord(atPath path: String) throws {
         try dependencies[singleton: .fileManager].removeItem(atPath: path)
         
         /// Also remove the directory if it's empty
@@ -891,6 +900,17 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadMessages() async throws {
+        /// Every message needs the user's key to decrypt and the `libSession` state to be handled, and the app can become active
+        /// well before startup has loaded them. A run before then would fail every message, so leave the files for the load which
+        /// runs once startup completes
+        ///
+        /// **Note:** This has to be checked before joining or starting a run, so that a run in flight was always started with the
+        /// user's state loaded - otherwise a caller which arrives once startup completes could join a run which is about to bail
+        guard isUserStateLoaded() else {
+            Log.info(.cat, "Deferring loading messages from extensions until the user state is loaded.")
+            return
+        }
+        
         /// Join the run already in flight rather than starting a second one over the same files - a caller which awaits this needs the
         /// messages to actually be loaded when it returns (`waitUntilMessagesAreLoaded` gates opening a tapped notification on
         /// it), so this cannot just return early
@@ -911,13 +931,40 @@ public class ExtensionHelper: ExtensionHelperType {
         try await task.value
     }
 
+    private func isUserStateLoaded() -> Bool {
+        let generalCache: ImmutableGeneralCacheType = dependencies[cache: .general]
+        
+        return (
+            generalCache.userExists &&
+            dependencies[cache: .libSession].userSessionId == generalCache.sessionId
+        )
+    }
+    
+    /// Whether a message which failed to import should be left on disk for the next load: these errors come from the state the app
+    /// was in at the time (startup incomplete, or the database suspended part way through) rather than from the message itself
+    internal static func isTransientImportFailure(_ error: Error) -> Bool {
+        switch error {
+            case CryptoError.missingUserSecretKey,
+                StorageError.databaseSuspended,
+                DatabaseError.SQLITE_ABORT,
+                DatabaseError.SQLITE_INTERRUPT,
+                is CancellationError:
+                return true
+                
+            default: return false
+        }
+    }
+    
     private func performLoadMessages() async throws {
         typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
         typealias ConversationMessages = (
+            conversationHash: String,
             swarmPublicKey: String,
             configMessages: [MessageData],
-            standardMessages: [MessageData]
+            standardMessages: [MessageData],
+            standardMessagePaths: [String: String]
         )
+        typealias StandardMessageFailures = (conversation: ConversationMessages, failureCount: Int, errors: [String: Error])
         
         try Task.checkCancellation()
         
@@ -1041,6 +1088,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 }
             )
             processedFilePaths.insert(contentsOf: Set(allMessagePaths))
+            var standardMessagePaths: [String: String] = [:]
             
             /// We need to sort the messages as we don't know what order they were read from disk in and some messages (eg. a
             /// `VisibleMessage` and it's corresponding `UnsendRequest`) need to be processed in a particular order or they
@@ -1053,6 +1101,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         let plaintext: Data = try read(from: path, usingKey: encKey)
                         let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
                             .decode(Network.StorageServer.Message.self, from: plaintext)
+                        standardMessagePaths[message.hash] = path
                         
                         return result.appending(message, toArrayOn: message.namespace)
                     }
@@ -1080,11 +1129,14 @@ public class ExtensionHelper: ExtensionHelperType {
             else { return nil }
             
             return ConversationMessages(
+                conversationHash: conversationHash,
                 swarmPublicKey: swarmPublicKey,
                 configMessages: (sortedConfigMessages ?? []),
-                standardMessages: sortedStandardMessages
+                standardMessages: sortedStandardMessages,
+                standardMessagePaths: standardMessagePaths
             )
         }
+        var standardMessageFailures: [StandardMessageFailures] = []
         
         /// Now that we've done all the File I/O and file decryption we can make any database changes needed
         if !allConversationMessages.isEmpty {
@@ -1123,10 +1175,40 @@ public class ExtensionHelper: ExtensionHelperType {
                         
                         if result.validMessageCount != result.rawMessageCount {
                             failureStandardCount += (result.rawMessageCount - result.validMessageCount)
-                            Log.error(.cat, "Discarding \((result.rawMessageCount - result.validMessageCount)) standard message(s) as they could not be processed.")
+                            standardMessageFailures.append((
+                                conversation,
+                                (result.rawMessageCount - result.validMessageCount),
+                                result.messageErrors
+                            ))
                         }
                     }
                 }
+            }
+        }
+        
+        /// The extension saved a dedupe record alongside each message, so one which failed here would otherwise be dropped as a
+        /// duplicate when a poll fetches it again. The record is keyed by the conversation, which for a 1:1 message is the sender and
+        /// can't be known without decrypting, but it lives in the same conversation directory as the file the message came from
+        standardMessageFailures.forEach { failure in
+            let conversationPath: String = URL(fileURLWithPath: conversationsPath)
+                .appendingPathComponent(failure.conversation.conversationHash)
+                .path
+            let retryErrors: [String: Error] = failure.errors.filter { ExtensionHelper.isTransientImportFailure($0.value) }
+            let retryPaths: [String] = retryErrors.keys.compactMap { failure.conversation.standardMessagePaths[$0] }
+            
+            failure.errors.keys.forEach { hash in
+                guard let path: String = dedupeRecordPath(conversationPath: conversationPath, hash) else { return }
+                
+                try? removeDedupeRecord(atPath: path)
+            }
+            processedFilePaths.subtract(retryPaths)
+            
+            if retryPaths.count < failure.failureCount {
+                Log.error(.cat, "Discarding \(failure.failureCount - retryPaths.count) standard message(s) as they could not be processed.")
+            }
+            
+            if !retryPaths.isEmpty {
+                Log.warn(.cat, "Keeping \(retryPaths.count) standard message(s) to retry, as they could not be processed due to error(s): \(Set(retryErrors.values.map { "\($0)" }).sorted().joined(separator: ", ")).")
             }
         }
         

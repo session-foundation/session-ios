@@ -199,6 +199,7 @@ public enum SwarmPoller {
             .reduce([], +)
         var messageCount: Int = 0
         var invalidMessageCount: Int = 0
+        var messageErrors: [String: Error] = [:]
         var finalProcessedMessages: [ProcessedMessage] = []
         var hadValidHashUpdate: Bool = false
         
@@ -283,10 +284,12 @@ public enum SwarmPoller {
                                 break
                             
                             case DatabaseError.SQLITE_ABORT:
+                                messageErrors[message.hash] = error
                                 Log.warn(cat, "Failed to the database being suspended (running in background with no background task).")
                                 
                             default:
                                 invalidMessageCount += 1
+                                messageErrors[message.hash] = error
                                 Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
 
                                 /// On the synchronous notification extension import path the message (and a dedupe file) will have
@@ -295,8 +298,10 @@ public enum SwarmPoller {
                                 /// subsequent poll can genuinely reprocess the message once it becomes decryptable - otherwise the
                                 /// surviving dedupe file would make the poll drop it as a duplicate and the message would be lost
                                 ///
-                                /// **Note:** For groups the `threadId` matches the `swarmPublicKey`; for other conversations the
-                                /// computed path won't exist so this is a harmless no-op (hence `try?`)
+                                /// **Note:** This only finds the record for groups, whose `threadId` matches the `swarmPublicKey`. A 1:1
+                                /// record is keyed by the sender, which can't be known without decrypting, so it survives this and the
+                                /// caller has to remove it, using `messageErrors` (`ExtensionHelper` knows which conversation each file
+                                /// came from)
                                 if forceSynchronousProcessing {
                                     try? dependencies[singleton: .extensionHelper].removeDedupeRecord(
                                         threadId: swarmPublicKey,
@@ -452,6 +457,7 @@ public enum SwarmPoller {
 
                                 default:
                                     invalidMessageCount += 1
+                                    messageErrors[processedMessage.uniqueIdentifier] = error
                                     Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
 
                                     /// The savepoint rolled back the message handling (and its deferred dedupe insert) but the extension
@@ -488,7 +494,8 @@ public enum SwarmPoller {
                     rawMessageCount: rawMessageCount,
                     validMessageCount: messageCount,
                     invalidMessageCount: invalidMessageCount,
-                    hadValidHashUpdate: hadValidHashUpdate
+                    hadValidHashUpdate: hadValidHashUpdate,
+                    messageErrors: messageErrors
                 )
             )
         }
@@ -569,7 +576,8 @@ public enum SwarmPoller {
                 rawMessageCount: rawMessageCount,
                 validMessageCount: messageCount,
                 invalidMessageCount: invalidMessageCount,
-                hadValidHashUpdate: hadValidHashUpdate
+                hadValidHashUpdate: hadValidHashUpdate,
+                messageErrors: messageErrors
             )
         )
     }
