@@ -52,6 +52,31 @@ class SwarmPollerSpec: AsyncSpec {
                         }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
+                
+                // MARK: ---- reports the failure against the message's server hash
+                it("reports the failure against the message's server hash") {
+                    let result: PollResult<SwarmPoller.PollResponse> = try await fixture.mockStorage.write { db in
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .poller,
+                            source: .pushNotification,
+                            swarmPublicKey: fixture.groupId.hexString,
+                            shouldStoreMessages: true,
+                            ignoreDedupeFiles: true,
+                            forceSynchronousProcessing: true,
+                            sortedMessages: [(
+                                namespace: .groupMessages,
+                                messages: [fixture.message(hash: "TestHash")],
+                                lastHash: nil
+                            )],
+                            using: fixture.dependencies
+                        ).2
+                    }
+                    
+                    expect(result.rawMessageCount).to(equal(1))
+                    expect(result.validMessageCount).to(equal(0))
+                    expect(Array(result.messageErrors.keys)).to(equal(["TestHash"]))
+                }
             }
 
             // MARK: -- when a config message fails to merge on the notification extension import path

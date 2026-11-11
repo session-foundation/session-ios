@@ -2779,7 +2779,280 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     ))
                 }
+                
+                // MARK: ---- when the user state is not loaded
+                context("when the user state is not loaded") {
+                    // MARK: ------ does not touch any files without the user's key
+                    it("does not touch any files without the user's key") {
+                        try await mockGeneralCache.when { $0.userExists }.thenReturn(false)
+                        try await mockGeneralCache.when { $0.sessionId }.thenReturn(.invalid)
+                        try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                        mockFileManager.handler.clearCalls()
+                        
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        await mockFileManager
+                            .verify { try $0.contentsOfDirectory(atPath: .any) }
+                            .wasNotCalled()
+                        await mockFileManager
+                            .verify { try $0.removeItem(atPath: .any) }
+                            .wasNotCalled()
+                    }
+                    
+                    // MARK: ------ does not touch any files before libSession has loaded the user's state
+                    it("does not touch any files before libSession has loaded the user's state") {
+                        try await mockLibSessionCache.when { $0.userSessionId }.thenReturn(.invalid)
+                        mockFileManager.handler.clearCalls()
+                        
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        await mockFileManager
+                            .verify { try $0.contentsOfDirectory(atPath: .any) }
+                            .wasNotCalled()
+                        await mockFileManager
+                            .verify { try $0.removeItem(atPath: .any) }
+                            .wasNotCalled()
+                    }
+                    
+                    // MARK: ------ loads the messages once the user state is loaded
+                    it("loads the messages once the user state is loaded") {
+                        try await mockLibSessionCache.when { $0.userSessionId }.thenReturn(.invalid)
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        
+                        try await mockLibSessionCache
+                            .when { $0.userSessionId }
+                            .thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        
+                        let interactions: [Interaction] = try await mockStorage.read { try Interaction.fetchAll($0) }
+                        expect(interactions.map { $0.body }).to(equal(["Test"]))
+                    }
+                }
+                
+                // MARK: ---- when a standard message fails to import
+                context("when a standard message fails to import") {
+                    /// The NSE stores a 1:1 message, and its dedupe record, in the sender's conversation directory - which isn't the
+                    /// directory `SwarmPoller` derives from the swarm public key (the user's own)
+                    @TestState var senderId: String! = "05\(TestConstants.blind15PublicKey)"
+                    @TestState var messagePath: String! = "/test/extensionCache/conversations/0a0b0c/read/c"
+                    @TestState var dedupePath: String! = "/test/extensionCache/conversations/0a0b0c/dedupe/010203"
+                    @TestState var existingFiles: FileSet! = FileSet()
+                    
+                    beforeEach {
+                        existingFiles.insert(messagePath)
+                        existingFiles.insert(dedupePath)
+                        
+                        try await mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: .any) }
+                            .thenReturn([])
+                        try await mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations") }
+                            .thenReturn(["0a0b0c"])
+                        try await mockFileManager
+                            .when { try $0.contentsOfDirectory(atPath: "/test/extensionCache/conversations/0a0b0c/read") }
+                            .thenReturn(["c"])
+                        try await mockFileManager
+                            .when { $0.fileExists(atPath: .any) }
+                            .thenReturn { [existingFiles = existingFiles!] args in
+                                existingFiles.contains(args.first as? String)
+                            }
+                        try await mockFileManager
+                            .when { try $0.removeItem(atPath: .any) }
+                            .then { [existingFiles = existingFiles!] args in existingFiles.remove(args.first as? String) }
+                            .thenReturn(())
+                        try await mockCrypto
+                            .when {
+                                $0.generate(.hash(message: Array("ConvoIdSalt-\(senderId!)".data(using: .utf8)!)))
+                            }
+                            .thenReturn([0x0a, 0x0b, 0x0c])
+                    }
+                    
+                    // MARK: ------ keeps the file when the failure was transient
+                    it("keeps the file when the failure was transient") {
+                        try await mockCrypto
+                            .when {
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Array<UInt8>.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
+                                    )
+                                )
+                            }
+                            .thenThrow(CryptoError.missingUserSecretKey)
+                        
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        expect(existingFiles.contains(messagePath)).to(beTrue())
+                        await mockFileManager
+                            .verify { try $0.removeItem(atPath: dedupePath) }
+                            .wasCalled(exactly: 1)
+                    }
+                    
+                    // MARK: ------ removes the file when the failure was permanent
+                    it("removes the file when the failure was permanent") {
+                        /// An unexpired message, so that only the failure decides whether the file is kept
+                        try await mockCrypto
+                            .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                            .thenReturn(
+                                try! JSONEncoder(using: dependencies)
+                                    .encode(
+                                        Network.StorageServer.Message(
+                                            snode: nil,
+                                            publicKey: "05\(TestConstants.publicKey)",
+                                            namespace: .default,
+                                            rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
+                                                base64EncodedDataString: "TestData",
+                                                expirationMs: (1234567890 * 1000) + 1,
+                                                hash: "TestHash",
+                                                timestampMs: 1234567890
+                                            )
+                                        )
+                                    )
+                            )
+                        try await mockCrypto
+                            .when {
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Array<UInt8>.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
+                                    )
+                                )
+                            }
+                            .thenThrow(MessageError.decodingFailed)
+                        
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        expect(existingFiles.contains(messagePath)).to(beFalse())
+                    }
+                    
+                    // MARK: ------ leaves a 1:1 message fetchable again
+                    it("leaves a 1:1 message fetchable again") {
+                        try await mockCrypto
+                            .when {
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Array<UInt8>.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
+                                    )
+                                )
+                            }
+                            .thenThrow(CryptoError.decryptionFailed)
+                        expect {
+                            try MessageDeduplication.ensureMessageIsNotADuplicate(
+                                threadId: senderId,
+                                uniqueIdentifier: "TestHash",
+                                using: dependencies
+                            )
+                        }.to(throwError())
+                        
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        expect {
+                            try MessageDeduplication.ensureMessageIsNotADuplicate(
+                                threadId: senderId,
+                                uniqueIdentifier: "TestHash",
+                                using: dependencies
+                            )
+                        }.toNot(throwError())
+                    }
+                    
+                    // MARK: ------ for a group message
+                    context("for a group message") {
+                        @TestState var groupId: String! = "03\(TestConstants.publicKey)"
+                        
+                        func stubGroupMessage(expirationMs: Int64) async throws {
+                            try await mockCrypto
+                                .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
+                                .thenReturn(
+                                    try! JSONEncoder(using: dependencies)
+                                        .encode(
+                                            Network.StorageServer.Message(
+                                                snode: nil,
+                                                publicKey: groupId,
+                                                namespace: .groupMessages,
+                                                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
+                                                    base64EncodedDataString: "TestData",
+                                                    expirationMs: expirationMs,
+                                                    hash: "TestHash",
+                                                    timestampMs: 1234567890
+                                                )
+                                            )
+                                        )
+                                )
+                        }
+                        
+                        beforeEach {
+                            try await mockCrypto
+                                .when {
+                                    try $0.generate(
+                                        .decodedMessage(
+                                            encodedMessage: Array<UInt8>.any,
+                                            origin: .swarm(
+                                                publicKey: .any,
+                                                namespace: .groupMessages,
+                                                serverHash: .any,
+                                                serverTimestampMs: .any,
+                                                serverExpirationTimestamp: .any
+                                            )
+                                        )
+                                    )
+                                }
+                                .thenThrow(MessageError.decodingFailed)
+                        }
+                        
+                        // MARK: -------- keeps the file when it can't be decrypted until the message expires
+                        it("keeps the file when it can't be decrypted until the message expires") {
+                            try await stubGroupMessage(expirationMs: (1234567890 * 1000) + 1)
+                            
+                            await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                            expect(existingFiles.contains(messagePath)).to(beTrue())
+                        }
+                        
+                        // MARK: -------- removes the file when it can't be decrypted once the message has expired
+                        it("removes the file when it can't be decrypted once the message has expired") {
+                            try await stubGroupMessage(expirationMs: (1234567890 * 1000) - 1)
+                            
+                            await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                            expect(existingFiles.contains(messagePath)).to(beFalse())
+                        }
+                    }
+                    
+                    // MARK: ------ keeps the dedupe record of a message which imported successfully
+                    it("keeps the dedupe record of a message which imported successfully") {
+                        await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
+                        
+                        let interactions: [Interaction] = try await mockStorage.read { try Interaction.fetchAll($0) }
+                        expect(interactions.map { $0.body }).to(equal(["Test"]))
+                        expect(existingFiles.contains(messagePath)).to(beFalse())
+                        expect(existingFiles.contains(dedupePath)).to(beTrue())
+                    }
+                }
             }
         }
     }
+}
+
+// MARK: - FileSet
+
+/// Models which files exist, for a `MockFileManager` whose `fileExists` has to answer differently after a `removeItem`
+private final class FileSet: @unchecked Sendable {
+    private let lock: NSLock = NSLock()
+    private var paths: Set<String> = []
+    
+    func insert(_ path: String) { lock.withLock { _ = paths.insert(path) } }
+    func remove(_ path: String?) { lock.withLock { _ = path.map { paths.remove($0) } } }
+    func contains(_ path: String?) -> Bool { lock.withLock { path.map { paths.contains($0) } ?? false } }
 }
