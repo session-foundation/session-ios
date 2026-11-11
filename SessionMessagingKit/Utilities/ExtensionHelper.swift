@@ -940,16 +940,31 @@ public class ExtensionHelper: ExtensionHelperType {
         )
     }
     
-    /// Whether a message which failed to import should be left on disk for the next load: these errors come from the state the app
-    /// was in at the time (startup incomplete, or the database suspended part way through) rather than from the message itself
-    internal static func isTransientImportFailure(_ error: Error) -> Bool {
+    /// Whether a message which failed to import should be left on disk for the next load
+    internal static func shouldRetryImport(
+        of message: Network.StorageServer.Message,
+        after error: Error,
+        nowMs: Int64
+    ) -> Bool {
         switch error {
+            /// These come from the state the app was in at the time (startup incomplete, or the database suspended part way through)
+            /// rather than from the message, so the message is kept however long that lasts
             case CryptoError.missingUserSecretKey,
                 StorageError.databaseSuspended,
                 DatabaseError.SQLITE_ABORT,
                 DatabaseError.SQLITE_INTERRUPT,
                 is CancellationError:
                 return true
+            
+            /// A group message can't be decrypted until the app has the group key it was sent with, which can arrive after the
+            /// message (eg. when the app's group keys have fallen behind the extension's). A poll which fetched the message without
+            /// the key has already moved past it, so this file may be the only copy. A message whose key never arrives is kept until
+            /// it would have expired on the swarm
+            case MessageError.decodingFailed, CryptoError.invalidKey, LibSessionError.invalidConfigObject:
+                return (
+                    message.namespace == .groupMessages &&
+                    message.expirationTimestampMs > nowMs
+                )
                 
             default: return false
         }
@@ -962,7 +977,7 @@ public class ExtensionHelper: ExtensionHelperType {
             swarmPublicKey: String,
             configMessages: [MessageData],
             standardMessages: [MessageData],
-            standardMessagePaths: [String: String]
+            standardMessageFiles: [String: (path: String, message: Network.StorageServer.Message)]
         )
         typealias StandardMessageFailures = (conversation: ConversationMessages, failureCount: Int, errors: [String: Error])
         
@@ -1088,7 +1103,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 }
             )
             processedFilePaths.insert(contentsOf: Set(allMessagePaths))
-            var standardMessagePaths: [String: String] = [:]
+            var standardMessageFiles: [String: (path: String, message: Network.StorageServer.Message)] = [:]
             
             /// We need to sort the messages as we don't know what order they were read from disk in and some messages (eg. a
             /// `VisibleMessage` and it's corresponding `UnsendRequest`) need to be processed in a particular order or they
@@ -1101,7 +1116,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         let plaintext: Data = try read(from: path, usingKey: encKey)
                         let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
                             .decode(Network.StorageServer.Message.self, from: plaintext)
-                        standardMessagePaths[message.hash] = path
+                        standardMessageFiles[message.hash] = (path, message)
                         
                         return result.appending(message, toArrayOn: message.namespace)
                     }
@@ -1133,7 +1148,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 swarmPublicKey: swarmPublicKey,
                 configMessages: (sortedConfigMessages ?? []),
                 standardMessages: sortedStandardMessages,
-                standardMessagePaths: standardMessagePaths
+                standardMessageFiles: standardMessageFiles
             )
         }
         var standardMessageFailures: [StandardMessageFailures] = []
@@ -1189,12 +1204,18 @@ public class ExtensionHelper: ExtensionHelperType {
         /// The extension saved a dedupe record alongside each message, so one which failed here would otherwise be dropped as a
         /// duplicate when a poll fetches it again. The record is keyed by the conversation, which for a 1:1 message is the sender and
         /// can't be known without decrypting, but it lives in the same conversation directory as the file the message came from
+        let nowMs: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970 * 1000)
+        
         standardMessageFailures.forEach { failure in
             let conversationPath: String = URL(fileURLWithPath: conversationsPath)
                 .appendingPathComponent(failure.conversation.conversationHash)
                 .path
-            let retryErrors: [String: Error] = failure.errors.filter { ExtensionHelper.isTransientImportFailure($0.value) }
-            let retryPaths: [String] = retryErrors.keys.compactMap { failure.conversation.standardMessagePaths[$0] }
+            let retryErrors: [String: Error] = failure.errors.filter { hash, error in
+                guard let file = failure.conversation.standardMessageFiles[hash] else { return false }
+                
+                return ExtensionHelper.shouldRetryImport(of: file.message, after: error, nowMs: nowMs)
+            }
+            let retryPaths: [String] = retryErrors.keys.compactMap { failure.conversation.standardMessageFiles[$0]?.path }
             
             failure.errors.keys.forEach { hash in
                 guard let path: String = dedupeRecordPath(conversationPath: conversationPath, hash) else { return }
