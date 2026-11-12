@@ -20174,6 +20174,18 @@
               }
             }
           }
+        },
+        "zh-TW" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 管理員已選中"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -122627,7 +122639,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Əsas ekrana əlavə edildi"
+            "value" : "Ana ekrana əlavə edildi"
           }
         },
         "bal" : {
@@ -123112,7 +123124,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Əsas ekrana əlavə et"
+            "value" : "Ana ekrana əlavə et"
           }
         },
         "bal" : {
@@ -131750,6 +131762,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用回车键发送"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 Enter 發送"
           }
         }
       }
@@ -209263,6 +209281,12 @@
             "state" : "translated",
             "value" : "通过完成一份简短的调查问卷分享您对 Session 的使用体验。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過完成一份簡短的問卷，分享你對Session使用體驗。"
+          }
         }
       }
     },
@@ -240441,7 +240465,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bu qrup 30 gün ərzində güncəllənməyib. Mesaj göndərərkən və ya qrup məlumatlarına baxarkən problemlərlə üzləşə bilərsiniz."
+            "value" : "Bu qrup 30 gündən çoxdur ki, güncəllənməyib. Mesaj göndərərkən və ya qrup bilgilərinə baxarkən problemlərlə üzləşə bilərsiniz."
           }
         },
         "ca" : {
@@ -257589,6 +257613,12 @@
             "state" : "translated",
             "value" : "帮助将 Session 本地化翻译成超过 80 种语言！"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "幫助將 Session 翻譯成超過80種語言！"
+          }
         }
       }
     },
@@ -261236,7 +261266,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Məlumat"
+            "value" : "Bilgi"
           }
         },
         "bal" : {
@@ -334171,6 +334201,12 @@
             "state" : "translated",
             "value" : "仅显示发送者名称，没有任何消息内容。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅顯示傳送者名稱，不顯示任何訊息內容。"
+          }
         }
       }
     },
@@ -371065,6 +371101,12 @@
             "state" : "translated",
             "value" : "移除 Session 的解锁密码。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除解鎖Session密碼"
+          }
         }
       }
     },
@@ -396943,6 +396985,12 @@
             "state" : "translated",
             "value" : "想发送更长的消息？<br/>使用 Session Pro Beta 发送更多文本并解锁高级功能"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想傳送更長的訊息嗎？<br/>使用 Session Pro Beta 傳送更多文本並解鎖進階功能"
+          }
         }
       }
     },
@@ -422401,6 +422449,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "想充分体验 Session？<br/>升级到 Session Pro Beta，享受更强大的消息体验。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想要充分利用 Session？<br/>升級為 Session Pro Beta 享受更強大的訊息體驗。"
           }
         }
       }
@@ -449052,7 +449106,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ölkə məlumatları yüklənir..."
+            "value" : "Ölkə bilgiləri yüklənir..."
           }
         },
         "bal" : {
@@ -491869,7 +491923,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qrup Məlumatını Yenilə"
+            "value" : "Qrup bilgilərini güncəllə"
           }
         },
         "ca" : {
@@ -495333,6 +495387,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在更新…"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新中……"
           }
         }
       }
@@ -505045,6 +505105,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "调整文本和视觉元素的大小。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "調整文本跟視覺元素的大小。"
           }
         }
       }
