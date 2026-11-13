@@ -117,6 +117,7 @@ final class MockFileManager: FileManagerType, Mockable {
         return try handler.mockThrowing(args: [originalItemURL, newItemURL, backupItemName, options])
     }
     func removeItem(atPath: String) throws { return try handler.mockThrowing(args: [atPath]) }
+    func removeDirectoryIfEmpty(atPath path: String) -> Bool { return handler.mock(args: [path]) }
     
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
         return try handler.mockThrowing(args: [path])
@@ -174,5 +175,6 @@ extension MockFileManager {
             )
         }.thenReturn(())
         try await self.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(true)
+        try await self.when { $0.removeDirectoryIfEmpty(atPath: .any) }.thenReturn(true)
     }
 }

@@ -321,14 +321,13 @@ public class ExtensionHelper: ExtensionHelperType {
         
         try dependencies[singleton: .fileManager].removeItem(atPath: path)
         
-        /// Also remove the directory if it's empty
+        /// The extension writes records into this directory from its own process, so checking it's empty and then removing it could
+        /// delete a record written in between - and enumerating it while it changes has crashed inside CoreServices
         let parentDirectory: String = URL(fileURLWithPath: path)
             .deletingLastPathComponent()
             .path
         
-        if dependencies[singleton: .fileManager].isDirectoryEmpty(atPath: parentDirectory) {
-            try? dependencies[singleton: .fileManager].removeItem(atPath: parentDirectory)
-        }
+        dependencies[singleton: .fileManager].removeDirectoryIfEmpty(atPath: parentDirectory)
     }
     
     public func upsertLastClearedRecord(threadId: String) throws {

@@ -72,6 +72,12 @@ public protocol FileManagerType: Sendable {
     func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL?
     func removeItem(atPath: String) throws
     
+    /// Removes the directory only if it contains nothing, as a single operation, so an entry added by another thread or process
+    /// at the same time is never removed with it
+    ///
+    /// - Returns: whether the directory was removed
+    @discardableResult func removeDirectoryIfEmpty(atPath path: String) -> Bool
+    
     func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any]
     func setAttributes(_ attributes: [FileAttributeKey: Any], ofItemAtPath path: String) throws
 }
@@ -420,6 +426,11 @@ public final class SessionFileManager: FileManagerType {
     
     public func removeItem(atPath: String) throws {
         return try FileManager.default.removeItem(atPath: atPath)
+    }
+    
+    @discardableResult public func removeDirectoryIfEmpty(atPath path: String) -> Bool {
+        /// `rmdir` refuses a directory which isn't empty (`ENOTEMPTY`), which is the whole check
+        return (rmdir(path) == 0)
     }
     
     public func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
