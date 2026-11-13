@@ -575,15 +575,13 @@ class ExtensionHelperSpec: AsyncSpec {
                     
                     await mockFileManager
                         .verify {
-                            try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
+                            $0.removeDirectoryIfEmpty(atPath: "/test/extensionCache/conversations/010203/dedupe")
                         }
                         .wasCalled(exactly: 1)
                 }
                 
-                // MARK: ---- leaves the parent directory if not empty
-                it("leaves the parent directory if not empty") {
-                    try await mockFileManager.when { $0.isDirectoryEmpty(atPath: .any) }.thenReturn(false)
-                    
+                // MARK: ---- never removes the parent directory along with its contents
+                it("never removes the parent directory along with its contents") {
                     try? extensionHelper.removeDedupeRecord(
                         threadId: "threadId",
                         uniqueIdentifier: "uniqueId"
@@ -593,6 +591,9 @@ class ExtensionHelperSpec: AsyncSpec {
                         .verify {
                             try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe")
                         }
+                        .wasNotCalled()
+                    await mockFileManager
+                        .verify { $0.isDirectoryEmpty(atPath: .any) }
                         .wasNotCalled()
                 }
                 
