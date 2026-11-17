@@ -1003,13 +1003,13 @@ class OnboardingSpec: AsyncSpec {
                 await expect { await manager.state.first() }.toEventually(equal(.completed))
             }
             
-            // MARK: -- does not refuse a restore
+            // MARK: -- does not refuse a restore of the same account
             ///
-            /// A restore into a populated database is the user asking for exactly that; it is registration that can
-            /// only get there by mistake
-            it("does not refuse a restore") {
+            /// A restore of the account the database already holds is the user asking for exactly that; it is
+            /// registration that can only get there by mistake
+            it("does not refuse a restore of the same account") {
                 try await mockStorage.write { db in
-                    try Identity(variant: .ed25519SecretKey, data: Data([1, 2, 3, 4])).insert(db)
+                    try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
                 }
                 
                 manager = Onboarding.Manager(flow: .restore, using: dependencies)
@@ -1020,6 +1020,175 @@ class OnboardingSpec: AsyncSpec {
             }
         }
         
+        // MARK: - an Onboarding Cache - Restoring over an existing account
+        describe("an Onboarding Cache when restoring into a database which holds an account") {
+            /// The mocked crypto derives every key pair to the `TestConstants` keys, so this is the account any restore here
+            /// writes, and the "other" account is one the mocks can never produce
+            let restoringPublicKey: Data = Data(hex: TestConstants.publicKey)
+            let otherPublicKey: Data = Data(repeating: 0x11, count: 32)
+
+            func insertConversation(_ db: ObservingDatabase) throws {
+                try SessionThread(
+                    id: SessionId(.standard, publicKey: Array(Data(repeating: 0x22, count: 32))).hexString,
+                    variant: .contact,
+                    creationDateTimestamp: 1234,
+                    shouldBeVisible: true,
+                    messageDraft: nil,
+                    notificationSound: nil,
+                    mutedUntilTimestamp: nil,
+                    onlyNotifyForMentions: false,
+                    markedAsUnread: false,
+                    pinnedPriority: 0,
+                    isDraft: false
+                ).insert(db)
+            }
+
+            func expectRefusal() async {
+                await expect { try await manager.completeRegistration() }
+                    .to(throwError { error in
+                        switch error {
+                            case Onboarding.RegistrationError.otherAccountDataPresent: break
+                            default: fail("Expected otherAccountDataPresent, got \(error)")
+                        }
+                    })
+                await mockGeneralCache
+                    .verify { $0.setSecretKey(ed25519SecretKey: .any) }
+                    .wasNotCalled()
+            }
+
+            justBeforeEach {
+                try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+
+                /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
+                /// distant future value to force the update logic to trigger
+                dependencies.dateNow = Date(timeIntervalSince1970: 9876543210)
+
+                manager = Onboarding.Manager(flow: .restore, using: dependencies)
+                try await manager.loadInitialState()
+                await manager.setDisplayName("TestCompleteName")
+            }
+
+            // MARK: -- restores into an empty database
+            it("restores into an empty database") {
+                await expect { try await manager.completeRegistration() }.toNot(throwError())
+                await expect { await manager.state.first() }.toEventually(equal(.completed))
+            }
+
+            // MARK: -- restores the account the identity rows belong to over its own data
+            ///
+            /// The normal path for someone who lands on onboarding with an intact database, so it must never be refused
+            it("restores the account the identity rows belong to over its own data") {
+                try await mockStorage.write { db in
+                    try Identity(variant: .x25519PublicKey, data: restoringPublicKey).insert(db)
+                    try insertConversation(db)
+                }
+
+                await expect { try await manager.completeRegistration() }.toNot(throwError())
+                await expect {
+                    try await mockStorage.read { db in try SessionThread.fetchCount(db) }
+                }.to(beGreaterThan(1))
+            }
+
+            // MARK: -- refuses to restore over another account's identity
+            it("refuses to restore over another account's identity") {
+                try await mockStorage.write { db in
+                    try Identity(variant: .x25519PublicKey, data: otherPublicKey).insert(db)
+                    try insertConversation(db)
+                }
+
+                await expectRefusal()
+
+                /// Overwriting this row is the data loss the refusal exists to prevent, so assert on the row itself
+                let storedPublicKey: Data? = try await mockStorage.read { db in
+                    try Identity.fetchOne(db, id: .x25519PublicKey)?.data
+                }
+                expect(storedPublicKey).to(equal(otherPublicKey))
+            }
+
+            // MARK: -- refuses to restore over identity rows whose account can't be derived
+            it("refuses to restore over identity rows whose account can't be derived") {
+                try await mockStorage.write { db in
+                    try Identity(variant: .ed25519SecretKey, data: Data([1, 2, 3, 4])).insert(db)
+                }
+
+                await expectRefusal()
+            }
+
+            // MARK: -- refuses when the identity is gone and the extension metadata names another account
+            it("refuses when the identity is gone and the extension metadata names another account") {
+                try await mockStorage.write { db in try insertConversation(db) }
+                try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(true)
+                try await mockExtensionHelper
+                    .when { $0.loadUserMetadata() }
+                    .thenReturn(
+                        ExtensionHelper.UserMetadata(
+                            sessionId: SessionId(.standard, publicKey: Array(otherPublicKey)),
+                            ed25519SecretKey: [],
+                            unreadCount: 0
+                        )
+                    )
+
+                await expectRefusal()
+            }
+
+            // MARK: -- restores when the identity is gone and the extension metadata names this account
+            it("restores when the identity is gone and the extension metadata names this account") {
+                try await mockStorage.write { db in try insertConversation(db) }
+                try await mockExtensionHelper.when { $0.userMetadataExists() }.thenReturn(true)
+                try await mockExtensionHelper
+                    .when { $0.loadUserMetadata() }
+                    .thenReturn(
+                        ExtensionHelper.UserMetadata(
+                            sessionId: SessionId(.standard, publicKey: Array(restoringPublicKey)),
+                            ed25519SecretKey: [],
+                            unreadCount: 0
+                        )
+                    )
+
+                await expect { try await manager.completeRegistration() }.toNot(throwError())
+            }
+
+            // MARK: -- restores when only the user config dumps identify the data, and they are this account's
+            it("restores when only the user config dumps identify the data, and they are this account's") {
+                try await mockStorage.write { db in
+                    try insertConversation(db)
+                    try ConfigDump(
+                        variant: .userProfile,
+                        sessionId: SessionId(.standard, publicKey: Array(restoringPublicKey)).hexString,
+                        data: Data([1, 2, 3]),
+                        timestampMs: 1234
+                    ).insert(db)
+                }
+
+                await expect { try await manager.completeRegistration() }.toNot(throwError())
+            }
+
+            // MARK: -- refuses when the user config dumps are another account's
+            it("refuses when the user config dumps are another account's") {
+                try await mockStorage.write { db in
+                    try insertConversation(db)
+                    try ConfigDump(
+                        variant: .userProfile,
+                        sessionId: SessionId(.standard, publicKey: Array(otherPublicKey)).hexString,
+                        data: Data([1, 2, 3]),
+                        timestampMs: 1234
+                    ).insert(db)
+                }
+
+                await expectRefusal()
+            }
+
+            // MARK: -- refuses when nothing identifies whose data it is
+            ///
+            /// Data which can't be shown to be this account's is treated as another account's: restoring over it is the
+            /// direction which can't be undone
+            it("refuses when nothing identifies whose data it is") {
+                try await mockStorage.write { db in try insertConversation(db) }
+
+                await expectRefusal()
+            }
+        }
+
         // MARK: - an Onboarding Cache - Complete Restoration
         describe("an Onboarding Cache when completing an account restoration") {
             @TestState var testCacheProfile: Profile!
@@ -1360,13 +1529,16 @@ class OnboardingSpec: AsyncSpec {
                     await expect { await manager.state.first() }.toNot(equal(.completed))
                 }
                 
-                // MARK: ---- clears the account from memory
-                it("clears the account from memory") {
+                // MARK: ---- never puts the account in memory
+                ///
+                /// A restore reads the database to check whose data it holds before anything else, so a suspended database
+                /// fails there - before the key is cached
+                it("never puts the account in memory") {
                     _ = try? await manager.completeRegistration()
                     
                     await mockGeneralCache
-                        .verify { $0.setSecretKey(ed25519SecretKey: []) }
-                        .wasCalled(exactly: 1)
+                        .verify { $0.setSecretKey(ed25519SecretKey: .any) }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ---- does not save the key for the extensions
@@ -1378,6 +1550,40 @@ class OnboardingSpec: AsyncSpec {
                             try $0.saveUserMetadata(sessionId: .any, ed25519SecretKey: .any, unreadCount: .any)
                         }
                         .wasNotCalled()
+                }
+            }
+            
+            // MARK: -- during a restore whose identity write fails
+            context("during a restore whose identity write fails") {
+                beforeEach {
+                    try await mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
+                    manager = Onboarding.Manager(flow: .restore, using: dependencies)
+                    try await manager.loadInitialState()
+                    await manager.setDisplayName("TestCompleteName")
+                    
+                    /// Fail only the identity write, so the checks which read the database first still pass and the write is
+                    /// what fails
+                    try await mockStorage.write { db in
+                        try db.execute(sql: """
+                            CREATE TEMP TRIGGER failIdentityStore BEFORE INSERT ON identity
+                            BEGIN SELECT RAISE(ABORT, 'identity write failed'); END
+                            """)
+                    }
+                }
+                
+                // MARK: ---- throws instead of completing
+                it("throws instead of completing") {
+                    await expect { try await manager.completeRegistration() }.to(throwError())
+                    await expect { await manager.state.first() }.toNot(equal(.completed))
+                }
+                
+                // MARK: ---- clears the account from memory
+                it("clears the account from memory") {
+                    _ = try? await manager.completeRegistration()
+                    
+                    await mockGeneralCache
+                        .verify { $0.setSecretKey(ed25519SecretKey: []) }
+                        .wasCalled(exactly: 1)
                 }
             }
             

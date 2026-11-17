@@ -61,6 +61,13 @@ public enum Onboarding {
         /// Not recoverable by retrying: it means the "do I have an account?" decision was answered wrongly, and
         /// whatever it missed is still on disk
         case userDataAlreadyPresent
+
+        /// Restore was asked to write an identity into a database which holds another account's data, or data whose account
+        /// can't be identified
+        ///
+        /// Not recoverable by retrying with the same recovery password: completing it would leave that data behind the
+        /// restored Session ID with no copy of the key it belongs to
+        case otherAccountDataPresent
     }
     
     enum SeedSource {
@@ -91,6 +98,51 @@ extension Onboarding {
         if try SessionThread.fetchCount(db) > 0 { return true }
         
         return (try Interaction.fetchCount(db) > 0)
+    }
+
+    /// Whether restoring `restoringSessionId` would write over data which belongs to a different account
+    ///
+    /// The owner comes from the first record of it which exists: the identity rows, then the copy of the key kept for the
+    /// extensions, then the user config dumps (which are only ever written for the account's own Session ID). Data with none of
+    /// those can't be shown to belong to the account being restored, so it counts as another account's
+    ///
+    /// Restoring the same account over its own data has to stay allowed - it is how someone who lands on onboarding with their
+    /// database intact gets back in
+    static func databaseContainsOtherAccountData(
+        _ db: ObservingDatabase,
+        restoringSessionId: SessionId,
+        extensionMetadataSessionId: SessionId?,
+        using dependencies: Dependencies
+    ) throws -> Bool {
+        guard try databaseContainsUserData(db) else { return false }
+
+        /// Any identity row at all is an identity which would be overwritten, so one whose account can't be derived counts as
+        /// another account's rather than falling through to the weaker evidence below
+        if try Identity.hasStoredIdentity(db) {
+            return (try storedIdentitySessionId(db, using: dependencies) != restoringSessionId)
+        }
+
+        if let extensionMetadataSessionId: SessionId = extensionMetadataSessionId {
+            return (extensionMetadataSessionId != restoringSessionId)
+        }
+
+        return (try AppSetup.userConfigSessionIds(db) != [restoringSessionId.hexString])
+    }
+
+    private static func storedIdentitySessionId(_ db: ObservingDatabase, using dependencies: Dependencies) throws -> SessionId? {
+        if let x25519PublicKey: Data = try Identity.fetchOne(db, id: .x25519PublicKey)?.data {
+            return SessionId(.standard, publicKey: Array(x25519PublicKey))
+        }
+
+        guard
+            let ed25519SecretKey: Data = try Identity.fetchOne(db, id: .ed25519SecretKey)?.data,
+            let keyPairs: (ed25519KeyPair: KeyPair, x25519KeyPair: KeyPair) = AppSetup.identityKeyPairs(
+                ed25519SecretKey: Array(ed25519SecretKey),
+                using: dependencies
+            )
+        else { return nil }
+
+        return SessionId(.standard, publicKey: keyPairs.x25519KeyPair.publicKey)
     }
 
     /// Answers "can this account be recovered?" from a single exported log: whether the database still holds the account's data,
@@ -551,6 +603,29 @@ extension Onboarding {
                     throw Onboarding.RegistrationError.userDataAlreadyPresent
                 }
             }
+
+            /// Restore stores the identity the same way, so restoring a different account replaces the existing one just as
+            /// registering would. The same account is allowed through: its identity rows are rewritten with identical values
+            if initialFlow == .restore {
+                let restoringSessionId: SessionId = userSessionId
+                let extensionMetadataSessionId: SessionId? = (dependencies[singleton: .extensionHelper].userMetadataExists() ?
+                    dependencies[singleton: .extensionHelper].loadUserMetadata()?.sessionId :
+                    nil
+                )
+                let databaseContainsOtherAccountData: Bool = try await dependencies[singleton: .storage].read { [dependencies] db in
+                    try Onboarding.databaseContainsOtherAccountData(
+                        db,
+                        restoringSessionId: restoringSessionId,
+                        extensionMetadataSessionId: extensionMetadataSessionId,
+                        using: dependencies
+                    )
+                }
+
+                guard !databaseContainsOtherAccountData else {
+                    Log.critical(.onboarding, "Refusing to restore an account into a database which holds another account's data.")
+                    throw Onboarding.RegistrationError.otherAccountDataPresent
+                }
+            }
             
             /// Cache the users session id (so we don't need to fetch it from the database every time)
             dependencies.mutate(cache: .general) {
@@ -765,8 +840,9 @@ public protocol OnboardingManagerType: Actor {
     /// Complete the registration process storing the created/updated user state in the database and creating
     /// the `libSession` state if needed
     ///
-    /// - Throws: `Onboarding.RegistrationError.userDataAlreadyPresent` if the database already contains user data, the
-    /// underlying error if that could not be determined, or the error from storing the identity during a `register` or `restore`
-    /// flow - in every case nothing has been written
+    /// - Throws: `Onboarding.RegistrationError.userDataAlreadyPresent` if registering into a database which already contains
+    /// user data, `Onboarding.RegistrationError.otherAccountDataPresent` if restoring into one which holds another account's
+    /// data, the underlying error if that could not be determined, or the error from storing the identity during a `register` or
+    /// `restore` flow - in every case nothing has been written
     func completeRegistration() async throws
 }
