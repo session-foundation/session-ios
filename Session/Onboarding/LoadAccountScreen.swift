@@ -78,8 +78,7 @@ struct LoadAccountScreen: View {
             
             guard !databaseContainsOtherAccountData else {
                 await MainActor.run {
-                    onError?()
-                    Onboarding.showOtherAccountDataAlert(using: dependencies)
+                    Onboarding.showOtherAccountDataAlert(onDismiss: onError, using: dependencies)
                 }
                 return
             }

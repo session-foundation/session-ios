@@ -263,7 +263,13 @@ extension Onboarding {
     /// Clearing the device is offered for someone who means to switch accounts and no longer has the other recovery password,
     /// but only as an explicit choice behind the same confirmation the startup database error uses - the data is never removed
     /// without the user asking
-    @MainActor static func showOtherAccountDataAlert(using dependencies: Dependencies) {
+    ///
+    /// `onDismiss` runs when the user backs out without clearing. The QR scanner resumes from it: resuming before then would
+    /// re-scan a code still in view straight away and loop the whole check behind this alert
+    @MainActor static func showOtherAccountDataAlert(
+        onDismiss: (() -> Void)? = nil,
+        using dependencies: Dependencies
+    ) {
         let alert: UIAlertController = UIAlertController(
             title: Constants.app_name,
             message: "recoveryPasswordErrorMessageOtherAccount".localized(),
@@ -279,10 +285,10 @@ extension Onboarding {
                 Log.critical(.onboarding, "User chose to clear the device after a restore over another account's data was refused.")
                 NukeDataModal.deleteAllLocalData(using: dependencies)
             })
-            confirmation.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
+            confirmation.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel) { _ in onDismiss?() })
             present(confirmation, using: dependencies)
         })
-        alert.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
+        alert.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel) { _ in onDismiss?() })
 
         present(alert, using: dependencies)
     }
