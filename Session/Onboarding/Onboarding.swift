@@ -237,7 +237,12 @@ extension Onboarding {
     /// **Nothing here may suggest reinstalling, restoring or clearing data**, including via the message text. A
     /// user who was refused registration has no recovery password - that is why they were being offered registration -
     /// so the copy on disk is the only one there is, and any of those three destroys it
-    @MainActor static func showRegistrationRefusedAlert(using dependencies: Dependencies) {
+    @MainActor static func showRegistrationRefusedAlert(for error: Error, using dependencies: Dependencies) {
+        /// A restore refused for another account's data has its own remedy, which restarting isn't
+        if case Onboarding.RegistrationError.otherAccountDataPresent = error {
+            return showOtherAccountDataAlert(using: dependencies)
+        }
+        
         let alert: UIAlertController = UIAlertController(
             title: Constants.app_name,
             message: "shareExtensionDatabaseError".localized(),
@@ -250,8 +255,41 @@ extension Onboarding {
             Log.flushAndTerminate()
         })
         
-        /// Onboarding runs inside a pushed navigation stack and `present` on a controller which is already presenting
-        /// is silently dropped, so this has to resolve to whatever is actually frontmost
+        present(alert, using: dependencies)
+    }
+
+    /// Shown when a restore was refused because the device holds a different account's data
+    ///
+    /// Clearing the device is offered for someone who means to switch accounts and no longer has the other recovery password,
+    /// but only as an explicit choice behind the same confirmation the startup database error uses - the data is never removed
+    /// without the user asking
+    @MainActor static func showOtherAccountDataAlert(using dependencies: Dependencies) {
+        let alert: UIAlertController = UIAlertController(
+            title: Constants.app_name,
+            message: "recoveryPasswordErrorMessageOtherAccount".localized(),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "clearDevice".localized(), style: .destructive) { _ in
+            let confirmation: UIAlertController = UIAlertController(
+                title: "clearDevice".localized(),
+                message: "databaseErrorClearDeviceWarning".localized(),
+                preferredStyle: .alert
+            )
+            confirmation.addAction(UIAlertAction(title: "clear".localized(), style: .destructive) { _ in
+                Log.critical(.onboarding, "User chose to clear the device after a restore over another account's data was refused.")
+                NukeDataModal.deleteAllLocalData(using: dependencies)
+            })
+            confirmation.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
+            present(confirmation, using: dependencies)
+        })
+        alert.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
+
+        present(alert, using: dependencies)
+    }
+
+    /// Onboarding runs inside a pushed navigation stack and `present` on a controller which is already presenting is silently
+    /// dropped, so this has to resolve to whatever is actually frontmost
+    @MainActor private static func present(_ alert: UIAlertController, using dependencies: Dependencies) {
         let presenter: UIViewController? = (
             dependencies[singleton: .appContext].frontMostViewController ??
             dependencies[singleton: .appContext].mainWindow?.rootViewController
@@ -582,6 +620,23 @@ extension Onboarding {
             self.userProfileConfigMessage = userProfileConfigMessage
         }
         
+        func databaseContainsOtherAccountData() async throws -> Bool {
+            let restoringSessionId: SessionId = userSessionId
+            let extensionMetadataSessionId: SessionId? = (dependencies[singleton: .extensionHelper].userMetadataExists() ?
+                dependencies[singleton: .extensionHelper].loadUserMetadata()?.sessionId :
+                nil
+            )
+
+            return try await dependencies[singleton: .storage].read { [dependencies] db in
+                try Onboarding.databaseContainsOtherAccountData(
+                    db,
+                    restoringSessionId: restoringSessionId,
+                    extensionMetadataSessionId: extensionMetadataSessionId,
+                    using: dependencies
+                )
+            }
+        }
+
         func completeRegistration() async throws {
             /// Registration stores the identity with `upsert` and deletes nothing else, so registering into a database
             /// which already has one replaces that identity in place and leaves its conversations, contacts and messages
@@ -606,22 +661,11 @@ extension Onboarding {
 
             /// Restore stores the identity the same way, so restoring a different account replaces the existing one just as
             /// registering would. The same account is allowed through: its identity rows are rewritten with identical values
+            ///
+            /// The recovery password screen checks this too so the user hears about it there, but this is the check that guards
+            /// the write
             if initialFlow == .restore {
-                let restoringSessionId: SessionId = userSessionId
-                let extensionMetadataSessionId: SessionId? = (dependencies[singleton: .extensionHelper].userMetadataExists() ?
-                    dependencies[singleton: .extensionHelper].loadUserMetadata()?.sessionId :
-                    nil
-                )
-                let databaseContainsOtherAccountData: Bool = try await dependencies[singleton: .storage].read { [dependencies] db in
-                    try Onboarding.databaseContainsOtherAccountData(
-                        db,
-                        restoringSessionId: restoringSessionId,
-                        extensionMetadataSessionId: extensionMetadataSessionId,
-                        using: dependencies
-                    )
-                }
-
-                guard !databaseContainsOtherAccountData else {
+                guard try await !databaseContainsOtherAccountData() else {
                     Log.critical(.onboarding, "Refusing to restore an account into a database which holds another account's data.")
                     throw Onboarding.RegistrationError.otherAccountDataPresent
                 }
@@ -836,6 +880,12 @@ public protocol OnboardingManagerType: Actor {
     func setSeedData(_ seedData: Data) async throws
     func setUseAPNS(_ useAPNS: Bool) async
     func setDisplayName(_ displayName: String) async
+    
+    /// Whether restoring the account from the current seed would write over a different account's data (see
+    /// `Onboarding.databaseContainsOtherAccountData`)
+    ///
+    /// - Throws: if the database could not be read
+    func databaseContainsOtherAccountData() async throws -> Bool
     
     /// Complete the registration process storing the created/updated user state in the database and creating
     /// the `libSession` state if needed

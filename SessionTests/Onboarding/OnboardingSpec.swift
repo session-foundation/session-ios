@@ -1207,6 +1207,21 @@ class OnboardingSpec: AsyncSpec {
                 await expectRefusal()
             }
 
+            // MARK: -- reports another account's data before completing
+            ///
+            /// The recovery password screen asks this to warn the user before the rest of the flow, so it has to give the same
+            /// answer the guard in `completeRegistration` acts on
+            it("reports another account's data before completing") {
+                await expect { try await manager.databaseContainsOtherAccountData() }.to(beFalse())
+
+                try await mockStorage.write { db in
+                    try Identity(variant: .x25519PublicKey, data: otherPublicKey).insert(db)
+                    try insertConversation(db)
+                }
+
+                await expect { try await manager.databaseContainsOtherAccountData() }.to(beTrue())
+            }
+
             // MARK: -- refuses when nothing identifies whose data it is
             ///
             /// Data which can't be shown to be this account's is treated as another account's: restoring over it is the
