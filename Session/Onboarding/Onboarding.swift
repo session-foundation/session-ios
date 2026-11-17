@@ -673,7 +673,7 @@ extension Onboarding {
                         db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
                         
                         /// If we don't have the `Note to Self` thread then create it (not visible by default)
-                        if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
+                        if (try? SessionThread.exists(db, id: userSessionId.hexString)) != true {
                             try ThreadCreationContext.$isOnboarding.withValue(true) {
                                 try SessionThread.upsert(
                                     db,

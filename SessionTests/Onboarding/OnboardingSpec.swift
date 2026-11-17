@@ -1089,6 +1089,35 @@ class OnboardingSpec: AsyncSpec {
                 }.to(beGreaterThan(1))
             }
 
+            // MARK: -- leaves an existing Note to Self as it was
+            it("leaves an existing Note to Self as it was") {
+                let noteToSelfId: String = SessionId(.standard, publicKey: Array(restoringPublicKey)).hexString
+                try await mockStorage.write { db in
+                    try Identity(variant: .x25519PublicKey, data: restoringPublicKey).insert(db)
+                    try SessionThread(
+                        id: noteToSelfId,
+                        variant: .contact,
+                        creationDateTimestamp: 1234,
+                        shouldBeVisible: true,
+                        messageDraft: nil,
+                        notificationSound: nil,
+                        mutedUntilTimestamp: nil,
+                        onlyNotifyForMentions: false,
+                        markedAsUnread: false,
+                        pinnedPriority: 0,
+                        isDraft: false
+                    ).insert(db)
+                }
+
+                try await manager.completeRegistration()
+
+                await expect {
+                    try await mockStorage.read { db in
+                        try SessionThread.fetchOne(db, id: noteToSelfId)?.shouldBeVisible
+                    }
+                }.to(beTrue())
+            }
+
             // MARK: -- refuses to restore over another account's identity
             it("refuses to restore over another account's identity") {
                 try await mockStorage.write { db in
