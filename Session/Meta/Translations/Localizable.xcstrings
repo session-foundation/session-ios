@@ -20174,6 +20174,18 @@
               }
             }
           }
+        },
+        "zh-TW" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 管理員已選中"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -62836,6 +62848,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Блокировать и разблокировать пользователей"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "封鎖 & 解除封鎖用戶"
           }
         }
       }
@@ -122627,7 +122645,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Əsas ekrana əlavə edildi"
+            "value" : "Ana ekrana əlavə edildi"
           }
         },
         "bal" : {
@@ -123112,7 +123130,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Əsas ekrana əlavə et"
+            "value" : "Ana ekrana əlavə et"
           }
         },
         "bal" : {
@@ -131750,6 +131768,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用回车键发送"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 Enter 發送"
           }
         }
       }
@@ -166402,6 +166426,12 @@
             "state" : "translated",
             "value" : "Откройте настройки устройства для уведомлений о звонках."
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟裝置設定管理通話通知。"
+          }
         }
       }
     },
@@ -166448,6 +166478,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Topluluk bildirimleri için Cihaz Ayarlarını açın."
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟裝置設定管理社群通知。"
           }
         }
       }
@@ -166496,6 +166532,12 @@
             "state" : "translated",
             "value" : "Sohbet bildirimleri için Cihaz Ayarlarını açın."
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟裝置設定管理對話通知。"
+          }
         }
       }
     },
@@ -166542,6 +166584,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Grup bildirimleri için Cihaz Ayarlarını açın."
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟裝置設定管理群組通知。"
           }
         }
       }
@@ -209263,6 +209311,12 @@
             "state" : "translated",
             "value" : "通过完成一份简短的调查问卷分享您对 Session 的使用体验。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過完成一份簡短的問卷，分享你對Session使用體驗。"
+          }
         }
       }
     },
@@ -240441,7 +240495,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bu qrup 30 gün ərzində güncəllənməyib. Mesaj göndərərkən və ya qrup məlumatlarına baxarkən problemlərlə üzləşə bilərsiniz."
+            "value" : "Bu qrup 30 gündən çoxdur ki, güncəllənməyib. Mesaj göndərərkən və ya qrup bilgilərinə baxarkən problemlərlə üzləşə bilərsiniz."
           }
         },
         "ca" : {
@@ -254178,6 +254232,12 @@
             "state" : "translated",
             "value" : "查看 Session 的常见问题解答以获取常见问题的答案。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常見問題請查看Session 常見問題尋找答案。"
+          }
         }
       }
     },
@@ -257588,6 +257648,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "帮助将 Session 本地化翻译成超过 80 种语言！"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "幫助將 Session 翻譯成超過80種語言！"
           }
         }
       }
@@ -261236,7 +261302,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Məlumat"
+            "value" : "Bilgi"
           }
         },
         "bal" : {
@@ -318885,6 +318951,12 @@
             "state" : "translated",
             "value" : "This message can't be displayed. Update Session to view it."
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不能顯示此訊息。更新 Session 以檢視。"
+          }
         }
       }
     },
@@ -323564,6 +323636,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "{name} — <b>администратор</b> этого сообщества."
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{name} 是此社群的 <b> 管理員 </b>。"
           }
         }
       }
@@ -334170,6 +334248,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "仅显示发送者名称，没有任何消息内容。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅顯示傳送者名稱，不顯示任何訊息內容。"
           }
         }
       }
@@ -371065,6 +371149,12 @@
             "state" : "translated",
             "value" : "移除 Session 的解锁密码。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除解鎖Session密碼"
+          }
         }
       }
     },
@@ -388657,6 +388747,12 @@
             "state" : "translated",
             "value" : "Pro 即将推出新功能。点击 <b>Pro 功能路线图</b> {icon} 了解接下来将推出的内容"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro 即將推出新功能。在 <b>Pro 未來規劃</b>{icon} 了解未來即將推出的新功能"
+          }
         }
       }
     },
@@ -392472,6 +392568,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Session 检测并已为您的账户恢复 Pro 访问权限。您的 Pro 状态已恢复！"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session 偵測並已為你的帳戶恢復 Pro 權限。你已恢復 Pro 狀態！"
           }
         }
       }
@@ -396942,6 +397044,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "想发送更长的消息？<br/>使用 Session Pro Beta 发送更多文本并解锁高级功能"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想傳送更長的訊息嗎？<br/>使用 Session Pro Beta 傳送更多文本並解鎖進階功能"
           }
         }
       }
@@ -412717,6 +412825,12 @@
             "state" : "translated",
             "value" : "{percent}% 折扣"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "折扣 {percent}%"
+          }
         }
       }
     },
@@ -418129,6 +418243,12 @@
             "state" : "translated",
             "value" : "你的 Pro 统计数据反映的是本设备的使用情况，在其他关联设备上可能会有所不同"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro 統計資料反映此裝置的使用情況，在其他關連裝置上可能會有所不同"
+          }
         }
       }
     },
@@ -422401,6 +422521,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "想充分体验 Session？<br/>升级到 Session Pro Beta，享受更强大的消息体验。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想要充分利用 Session？<br/>升級為 Session Pro Beta 享受更強大的訊息體驗。"
           }
         }
       }
@@ -432896,6 +433022,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "您復原密碼中的某些詞不正確。請檢查並重試。"
+          }
+        }
+      }
+    },
+    "recoveryPasswordErrorMessageOtherAccount" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device has messages from a different account. Restoring this account would make them unreachable. Enter that account’s recovery password to keep them."
           }
         }
       }
@@ -449052,7 +449189,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ölkə məlumatları yüklənir..."
+            "value" : "Ölkə bilgiləri yüklənir..."
           }
         },
         "bal" : {
@@ -491869,7 +492006,7 @@
         "az" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Qrup Məlumatını Yenilə"
+            "value" : "Qrup bilgilərini güncəllə"
           }
         },
         "ca" : {
@@ -495333,6 +495470,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在更新…"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新中……"
           }
         }
       }
@@ -505045,6 +505188,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "调整文本和视觉元素的大小。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "調整文本跟視覺元素的大小。"
           }
         }
       }
