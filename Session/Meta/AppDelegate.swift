@@ -28,6 +28,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// budget to be worth waiting for the next one
     fileprivate static let maxBackgroundPollPrerequisiteDuration: Int = 10
 
+    /// How far into a background fetch to stop waiting for the poll, so the database is suspended before the OS expires the
+    /// `BGAppRefreshTask` (about 30s in, and `backgroundTimeRemaining` reports no limit while one runs). A poll which is still
+    /// writing when the app is suspended leaves the database locked and iOS kills the app with `0xdead10cc`
+    fileprivate static let maxBackgroundFetchDuration: TimeInterval = 20
+
     /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
     let dependencies: Dependencies = Dependencies.createEmpty()
     @MainActor var hasInitialRootViewController: Bool = false
@@ -232,6 +237,54 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
+    /// Run the background poll, giving up on it after `timeLimit` or as soon as the calling task is cancelled (which is how the
+    /// `BGAppRefreshTask` expiry reaches it)
+    ///
+    /// The poll runs in its own task because cancelling it doesn't make requests which are already in flight return, so racing it
+    /// in a task group would still wait for them. Being unstructured, that task doesn't inherit cancellation, so it's passed on
+    /// explicitly
+    ///
+    /// - Returns: whether the poll received valid messages (`false` if it ran out of time or was cancelled)
+    fileprivate static func poll(timeLimit: TimeInterval, using dependencies: Dependencies) async -> Bool {
+        let pollTask: Task<Bool, Never> = Task { await BackgroundPoller().poll(using: dependencies) }
+        
+        /// Cancelling this ends its sleep early, so cancelling it is also how the wait is cut short
+        let timeoutTask: Task<Void, Never> = Task {
+            try? await Task.sleep(nanoseconds: UInt64(timeLimit * 1_000_000_000))
+        }
+        let result: Bool? = await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
+                let pendingContinuation: ThreadSafeObject<CheckedContinuation<Bool?, Never>?> = ThreadSafeObject(continuation)
+                let finish: (Bool?) -> Void = { value in
+                    pendingContinuation.performUpdateAndMap { (nil, $0) }?.resume(returning: value)
+                }
+                
+                Task {
+                    await timeoutTask.value
+                    finish(nil)
+                }
+                Task {
+                    finish(await pollTask.value)
+                    timeoutTask.cancel()
+                }
+            }
+        } onCancel: {
+            pollTask.cancel()
+            timeoutTask.cancel()
+        }
+
+        guard let result: Bool = result else {
+            switch Task.isCancelled {
+                case true: Log.warn(.backgroundPoller, "Stopped waiting for the background poll as the background fetch was cancelled.")
+                case false: Log.warn(.backgroundPoller, "Stopped waiting for the background poll after \(TimeUnit.seconds(timeLimit), unit: .s) so the database can be suspended in time.")
+            }
+            pollTask.cancel()
+            return false
+        }
+
+        return result
+    }
+
     private func handleBackgroundRefresh(task: BGAppRefreshTask) {
         /// Immediately reschedule the next refresh so we don't miss future opportunities even if this one gets cancelled or fails
         scheduleBackgroundRefresh()
@@ -239,6 +292,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let fetchTask: Task<Void, Never> = Task(priority: .userInitiated) { [dependencies] in
             Log.appResumedExecution()
             Log.info(.backgroundPoller, "Starting background fetch.")
+            let fetchStart: Date = dependencies.dateNow
 
             guard
                 !Task.isCancelled,
@@ -262,8 +316,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
 
             /// Perform the polling
-            let poller: BackgroundPoller = BackgroundPoller()
-            let hadValidMessages: Bool = await poller.poll(using: dependencies)
+            let pollTimeLimit: TimeInterval = max(
+                0,
+                AppDelegate.maxBackgroundFetchDuration - dependencies.dateNow.timeIntervalSince(fetchStart)
+            )
+            let hadValidMessages: Bool = await AppDelegate.poll(timeLimit: pollTimeLimit, using: dependencies)
             
             /// Update the app badge in case the unread count changed
             await AppDelegate.updateUnreadBadgeCount(using: dependencies)
