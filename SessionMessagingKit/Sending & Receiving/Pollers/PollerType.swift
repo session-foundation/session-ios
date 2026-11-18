@@ -36,18 +36,24 @@ public struct PollResult<R> {
     public let invalidMessageCount: Int
     public let hadValidHashUpdate: Bool
     
+    /// The errors which stopped individual messages being processed, keyed by the message's server hash (duplicates and self-sends
+    /// aren't failures, so they aren't included)
+    public let messageErrors: [String: Error]
+    
     public init(
         response: R,
         rawMessageCount: Int = 0,
         validMessageCount: Int = 0,
         invalidMessageCount: Int = 0,
-        hadValidHashUpdate: Bool = false
+        hadValidHashUpdate: Bool = false,
+        messageErrors: [String: Error] = [:]
     ) {
         self.response = response
         self.rawMessageCount = rawMessageCount
         self.validMessageCount = validMessageCount
         self.invalidMessageCount = invalidMessageCount
         self.hadValidHashUpdate = hadValidHashUpdate
+        self.messageErrors = messageErrors
     }
 }
 

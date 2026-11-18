@@ -293,9 +293,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func ensureWindowInitialised() async {
         if hasNotifiedWindowReady { return }
         
-        return await withCheckedContinuation { continuation in
+        /// A launch in the background may not connect a scene until the app is foregrounded, which can leave setup waiting here
+        /// with nothing else logged until then
+        Log.info(.cat, "Waiting for a scene to connect before continuing setup.")
+        await withCheckedContinuation { continuation in
             windowReadyContinuation = continuation
         }
+        Log.info(.cat, "Scene connected, continuing setup.")
     }
     
     func signalWindowReady() {
@@ -312,7 +316,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// **The state must be read from `syncState`, not `state`.** This usually runs in that cancelled task, and `first()` on a stream
     /// in a cancelled task generally returns `nil` before the current value arrives, which would show the alert for exactly this case
     private func handleFailedEnvironmentSetup(_ error: Error, calledFrom lifecycleMethod: LifecycleMethod) async {
-        guard dependencies[singleton: .storage].syncState.state == .suspended else {
+        let databaseState: Storage.State = dependencies[singleton: .storage].syncState.state
+        
+        /// The alert's description collapses most errors into "Database error", so this is the only record of what actually failed (and
+        /// of whether the failure was the setup being cancelled rather than the database itself)
+        Log.error(.cat, "Environment setup failed (database state: \(databaseState), cancelled: \(Task.isCancelled), background: \(dependencies[singleton: .appContext].isInBackground)): \(error)")
+        
+        guard databaseState == .suspended else {
             return await MainActor.run { [weak self] in
                 self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .databaseError(error))
             }
