@@ -70,6 +70,19 @@ struct LoadAccountScreen: View {
                 return
             }
             
+            /// Tell the user here, while they can still enter a different recovery password, rather than after the rest of the
+            /// flow. A read which fails carries on: completing the restore runs the same check and refuses then
+            let databaseContainsOtherAccountData: Bool = (
+                (try? await dependencies[singleton: .onboarding].databaseContainsOtherAccountData()) == true
+            )
+            
+            guard !databaseContainsOtherAccountData else {
+                await MainActor.run {
+                    Onboarding.showOtherAccountDataAlert(onDismiss: onError, using: dependencies)
+                }
+                return
+            }
+            
             Task {
                 try await Task.sleep(for: .seconds(1))
                 await MainActor.run { onSuccess?() }
