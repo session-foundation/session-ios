@@ -53,6 +53,7 @@ public class NotificationActionHandler {
                             applicationState: applicationState
                         )
                 }
+                return
                 
             case UNNotificationDismissActionIdentifier:
                 // TODO: mark as read?
