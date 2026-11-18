@@ -59,8 +59,12 @@ mkdir -p ./build
     -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
 # 2. Export the IPA.
+#
+# Xcode copies the IPA with `/usr/bin/rsync -E`, but rsync starts its receiving side by looking up
+# `rsync` on PATH. A newer rsync earlier on PATH (eg. Homebrew's 3.x) rejects `--extended-attributes`
+# and the export fails with "Copy failed", so the system rsync has to come first for this step.
 rm -rf "$EXPORT_DIR"
-xcodebuild -exportArchive \
+PATH="/usr/bin:$PATH" xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
     -exportPath "$EXPORT_DIR" \
     -exportOptionsPlist "./exportOptions.plist" \
