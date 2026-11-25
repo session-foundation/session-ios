@@ -71953,6 +71953,12 @@
             "state" : "translated",
             "value" : "找不到可打开该网址的浏览器，请尝试复制该网址"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有找到能開啟此網址的瀏覽器，請改為手動複製此網址"
+          }
         }
       }
     },
@@ -75820,6 +75826,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法開始通話"
+          }
+        }
+      }
+    },
+    "callsFullScreenExit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exit Full Screen"
           }
         }
       }
@@ -81104,6 +81121,17 @@
         }
       }
     },
+    "callsScreenRecordingPermissionDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session needs Screen Recording access to share your screen. Allow it in System Settings, then restart Session."
+          }
+        }
+      }
+    },
     "callsSessionCall" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -82058,6 +82086,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通話 (Beta)"
+          }
+        }
+      }
+    },
+    "callsShareScreen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Screen"
+          }
+        }
+      }
+    },
+    "callsShareScreenNoSources" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No windows or screens are available to share."
+          }
+        }
+      }
+    },
+    "callsStopSharing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Sharing"
           }
         }
       }
@@ -113001,6 +113062,12 @@
             "state" : "translated",
             "value" : "Это сообщество размещено на сервере с устаревшей версией Session и станет доступным только для чтения, если не обновить {icon}"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此社群由架設在傳統 Session 軟體的伺服器運作，且除非已升級 {icon} 否則將只能讀取"
+          }
         }
       }
     },
@@ -113095,6 +113162,12 @@
             "state" : "translated",
             "value" : "Другие участники сообщества увидят ваш скрытый ID."
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他社群成員將能看到你的已遮蔽ID。"
+          }
         }
       }
     },
@@ -113141,6 +113214,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Возможность самостоятельно управлять своей ролью появится в одном из будущих обновлений."
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的職位自主管理即將在未來更新。"
           }
         }
       }
@@ -207591,6 +207670,12 @@
             "state" : "translated",
             "value" : "重新发送给 <b>{name}</b> 和另外 <b>{count} 人</b> 在 <b>{group_name}</b> 的邀请失败"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法將邀請重新發送給在 <b>{group_name}</b> 中的 <b>{name}</b> 跟 <b>{count}</b> 位其他成員"
+          }
         }
       }
     },
@@ -207763,6 +207848,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新发送给 <b>{name}</b> 和 <b>{other_name}</b> 在 <b>{group_name}</b> 的邀请失败"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法將邀請重新發送給在 <b>{group_name}</b> 中的 <b>{name}</b> 跟 <b>{other_name}</b>"
           }
         }
       }
@@ -208270,6 +208361,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法将管理员邀请重新发送给 <b>{name}</b> 和 <b>{other_name}</b>（群组 <b>{group_name}</b>）"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法將管理員邀請重新發送給在 <b>{group_name}</b> 中的 <b>{name}</b> 跟 <b>{other_name}</b>"
           }
         }
       }
@@ -213789,6 +213886,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "В поисковом запросе есть ID аккаунта.<br/><br/>Хотите связаться с этим пользователем?"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你輸入的搜尋條件中包含一個帳號 ID。<br/><br/>你想用此帳號 ID 開始對話嗎？"
           }
         }
       }
@@ -266460,6 +266563,12 @@
             "state" : "translated",
             "value" : "通过输入朋友的账户 ID、ONS 或扫描其二维码邀请新成员加入群组 {icon}"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過輸入你朋友的帳號 ID 、ONS 或掃描他們的 QR code {icon}，邀請新成員進群組"
+          }
         }
       }
     },
@@ -266626,6 +266735,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通过输入您朋友的账户ID、ONS或扫描其二维码，将新成员邀请加入群组"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過輸入你朋友的帳號 ID 、ONS 或掃描他們的 QR code ，邀請新成員進群組"
           }
         }
       }
@@ -311127,12 +311242,6 @@
             "value" : "La vostra sol·licitud de missatge ha estat acceptada."
           }
         },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vaše žádost o komunikaci byla odsouhlasena."
-          }
-        },
         "cy" : {
           "stringUnit" : {
             "state" : "translated",
@@ -318978,6 +319087,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One of your other devices is using a newer version of Session. Update this device to keep your messages in sync."
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的其他裝置之中有一個正在使用更新版本的 Session。請更新此裝置以保持訊息同步。"
           }
         }
       }
@@ -327894,6 +328009,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该群组中没有非管理员成员。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此群組沒有非管理員成員。"
           }
         }
       }
@@ -357370,6 +357491,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在登录了您最初注册使用的 {platform_account} 的 {device_type} 设备上打开此 Session 账户。然后通过 Session Pro 设置更新您的 Pro 访问权限。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在登入了你最初註冊的 {platform_account} 的 {device_type} 裝置開啟此 Session 帳號。接著透過 Session Pro 設定更新你的 Pro 權限。"
           }
         }
       }
@@ -414454,6 +414581,12 @@
             "state" : "translated",
             "value" : "请在登录了您最初注册所用的 {platform_account} 的 {device_type} 设备上打开此 Session 账户。然后通过 Session Pro 设置申请退款。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在登入了你最初註冊的 {platform_account} 的 {device_type} 裝置開啟此 Session 帳號。接著透過 Session Pro 設定申請退款。"
+          }
         }
       }
     },
@@ -419269,6 +419402,12 @@
             "state" : "translated",
             "value" : "无法连接到网络以检查您的 Pro 状态。在恢复连接之前，您无法继续。<br/><br/>请检查您的网络连接并重试。"
           }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法連接到網路以檢查你的 Pro 狀態。你無法繼續直到連線恢復。\n<br/><br/>請檢查你的網路連線並再試一次。"
+          }
         }
       }
     },
@@ -419435,6 +419574,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法连接网络以检查您的 Pro 状态。在恢复连接之前，您无法升级到 Pro。<br/><br/>请检查您的网络连接并重试。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法連接到網路以檢查你的 Pro 狀態。你無法升級到 Pro 直到連線恢復。<br/><br/>請檢查你的網路連線並再試一次。"
           }
         }
       }
@@ -451775,6 +451920,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在后台运行 Session？"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在背景執行 Session？"
           }
         }
       }
