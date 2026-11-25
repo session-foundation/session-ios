@@ -586,9 +586,6 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         )
         navBarProfileView = profilePictureView
         
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
-        profilePictureView.addGestureRecognizer(tapGestureRecognizer)
-        
         /// Path status indicator
         let pathStatusView = PathStatusView(using: viewModel.dependencies)
         pathStatusView.accessibilityLabel = "Current onion routing path indicator"
@@ -596,21 +593,30 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         /// Container view
         let profilePictureViewContainer = UIView()
         profilePictureViewContainer.addSubview(profilePictureView)
-        profilePictureView.pin(to: profilePictureViewContainer)
         profilePictureViewContainer.addSubview(pathStatusView)
-        pathStatusView.pin(
-            .trailing,
-            to: .trailing,
-            of: profilePictureViewContainer,
-            withInset: {
-                if #available(iOS 26, *) {
-                    return -4
-                }
-                
-                return 0
-            }()
-        )
-        pathStatusView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
+        
+        if #available(iOS 26, *) {
+            /// The glass background is sized from this view, so it keeps the avatar's width and only grows to the glass's 44pt height
+            profilePictureViewContainer.set(.height, to: 44)
+            profilePictureView.pin(.leading, to: .leading, of: profilePictureViewContainer)
+            profilePictureView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
+            profilePictureView.center(.vertical, in: profilePictureViewContainer)
+            pathStatusView.pin(.trailing, to: .trailing, of: profilePictureViewContainer, withInset: -4)
+            pathStatusView.pin(.bottom, to: .bottom, of: profilePictureView)
+        }
+        else {
+            /// The avatar is only drawn at 26pt, so the container is sized to the 44pt minimum tap target
+            profilePictureViewContainer.set(.width, to: 44)
+            profilePictureViewContainer.set(.height, to: 44)
+            profilePictureView.pin(.leading, to: .leading, of: profilePictureViewContainer)
+            profilePictureView.center(.vertical, in: profilePictureViewContainer)
+            pathStatusView.pin(.trailing, to: .trailing, of: profilePictureView)
+            pathStatusView.pin(.bottom, to: .bottom, of: profilePictureView)
+        }
+        
+        /// The container owns the gesture so taps on the path indicator (drawn over the avatar's corner) aren't swallowed
+        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(openSettings))
+        profilePictureViewContainer.addGestureRecognizer(tapGestureRecognizer)
         
         /// Left bar button item
         let leftBarButtonItem = UIBarButtonItem(customView: profilePictureViewContainer)
