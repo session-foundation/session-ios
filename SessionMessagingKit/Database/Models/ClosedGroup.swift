@@ -314,24 +314,57 @@ public extension ClosedGroup {
             /// Bulk unsubscripe from updated groups being removed
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    let swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)] = threadVariants
+                    let groupIds: [String] = threadVariants
                         .filter { $0.variant == .group }
-                        .compactMap { info in
-                            let authMethod: AuthenticationMethod? = try? Authentication.with(
-                                swarmPublicKey: info.id,
-                                using: dependencies
+                        .map { $0.id }
+                    
+                    /// When the group was removed by another device, or we were kicked or it was destroyed, the `userGroups` config
+                    /// no longer has its auth by the time this runs, so fall back to the copy on the `ClosedGroup` row (cleared by
+                    /// `.authDetails` further down, so this must run first) - otherwise the subscription is never removed and pushes
+                    /// for the group keep arriving
+                    let storedAuth: [String: ClosedGroup] = ((try? ClosedGroup.fetchAll(db, ids: groupIds)) ?? [])
+                        .reduce(into: [:]) { result, next in result[next.threadId] = next }
+                    let swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)] = groupIds
+                        .compactMap { groupId in
+                            let groupSessionId: SessionId = SessionId(.group, hex: groupId)
+                            let authMethod: AuthenticationMethod? = (
+                                (try? Authentication.with(swarmPublicKey: groupId, using: dependencies)) ??
+                                storedAuth[groupId].flatMap { group in
+                                    try? Authentication.with(
+                                        groupSessionId: groupSessionId,
+                                        groupIdentityPrivateKey: group.groupIdentityPrivateKey,
+                                        authData: group.authData
+                                    )
+                                }
                             )
                             
-                            return authMethod.map { (SessionId(.group, hex: info.id), $0) }
+                            return authMethod.map { (groupSessionId, $0) }
                         }
                     
+                    if swarms.count < groupIds.count {
+                        Log.warn(.pushNotificationAPI, "Skipping unsubscribe for \(groupIds.count - swarms.count) removed group(s) with no auth data.")
+                    }
+                    
+                    /// Must be prepared (and so signed) here, as removing the group unloads its keys config (which a group member's
+                    /// signature needs) before a detached task would get to run
                     if !swarms.isEmpty {
-                        Task.detached(priority: .userInitiated) { [dependencies] in
-                            try? await Network.PushNotification.unsubscribe(
+                        do {
+                            let request: Network.PreparedRequest<Network.PushNotification.UnsubscribeResponse> = try Network.PushNotification.preparedUnsubscribe(
                                 token: Data(hex: token),
                                 swarms: swarms,
                                 using: dependencies
                             )
+                            
+                            Task.detached(priority: .userInitiated) { [dependencies] in
+                                _ = try? await Network.PushNotification.unsubscribe(
+                                    request,
+                                    swarms: swarms,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                        catch {
+                            Log.warn(.pushNotificationAPI, "Skipping unsubscribe for \(swarms.count) removed group(s) due to error: \(error).")
                         }
                     }
                 }
