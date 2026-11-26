@@ -158,6 +158,25 @@ class PhotoCollectionContents {
         /// handling (the default PhotoKit resizing can't resize animated images so we need to do it ourselves)
         switch asset.utType?.isAnimated {
             case .some(true):
+                guard
+                    let path: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: asset.localIdentifier)
+                else { return nil }
+                
+                let generatedFileName: String = URL(fileURLWithPath: path).lastPathComponent
+                let fileUrl: URL = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
+                    .appendingPathComponent(generatedFileName)
+                
+                /// The thumbnail is generated from this copy of the full file and cached under its name, so once it exists there is no
+                /// need to fetch the full file (possibly from iCloud) and write it again
+                if
+                    dependencies[singleton: .attachmentManager]
+                        .existingThumbnail(name: generatedFileName, size: size)?
+                        .createImageSource() != nil
+                {
+                    return .urlThumbnail(fileUrl, size, dependencies[singleton: .attachmentManager])
+                }
+                
                 let maybeData: Data? = await withCheckedContinuation { [imageManager] continuation in
                     let options = PHImageRequestOptions()
                     options.deliveryMode = .highQualityFormat
@@ -185,15 +204,8 @@ class PhotoCollectionContents {
                     }
                 }
                 
-                guard
-                    let data: Data = maybeData,
-                    let path: String = try? dependencies[singleton: .attachmentManager]
-                        .path(for: asset.localIdentifier)
-                else { return nil }
+                guard let data: Data = maybeData else { return nil }
                 do {
-                    let generatedFileName: String = URL(fileURLWithPath: path).lastPathComponent
-                    let fileUrl: URL = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
-                        .appendingPathComponent(generatedFileName)
                     try dependencies[singleton: .fileManager].write(data: data, toPath: fileUrl.path)
                     
                     return .urlThumbnail(fileUrl, size, dependencies[singleton: .attachmentManager])
