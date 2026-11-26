@@ -227,11 +227,30 @@ public enum SwarmPoller {
         guard lastHashes.isEmpty || Set(lastHashes) == lastHashesAfterFetch else {
             return ([], [], PollResult(response: []))
         }
-        
+
+        /// The cursor is a position in what the node returned, so every hash is recorded whether or not its message could be used.
+        /// The node returns the oldest messages after the cursor up to a size cap, so leaving out the ones that failed would park the
+        /// cursor behind them: once enough of them fill the cap, every poll gets the same messages back and nothing newer arrives
+        /// from that node until they expire. Anyone can store unauthenticated messages in the default namespace, so this can be done
+        /// deliberately.
+        ///
+        /// Recorded in the order the node returned them, which is the order `fetchLastNotExpired` reads back, and only once the
+        /// namespace has been handled: it all happens in the caller's write transaction, so if that fails or the app dies first the
+        /// node offers the batch again.
+        func recordCursor(for messages: [Network.StorageServer.Message]) {
+            messages.forEach { message in
+                if message.info?.storeUpdatedLastHash(db, unlessResetSince: cursorResetGeneration, using: dependencies) == true {
+                    hadValidHashUpdate = true
+                }
+            }
+        }
+
         /// Since the hashes are still accurate we can now process the messages
         let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
         let allProcessedMessages: [ProcessedMessage] = sortedMessages
             .compactMap { namespace, messages, _ -> [ProcessedMessage]? in
+                defer { recordCursor(for: messages) }
+
                 let processedMessages: [ProcessedMessage] = messages.compactMap { message -> ProcessedMessage? in
                     do {
                         let processedMessage: ProcessedMessage = try MessageReceiver.parse(
@@ -245,8 +264,7 @@ public enum SwarmPoller {
                             ),
                             using: dependencies
                         )
-                        hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db, unlessResetSince: cursorResetGeneration, using: dependencies) == true)
-                        
+
                         /// Insert the deduplication record (ignoring dedupe files if needed)
                         ///
                         /// **Note:** For the synchronous notification extension import path (`forceSynchronousProcessing`, ie. loading
@@ -269,11 +287,6 @@ public enum SwarmPoller {
                         return processedMessage
                     }
                     catch {
-                        /// For some error cases we want to update the last hash so do so
-                        if (error as? MessageError)?.shouldUpdateLastHash == true {
-                            hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db, unlessResetSince: cursorResetGeneration, using: dependencies) == true)
-                        }
-                        
                         switch error {
                             /// Ignore duplicate & selfSend message errors (and don't bother logging them as there
                             /// will be a lot since we each service node duplicates messages)
@@ -373,6 +386,21 @@ public enum SwarmPoller {
                         }
                     }
                     catch {
+                        /// The savepoint rolled the merge back, so hand the messages to a `ConfigMessageReceiveJob`, as is already done
+                        /// for the config namespaces that aren't merged during the poll, and let the cursor move past them. Holding the
+                        /// cursor instead would let one message that can never merge park the namespace on that node until it expires,
+                        /// and anyone who can store to the namespace (any member, for a group's keys) could store such a message. The
+                        /// job is saved in this transaction so it survives the app dying, and it gets another attempt once this poll has
+                        /// committed
+                        dependencies[singleton: .jobRunner].add(
+                            db,
+                            job: Job(
+                                variant: .configMessageReceive,
+                                threadId: swarmPublicKey,
+                                details: ConfigMessageReceiveJob.Details(messages: processedMessages)
+                            )
+                        )
+
                         /// If we deferred the dedupe inserts then the savepoint rolled them back so cancel their pending file writes too
                         ///
                         /// Cancelling the pending write only discards the record *this* run would have created - the extension saved its

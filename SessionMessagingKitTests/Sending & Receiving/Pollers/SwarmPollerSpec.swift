@@ -386,8 +386,7 @@ class SwarmPollerSpec: AsyncSpec {
                     /// the start of the write passes here - the cursor is still `H0` - so only a check made at the write
                     /// itself can see the reset.
                     ///
-                    /// The promotion reset on the messages namespace, from the message decode that precedes the cursor write.
-                    /// The decode reports the message as outdated, which is one of the outcomes that still stores its hash
+                    /// The promotion reset on the messages namespace, from the message decode that precedes the cursor write
                     try await fixture.storeCursor("H0", namespace: .groupMessages)
                     try await fixture.stubCursorPoll(namespace: .groupMessages, hashes: ["H1", "H2"], resetWhileRetrieving: nil)
                     try await fixture.resetInsideTheWriteBeforeFirstCursorWrite { db in
@@ -405,6 +404,121 @@ class SwarmPollerSpec: AsyncSpec {
 
                     expect(fixture.resetRan).to(beTrue())
                     await expect { try await fixture.cursor(namespace: .groupMessages) }.to(beNil())
+                }
+            }
+        }
+
+        // MARK: - a SwarmPoller whose retrieve returns messages it cannot decode
+        ///
+        /// The node returns the oldest messages after the cursor, up to a size cap. If the cursor stops short of messages that
+        /// fail to decode, every poll gets them back and nothing newer arrives from that node until they expire
+        describe("a SwarmPoller whose retrieve returns messages it cannot decode") {
+            // MARK: -- when undecodable messages are followed by valid ones
+            context("when undecodable messages are followed by valid ones") {
+                // MARK: ---- moves the cursor to the last hash and asks for messages after it
+                it("moves the cursor to the last hash and asks for messages after it") {
+                    try await fixture.stubDecodes([false, false, false, true, true])
+                    try await fixture.stubCursorPoll(
+                        namespace: .groupMessages,
+                        hashes: ["U1", "U2", "U3", "V1", "V2"],
+                        resetWhileRetrieving: nil
+                    )
+                    let poller: GroupPoller = fixture.groupPoller(namespace: .groupMessages)
+
+                    let result: PollResult<SwarmPoller.PollResponse> = try await require {
+                        try await poller.poll(forceSynchronousProcessing: false)
+                    }.toNot(throwError())
+                    _ = try await require { try await poller.poll(forceSynchronousProcessing: false) }.toNot(throwError())
+
+                    /// Premise: the first three failed to decode and the last two did not
+                    expect(result.invalidMessageCount).to(equal(3))
+                    expect(result.response.count).to(equal(2))
+                    await expect { try await fixture.cursor(namespace: .groupMessages) }.to(equal("V2"))
+                    expect(fixture.sentRetrieveCursors).to(equal(["", "V2"]))
+                }
+            }
+
+            // MARK: -- when valid messages are followed by undecodable ones
+            context("when valid messages are followed by undecodable ones") {
+                // MARK: ---- moves the cursor to the last hash and asks for messages after it
+                it("moves the cursor to the last hash and asks for messages after it") {
+                    try await fixture.stubDecodes([true, true, false, false, false])
+                    try await fixture.stubCursorPoll(
+                        namespace: .groupMessages,
+                        hashes: ["V1", "V2", "U1", "U2", "U3"],
+                        resetWhileRetrieving: nil
+                    )
+                    let poller: GroupPoller = fixture.groupPoller(namespace: .groupMessages)
+
+                    let result: PollResult<SwarmPoller.PollResponse> = try await require {
+                        try await poller.poll(forceSynchronousProcessing: false)
+                    }.toNot(throwError())
+                    _ = try await require { try await poller.poll(forceSynchronousProcessing: false) }.toNot(throwError())
+
+                    expect(result.invalidMessageCount).to(equal(3))
+                    expect(result.response.count).to(equal(2))
+                    await expect { try await fixture.cursor(namespace: .groupMessages) }.to(equal("U3"))
+                    expect(fixture.sentRetrieveCursors).to(equal(["", "U3"]))
+                }
+            }
+
+            // MARK: -- when every message is undecodable
+            context("when every message is undecodable") {
+                // MARK: ---- moves the cursor to the last hash and asks for messages after it
+                it("moves the cursor to the last hash and asks for messages after it") {
+                    try await fixture.storeCursor("H0", namespace: .groupMessages)
+                    try await fixture.stubCursorPoll(
+                        namespace: .groupMessages,
+                        hashes: ["U1", "U2", "U3"],
+                        resetWhileRetrieving: nil
+                    )
+                    let poller: GroupPoller = fixture.groupPoller(namespace: .groupMessages)
+
+                    let result: PollResult<SwarmPoller.PollResponse> = try await require {
+                        try await poller.poll(forceSynchronousProcessing: false)
+                    }.toNot(throwError())
+                    _ = try await require { try await poller.poll(forceSynchronousProcessing: false) }.toNot(throwError())
+
+                    expect(result.invalidMessageCount).to(equal(3))
+                    expect(result.response).to(beEmpty())
+                    await expect { try await fixture.cursor(namespace: .groupMessages) }.to(equal("U3"))
+                    expect(fixture.sentRetrieveCursors).to(equal(["H0", "U3"]))
+                }
+            }
+        }
+
+        // MARK: - a SwarmPoller handling a config namespace synchronously
+        describe("a SwarmPoller handling a config namespace synchronously") {
+            // MARK: -- when the merge throws
+            context("when the merge throws") {
+                // MARK: ---- moves the cursor to the last hash and hands the messages to a config job
+                it("moves the cursor to the last hash and hands the messages to a config job") {
+                    try await fixture.stubJobRunnerAdds()
+                    try await fixture.storeCursor("H0", namespace: .configGroupKeys)
+
+                    _ = try await fixture.processSnodeResponse(namespace: .configGroupKeys, hashes: ["K1", "K2"])
+
+                    await expect { try await fixture.cursor(namespace: .configGroupKeys) }.to(equal("K2"))
+                    expect(fixture.addedJobs.map { $0.variant }).to(equal([.configMessageReceive]))
+                    expect(fixture.addedJobs.first?.threadId).to(equal(fixture.groupId.hexString))
+                    expect(fixture.addedConfigJobHashes).to(equal(["K1", "K2"]))
+                }
+            }
+
+            // MARK: -- when the merge succeeds
+            context("when the merge succeeds") {
+                // MARK: ---- moves the cursor to the last hash without adding a job
+                it("moves the cursor to the last hash without adding a job") {
+                    try await fixture.stubJobRunnerAdds()
+                    try await fixture.mockLibSessionCache
+                        .when { try $0.handleConfigMessages(.any, swarmPublicKey: .any, messages: .any) }
+                        .thenReturn(())
+                    try await fixture.storeCursor("H0", namespace: .configGroupKeys)
+
+                    _ = try await fixture.processSnodeResponse(namespace: .configGroupKeys, hashes: ["K1", "K2"])
+
+                    await expect { try await fixture.cursor(namespace: .configGroupKeys) }.to(equal("K2"))
+                    expect(fixture.addedJobs).to(beEmpty())
                 }
             }
         }
@@ -654,7 +768,11 @@ private class SwarmPollerTestFixture: FixtureBase {
                     overallTimeout: .any
                 )
             }
-            .thenReturn { [weak self, mockStorage, dependencies] _ in
+            .thenReturn { [weak self, mockStorage, dependencies] args in
+                if let body: Data = args[2] as? Data {
+                    self?._sentBatchBodies.performUpdate { $0 + [body] }
+                }
+
                 if let reset = resetWhileRetrieving {
                     /// Synchronously and in its own transaction: the poll holds none while its retrieve is out
                     try? mockStorage.syncState.testDbWriter?.write { db in
@@ -665,6 +783,132 @@ private class SwarmPollerTestFixture: FixtureBase {
 
                 return response
             }
+    }
+
+    // MARK: - Undecodable messages
+
+    /// The `last_hash` each retrieve sent, in order; empty for a retrieve sent with no cursor
+    var sentRetrieveCursors: [String] {
+        sentBatchBodies.flatMap { body -> [String] in
+            guard
+                let json: [String: Any] = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+                let requests: [[String: Any]] = json["requests"] as? [[String: Any]]
+            else { return [] }
+
+            return requests
+                .filter { ($0["method"] as? String) == Network.StorageServer.Endpoint.getMessages.path }
+                .compactMap { ($0["params"] as? [String: Any])?["last_hash"] as? String }
+        }
+    }
+
+    private var _decodeCount: Int = 0
+
+    /// Decode the group messages namespace's messages by position, in the order the node returned them, repeating for each poll
+    ///
+    /// By position because the decode generator carries nothing that identifies the message. Where `decodable` is `false`
+    /// the content is not a protobuf, so the message fails to parse the way an undecodable payload does
+    func stubDecodes(_ decodable: [Bool]) async throws {
+        let content = SNProtoContent.builder()
+        let dataMessage = SNProtoDataMessage.builder()
+        dataMessage.setBody("Test")
+        content.setDataMessage(try dataMessage.build())
+        let validContent: Data = try content.build().serializedData()
+
+        try await mockCrypto
+            .when {
+                try $0.tryGenerate(
+                    .decodedMessage(
+                        encodedMessage: Data.any,
+                        origin: .swarm(
+                            publicKey: .any,
+                            namespace: .groupMessages,
+                            serverHash: .any,
+                            serverTimestampMs: .any,
+                            serverExpirationTimestamp: .any
+                        )
+                    )
+                )
+            }
+            .thenReturn { [weak self] _ in
+                let index: Int = (self?.lock.withLock { () -> Int in
+                    defer { self?._decodeCount += 1 }
+                    return (self?._decodeCount ?? 0)
+                } ?? 0)
+
+                return DecodedMessage(
+                    content: (decodable[index % decodable.count] ? validContent : Data([0xFF, 0xFF, 0xFF])),
+                    sender: SessionId(.standard, hex: TestConstants.blind15PublicKey),
+                    decodedPro: nil,
+                    decodedEnvelope: nil,
+                    sentTimestampMs: 1234567890
+                )
+            }
+    }
+
+    // MARK: - Config jobs
+
+    var mockJobRunner: MockJobRunner { mock(for: .jobRunner) }
+    @ThreadSafeObject private var capturedJobs: [Job] = []
+
+    /// The jobs the poller handed to the job runner, in order
+    var addedJobs: [Job] { capturedJobs }
+
+    /// The hashes carried by the first `ConfigMessageReceiveJob` the poller added, in order
+    var addedConfigJobHashes: [String] {
+        guard
+            let details: Data = addedJobs.first(where: { $0.variant == .configMessageReceive })?.details,
+            let decoded: ConfigMessageReceiveJob.Details = try? JSONDecoder(using: dependencies)
+                .decode(ConfigMessageReceiveJob.Details.self, from: details)
+        else { return [] }
+
+        return decoded.messages.map { $0.serverHash }
+    }
+
+    /// Record every job added rather than running it
+    func stubJobRunnerAdds() async throws {
+        try await mockJobRunner
+            .when { $0.add(.any, job: .any, initialDependencies: .any) }
+            .thenReturn { [weak self] args -> Job? in
+                if let job: Job = args[1] as? Job {
+                    self?._capturedJobs.performUpdate { $0 + [job] }
+                }
+
+                return nil
+            }
+    }
+
+    /// Process a response from `snode` for `groupId`'s `namespace`, storing the messages and handling them the way a normal poll does
+    func processSnodeResponse(
+        namespace: Network.StorageServer.Namespace,
+        hashes: [String]
+    ) async throws -> PollResult<SwarmPoller.PollResponse> {
+        let messages: [Network.StorageServer.Message] = hashes.map { hash in
+            Network.StorageServer.Message(
+                snode: snode,
+                publicKey: groupId.hexString,
+                namespace: namespace,
+                rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
+                    base64EncodedDataString: Data([1, 2, 3]).base64EncodedString(),
+                    expirationMs: 9999999999999,
+                    hash: hash,
+                    timestampMs: 1234567890
+                )
+            )!
+        }
+
+        return try await mockStorage.write { [snode, groupId, dependencies] db in
+            SwarmPoller.processPollResponse(
+                db,
+                cat: .poller,
+                source: .snode(snode),
+                swarmPublicKey: groupId.hexString,
+                shouldStoreMessages: true,
+                ignoreDedupeFiles: false,
+                forceSynchronousProcessing: false,
+                sortedMessages: [(namespace: namespace, messages: messages, lastHash: nil)],
+                using: dependencies
+            ).2
+        }
     }
 
     /// Run `reset` inside the poll's own write transaction, from the decode of the first message in the messages namespace -
