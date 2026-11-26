@@ -54,7 +54,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Log.info(.cat, "sceneWillEnterForeground.")
         appDelegate?.dependencies.notifyAsync(key: .sceneLifecycle(.willEnterForeground))
         
-        guard let appDelegate else { return }
+        /// When hosting unit tests the app skips its startup, and `appReadiness` reports ready immediately, so carrying on would
+        /// create the real network and connect to it while the tests run
+        guard let appDelegate, !SNUtilitiesKit.isRunningTests else { return }
         
         /// **Note:** We _shouldn't_ need to call this here but for some reason the OS doesn't seems to
         /// be calling the `userNotificationCenter(_:,didReceive:withCompletionHandler:)`
