@@ -582,20 +582,22 @@ public class ExtensionHelper: ExtensionHelperType {
             }
     }
     
-    public func loadUserConfigState(
+    @discardableResult public func loadUserConfigState(
         into cache: LibSessionCacheType,
         userSessionId: SessionId,
         userEd25519SecretKey: [UInt8]
-    ) {
+    ) -> Set<ConfigDump.Variant> {
         guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
             forKey: .extensionEncryptionKey,
             length: encryptionKeyLength,
             cat: .cat
         )).map({ Array($0) }) else {
             Log.error(.cat, "Failed to retrieve encryption key when loading user config state")
-            return
+            return []
         }
         defer { encKey.resetBytes(in: 0..<encKey.count) }
+        
+        var loadedFromReplica: Set<ConfigDump.Variant> = []
         
         ConfigDump.Variant.userVariants
             .sorted { $0.loadOrder < $1.loadOrder }
@@ -625,7 +627,10 @@ public class ExtensionHelper: ExtensionHelperType {
                 }
                 
                 cache.setConfig(for: variant, sessionId: userSessionId, to: config)
+                loadedFromReplica.insert(variant)
             }
+        
+        return loadedFromReplica
     }
     
     public func loadGroupConfigStateIfNeeded(
@@ -1392,11 +1397,12 @@ public protocol ExtensionHelperType {
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
     func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
     func removeConfigDumps(for sessionId: SessionId)
-    func loadUserConfigState(
+    /// Returns the variants which were loaded from a replica (any others are left in their default state)
+    @discardableResult func loadUserConfigState(
         into cache: LibSessionCacheType,
         userSessionId: SessionId,
         userEd25519SecretKey: [UInt8]
-    )
+    ) -> Set<ConfigDump.Variant>
     func loadGroupConfigStateIfNeeded(
         into cache: LibSessionCacheType,
         swarmPublicKey: String,

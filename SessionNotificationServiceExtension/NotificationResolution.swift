@@ -23,6 +23,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToDuplicateCall(String)
     case ignoreDueToContentSize(Network.PushNotification.NotificationMetadata)
     case ignoreDueToCryptoError(CryptoError)
+    case ignoreDueToRemovedGroup
     
     case errorTimeout
     case errorNotReadyForExtensions
@@ -59,6 +60,8 @@ enum NotificationResolution: CustomStringConvertible {
                 
             case .ignoreDueToCryptoError(let error):
                 return "Ignored: Crypto error occurred: \(error)"
+                
+            case .ignoreDueToRemovedGroup: return "Ignored: Group the user no longer has"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
@@ -81,7 +84,7 @@ enum NotificationResolution: CustomStringConvertible {
                 .ignoreDueToSelfSend, .ignoreDueToNonLegacyGroupLegacyNotification,
                 .ignoreDueToOutdatedMessage, .ignoreDueToRequiresNoNotification,
                 .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage, .ignoreDueToDuplicateCall,
-                .ignoreDueToContentSize, .ignoreDueToCryptoError:
+                .ignoreDueToContentSize, .ignoreDueToCryptoError, .ignoreDueToRemovedGroup:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:

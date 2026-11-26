@@ -1111,6 +1111,29 @@ public extension LibSession.Cache {
     }
 }
 
+public extension LibSessionCacheType {
+    /// Whether a push notification for `groupSessionId` is for a group the user no longer has (removed, including by another
+    /// device, or kicked from or destroyed), in which case nothing could be shown for it but a generic notification
+    ///
+    /// The subscription for such a group can outlive it, so this exists to drop those pushes, but dropping a push for a group the
+    /// user does have would lose a real notification, so this errs towards `false`:
+    /// - a `userGroups` config which wasn't loaded from a replica is an empty default, in which every group looks removed
+    /// - with any of the group's config state loaded the notification could still be processed
+    func isNotificationForRemovedGroup(
+        groupSessionId: SessionId,
+        userGroupsLoadedFromReplica: Bool,
+        loadedGroupConfigs: [ConfigDump.Variant: Bool]
+    ) -> Bool {
+        guard
+            groupSessionId.prefix == .group,
+            userGroupsLoadedFromReplica,
+            !loadedGroupConfigs.values.contains(true)
+        else { return false }
+        
+        return !hasCredentials(groupSessionId: groupSessionId)
+    }
+}
+
 // MARK: - Convenience
 
 public extension LibSession {

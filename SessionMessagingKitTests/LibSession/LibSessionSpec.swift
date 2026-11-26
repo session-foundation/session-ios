@@ -723,6 +723,119 @@ class LibSessionSpec: AsyncSpec {
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
             }
+            
+            // MARK: -- when checking whether a notification is for a removed group
+            context("when checking whether a notification is for a removed group") {
+                @TestState var cache: LibSession.Cache!
+                @TestState var groupSessionId: SessionId! = SessionId(.group, hex: String(repeating: "ab", count: 32))
+                @TestState var noGroupConfigsLoaded: [ConfigDump.Variant: Bool]! = [
+                    .groupKeys: false, .groupInfo: false, .groupMembers: false
+                ]
+                
+                beforeEach {
+                    /// A real cache (with its own config) so membership is answered by libSession rather than a stub
+                    cache = LibSession.Cache(
+                        userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        using: dependencies
+                    )
+                    var conf: UnsafeMutablePointer<config_object>!
+                    var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+                    _ = user_groups_init(&conf, &secretKey, nil, 0, nil)
+                    cache.setConfig(
+                        for: .userGroups,
+                        sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                        to: .userGroups(conf)
+                    )
+                }
+                
+                func addGroup(authData: Data?) throws {
+                    try LibSession.upsert(
+                        groups: [
+                            LibSession.GroupUpdateInfo(
+                                groupSessionId: groupSessionId.hexString,
+                                name: "TestGroup",
+                                authData: authData
+                            )
+                        ],
+                        in: cache.config(for: .userGroups, sessionId: SessionId(.standard, hex: TestConstants.publicKey)),
+                        using: dependencies
+                    )
+                }
+                
+                // MARK: ---- is true for a group which is not in the user groups config
+                it("is true for a group which is not in the user groups config") {
+                    try addGroup(authData: Data(repeating: 1, count: 100))
+                    
+                    expect(
+                        cache.isNotificationForRemovedGroup(
+                            groupSessionId: SessionId(.group, hex: String(repeating: "cd", count: 32)),
+                            userGroupsLoadedFromReplica: true,
+                            loadedGroupConfigs: noGroupConfigsLoaded
+                        )
+                    ).to(beTrue())
+                }
+                
+                // MARK: ---- is true for a group which has no credentials (kicked or destroyed)
+                it("is true for a group which has no credentials (kicked or destroyed)") {
+                    try addGroup(authData: Data(repeating: 1, count: 100))
+                    try cache.markAsKicked(groupSessionIds: [groupSessionId.hexString])
+                    
+                    expect(
+                        cache.isNotificationForRemovedGroup(
+                            groupSessionId: groupSessionId,
+                            userGroupsLoadedFromReplica: true,
+                            loadedGroupConfigs: noGroupConfigsLoaded
+                        )
+                    ).to(beTrue())
+                }
+                
+                // MARK: ---- is false for a group the user has
+                it("is false for a group the user has") {
+                    /// Includes a group whose config state hasn't been created yet, eg. one the extension just auto-approved
+                    try addGroup(authData: Data(repeating: 1, count: 100))
+                    
+                    expect(
+                        cache.isNotificationForRemovedGroup(
+                            groupSessionId: groupSessionId,
+                            userGroupsLoadedFromReplica: true,
+                            loadedGroupConfigs: noGroupConfigsLoaded
+                        )
+                    ).to(beFalse())
+                }
+                
+                // MARK: ---- is false when the user groups config was not loaded from a replica
+                it("is false when the user groups config was not loaded from a replica") {
+                    expect(
+                        cache.isNotificationForRemovedGroup(
+                            groupSessionId: groupSessionId,
+                            userGroupsLoadedFromReplica: false,
+                            loadedGroupConfigs: noGroupConfigsLoaded
+                        )
+                    ).to(beFalse())
+                }
+                
+                // MARK: ---- is false when any of the group config state was loaded
+                it("is false when any of the group config state was loaded") {
+                    expect(
+                        cache.isNotificationForRemovedGroup(
+                            groupSessionId: groupSessionId,
+                            userGroupsLoadedFromReplica: true,
+                            loadedGroupConfigs: [.groupKeys: true, .groupInfo: false, .groupMembers: false]
+                        )
+                    ).to(beFalse())
+                }
+                
+                // MARK: ---- is false for a swarm which is not a group
+                it("is false for a swarm which is not a group") {
+                    expect(
+                        cache.isNotificationForRemovedGroup(
+                            groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            userGroupsLoadedFromReplica: true,
+                            loadedGroupConfigs: [:]
+                        )
+                    ).to(beFalse())
+                }
+            }
         }
     }
 }
