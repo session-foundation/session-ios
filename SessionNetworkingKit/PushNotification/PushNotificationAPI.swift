@@ -98,28 +98,54 @@ public extension Network.PushNotification {
         using dependencies: Dependencies
     ) async throws -> UnsubscribeResponse {
         guard !swarms.isEmpty else { return UnsubscribeResponse(subResponses: []) }
-                
-        do {
-            let request: Network.PreparedRequest<UnsubscribeResponse> = try Network.PreparedRequest(
-                request: Request(
-                    method: .post,
-                    endpoint: Endpoint.unsubscribe,
-                    body: UnsubscribeRequest(
-                        subscriptions: swarms.map { _, authMethod -> UnsubscribeRequest.Subscription in
-                            UnsubscribeRequest.Subscription(
-                                serviceInfo: ServiceInfo(
-                                    token: token.toHexString()
-                                ),
-                                authMethod: authMethod,
-                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000) // Seconds
-                            )
-                        }
-                    ),
-                    retryCount: Network.PushNotification.maxRetryCount
+        
+        let request: Network.PreparedRequest<UnsubscribeResponse>
+        
+        do { request = try preparedUnsubscribe(token: token, swarms: swarms, using: dependencies) }
+        catch {
+            Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications due to error: \(error).")
+            throw error
+        }
+        
+        return try await unsubscribe(request, swarms: swarms, using: dependencies)
+    }
+    
+    /// The signatures are generated here rather than when the request is sent, so this can be called while the swarm's auth is
+    /// still available (eg. a group member's signature needs the group's keys config, which removing the group unloads)
+    static func preparedUnsubscribe(
+        token: Data,
+        swarms: [SwarmInfo],
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<UnsubscribeResponse> {
+        return try Network.PreparedRequest(
+            request: Request(
+                method: .post,
+                endpoint: Endpoint.unsubscribe,
+                body: UnsubscribeRequest(
+                    subscriptions: swarms.map { _, authMethod -> UnsubscribeRequest.Subscription in
+                        UnsubscribeRequest.Subscription(
+                            serviceInfo: ServiceInfo(
+                                token: token.toHexString()
+                            ),
+                            authMethod: authMethod,
+                            timestamp: (dependencies.networkOffsetTimestampMs() / 1000) // Seconds
+                        )
+                    }
                 ),
-                responseType: UnsubscribeResponse.self,
-                using: dependencies
-            )
+                retryCount: Network.PushNotification.maxRetryCount
+            ),
+            responseType: UnsubscribeResponse.self,
+            using: dependencies
+        )
+    }
+    
+    /// `swarms` must be the ones `request` was prepared with, in the same order, as the response is matched to them by position
+    static func unsubscribe(
+        _ request: Network.PreparedRequest<UnsubscribeResponse>,
+        swarms: [SwarmInfo],
+        using dependencies: Dependencies
+    ) async throws -> UnsubscribeResponse {
+        do {
             let response: UnsubscribeResponse = try await request.send(using: dependencies)
             
             zip(response.subResponses, swarms).forEach { subResponse, swarmInfo in

@@ -1328,11 +1328,12 @@ class ExtensionHelperSpec: AsyncSpec {
                             .thenReturn(config)
                     }
                     
-                    extensionHelper.loadUserConfigState(
+                    let loadedFromReplica: Set<ConfigDump.Variant> = extensionHelper.loadUserConfigState(
                         into: mockLibSessionCache,
                         userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
                         userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
+                    expect(loadedFromReplica).to(equal([.userProfile, .userGroups, .contacts, .convoInfoVolatile]))
                     await mockLibSessionCache
                         .verify {
                             $0.setConfig(
@@ -1387,11 +1388,12 @@ class ExtensionHelperSpec: AsyncSpec {
                         }
                         .thenReturn(nil)
                     
-                    extensionHelper.loadUserConfigState(
+                    let loadedFromReplica: Set<ConfigDump.Variant> = extensionHelper.loadUserConfigState(
                         into: mockLibSessionCache,
                         userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
                         userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
+                    expect(loadedFromReplica).to(beEmpty())
                     await mockLibSessionCache
                         .verify {
                             $0.loadDefaultStateFor(

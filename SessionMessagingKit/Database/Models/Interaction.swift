@@ -533,6 +533,8 @@ public extension Interaction {
         
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
+        let contact: TypedTableAlias<Contact> = TypedTableAlias()
+        let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
         let request: SQLRequest<Int64> = """
             SELECT \(interaction[.id])
             FROM \(Interaction.self)
@@ -547,7 +549,12 @@ public extension Interaction {
                     \(thread[.mutedUntilTimestamp]) < \(dependencies.dateNow.timeIntervalSince1970)
                 )
             )
+            -- Only count conversations the home screen shows (eg. not hidden ones or blocked contacts), otherwise
+            -- the badge can show unread messages the user has no way to find
+            LEFT JOIN \(Contact.self) ON \(contact[.id]) = \(thread[.id])
+            LEFT JOIN \(ClosedGroup.self) ON \(closedGroup[.threadId]) = \(thread[.id])
             WHERE (
+                \(ConversationInfoViewModel.homeFilterSQL(userSessionId: dependencies[cache: .general].sessionId)) AND
                 \(interaction[.wasRead]) = false AND
                 \(interaction[.variant]) IN \(Interaction.Variant.variantsToIncrementUnreadCount) AND (
                     -- Only count mentions if 'onlyNotifyForMentions' is set

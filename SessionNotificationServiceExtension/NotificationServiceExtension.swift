@@ -72,10 +72,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         var processedNotification: ProcessedNotification = (self.cachedNotificationInfo, nil, "", nil, nil)
         
         do {
-            let mainAppUnreadCount: Int = try performSetup(notificationInfo)
-            notificationInfo = notificationInfo.with(mainAppUnreadCount: mainAppUnreadCount)
+            let setupResult: SetupResult = try performSetup(notificationInfo)
+            notificationInfo = notificationInfo.with(mainAppUnreadCount: setupResult.mainAppUnreadCount)
             notificationInfo = try extractNotificationInfo(notificationInfo)
-            try setupGroupIfNeeded(notificationInfo)
+            try setupGroupIfNeeded(notificationInfo, userConfigsLoadedFromReplica: setupResult.userConfigsLoadedFromReplica)
             
             /// Cache the last updated timestamps for the config dumps so we don't read it from disk in `canPerformChange` when
             /// handling messages
@@ -121,7 +121,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
     }
 
-    private func performSetup(_ info: NotificationInfo) throws -> Int {
+    private func performSetup(_ info: NotificationInfo) throws -> SetupResult {
         LibSession.clearLoggers()
         LibSession.setupLogger(using: dependencies)
         
@@ -154,7 +154,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             userSessionId: userMetadata.sessionId,
             using: dependencies
         )
-        dependencies[singleton: .extensionHelper].loadUserConfigState(
+        let userConfigsLoadedFromReplica: Set<ConfigDump.Variant> = dependencies[singleton: .extensionHelper].loadUserConfigState(
             into: cache,
             userSessionId: userMetadata.sessionId,
             userEd25519SecretKey: userMetadata.ed25519SecretKey
@@ -167,10 +167,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// stored in there
         dependencies.set(singleton: .notificationsManager, to: NSENotificationPresenter(using: dependencies))
         
-        return userMetadata.unreadCount
+        return (userMetadata.unreadCount, userConfigsLoadedFromReplica)
     }
     
-    private func setupGroupIfNeeded(_ info: NotificationInfo) throws {
+    private func setupGroupIfNeeded(
+        _ info: NotificationInfo,
+        userConfigsLoadedFromReplica: Set<ConfigDump.Variant>
+    ) throws {
         let loadResult: [ConfigDump.Variant: Bool] = try dependencies.mutate(cache: .libSession) { cache in
             try dependencies[singleton: .extensionHelper].loadGroupConfigStateIfNeeded(
                 into: cache,
@@ -180,12 +183,27 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Log the result if it is a notification for a group
-        if (try? SessionId(from: info.metadata.accountId).prefix) == .group {
-            let resultString: String = ConfigDump.Variant.groupVariants
-                .map { "\($0): \(loadResult[$0] ?? false)" }
-                .joined(separator: ", ")
-            Log.info(.cat, "Setup group \(info.metadata.accountId) config state (\(resultString)) for requestId: \(info.requestId).")
+        guard
+            let groupSessionId: SessionId = try? SessionId(from: info.metadata.accountId),
+            groupSessionId.prefix == .group
+        else { return }
+        
+        let resultString: String = ConfigDump.Variant.groupVariants
+            .map { "\($0): \(loadResult[$0] ?? false)" }
+            .joined(separator: ", ")
+        Log.info(.cat, "Setup group \(info.metadata.accountId) config state (\(resultString)) for requestId: \(info.requestId).")
+        
+        /// A subscription can outlive the group (eg. one removed by another device), so drop pushes for groups we no longer have
+        /// rather than showing a generic notification which opens an empty conversation
+        let isForRemovedGroup: Bool = dependencies.mutate(cache: .libSession) { cache in
+            cache.isNotificationForRemovedGroup(
+                groupSessionId: groupSessionId,
+                userGroupsLoadedFromReplica: userConfigsLoadedFromReplica.contains(.userGroups),
+                loadedGroupConfigs: loadResult
+            )
         }
+        
+        guard !isForRemovedGroup else { throw NotificationError.removedGroup }
     }
     
     // MARK: - Notification Handling
@@ -1084,6 +1102,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             case (NotificationError.notReadyForExtension, _, _):
                 self.completeSilenty(info, .errorNotReadyForExtensions)
                 
+            case (NotificationError.removedGroup, _, _):
+                self.completeSilenty(info, .ignoreDueToRemovedGroup)
+                
             case (NotificationError.processingErrorWithFallback(let result, let errorMetadata), _, _):
                 self.handleFailure(
                     info.with(metadata: errorMetadata),
@@ -1482,6 +1503,11 @@ private extension NotificationServiceExtension {
         }
     }
     
+    typealias SetupResult = (
+        mainAppUnreadCount: Int,
+        userConfigsLoadedFromReplica: Set<ConfigDump.Variant>
+    )
+    
     typealias ProcessedNotification = (
         info: NotificationInfo,
         processedMessage: ProcessedMessage?,
@@ -1494,6 +1520,7 @@ private extension NotificationServiceExtension {
         case notReadyForExtension
         case processingErrorWithFallback(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
         case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata, Int?)
+        case removedGroup
         case timeout
     }
 }

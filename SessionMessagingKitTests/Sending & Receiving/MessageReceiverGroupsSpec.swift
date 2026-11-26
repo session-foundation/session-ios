@@ -3080,6 +3080,155 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
+                // MARK: ---- and the user groups config no longer has the group's auth
+                context("and the user groups config no longer has the group's auth") {
+                    beforeEach {
+                        try await fixture.mockUserDefaults
+                            .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
+                            .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
+                        try await fixture.mockLibSessionCache
+                            .when { $0.authData(groupSessionId: .any) }
+                            .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: nil))
+                    }
+                    
+                    // MARK: ------ unsubscribes using the auth stored for the group
+                    it("unsubscribes using the auth stored for the group") {
+                        try await fixture.mockStorage.write { db in
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: fixture.groupId,
+                                plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
+                                using: fixture.dependencies
+                            )
+                        }
+                        
+                        await fixture.mockNetwork
+                            .verify {
+                                try await $0.send(
+                                    endpoint: Network.PushNotification.Endpoint.unsubscribe,
+                                    destination: .server(
+                                        method: .post,
+                                        server: Network.PushNotification.server,
+                                        queryParameters: [:],
+                                        headers: [:],
+                                        x25519PublicKey: Network.PushNotification.serverPublicKey
+                                    ),
+                                    body: try! JSONEncoder(using: fixture.dependencies).encode(
+                                        Network.PushNotification.UnsubscribeRequest(
+                                            subscriptions: [
+                                                Network.PushNotification.UnsubscribeRequest.Subscription(
+                                                    serviceInfo: Network.PushNotification.ServiceInfo(
+                                                        token: Data([5, 4, 3, 2, 1]).toHexString()
+                                                    ),
+                                                    authMethod: Authentication.groupMember(
+                                                        groupSessionId: fixture.groupId,
+                                                        authData: Data([1, 2, 3])
+                                                    ),
+                                                    timestamp: 1234567890
+                                                )
+                                            ]
+                                        )
+                                    ),
+                                    category: .standard,
+                                    requestTimeout: Network.defaultTimeout,
+                                    overallTimeout: nil
+                                )
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                    }
+                    
+                    // MARK: ------ signs the unsubscribe before the group state can be removed
+                    it("signs the unsubscribe before the group state can be removed") {
+                        /// A group member's signature needs the group's keys config, which the user groups merge unloads as soon as
+                        /// `removeData` returns, so the signature has to be generated synchronously within it (a detached task can
+                        /// win that race in a spec, so check the thread rather than the timing)
+                        final class SignatureRecorder: @unchecked Sendable {
+                            private let lock: NSLock = NSLock()
+                            private var _removingThread: Thread?
+                            private var _signedOnRemovingThread: [Bool] = []
+                            var signedOnRemovingThread: [Bool] { lock.withLock { _signedOnRemovingThread } }
+                            func startRemoving() { lock.withLock { _removingThread = Thread.current } }
+                            func recordSignature() {
+                                lock.withLock { _signedOnRemovingThread.append(Thread.current === _removingThread) }
+                            }
+                        }
+                        let recorder: SignatureRecorder = SignatureRecorder()
+                        try await fixture.mockCrypto
+                            .when { $0.generate(.signatureSubaccount(config: .any, verificationBytes: .any, memberAuthData: .any)) }
+                            .thenReturn { _ in
+                                recorder.recordSignature()
+                                
+                                return Authentication.Signature.subaccount(
+                                    subaccount: "TestSubAccount".bytes,
+                                    subaccountSig: "TestSubAccountSignature".bytes,
+                                    signature: "TestSignature".bytes
+                                )
+                            }
+                        
+                        try await fixture.mockStorage.write { db in
+                            recorder.startRemoving()
+                            try ClosedGroup.removeData(
+                                db,
+                                threadIds: [fixture.groupId.hexString],
+                                dataToRemove: [.poller, .pushNotifications, .messages, .members, .authDetails],
+                                using: fixture.dependencies
+                            )
+                        }
+                        
+                        await fixture.mockNetwork
+                            .verify {
+                                try await $0.send(
+                                    endpoint: Network.PushNotification.Endpoint.unsubscribe,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                        expect(recorder.signedOnRemovingThread).to(equal([true]))
+                    }
+                    
+                    // MARK: ------ logs and skips the unsubscribe when the group has no stored auth either
+                    it("logs and skips the unsubscribe when the group has no stored auth either") {
+                        let mockLogger: MockLogger = MockLogger()
+                        Log.setup(with: mockLogger)
+                        await expect { Log.loggerExists(withPrefix: mockLogger.primaryPrefix) }
+                            .toEventually(beTrue(), timeout: .milliseconds(100))
+                        
+                        try await fixture.mockStorage.write { db in
+                            try ClosedGroup.updateAll(db, ClosedGroup.Columns.authData.set(to: nil))
+                            try MessageReceiver.handleGroupDelete(
+                                db,
+                                groupSessionId: fixture.groupId,
+                                plaintext: fixture.deleteMessage,
+                                serverTimestampMs: nil,
+                                using: fixture.dependencies
+                            )
+                        }
+                        
+                        await expect { await mockLogger.logs.filter { $0.level == .warn }.map { $0.message } }
+                            .toEventually(
+                                contain("Skipping unsubscribe for 1 removed group(s) with no auth data."),
+                                timeout: .milliseconds(100)
+                            )
+                        await fixture.mockNetwork
+                            .verify {
+                                try await $0.send(
+                                    endpoint: Network.PushNotification.Endpoint.unsubscribe,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasNotCalled()
+                    }
+                }
+                
                 // MARK: ---- and the group is an invitation
                 context("and the group is an invitation") {
                     beforeEach {

@@ -84,8 +84,8 @@ class MockExtensionHelper: ExtensionHelperType, Mockable {
         into cache: LibSessionCacheType,
         userSessionId: SessionId,
         userEd25519SecretKey: [UInt8]
-    ) {
-        handler.mockNoReturn(args: [cache, userSessionId, userEd25519SecretKey])
+    ) -> Set<ConfigDump.Variant> {
+        return handler.mock(args: [cache, userSessionId, userEd25519SecretKey])
     }
     
     func loadGroupConfigStateIfNeeded(

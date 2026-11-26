@@ -187,22 +187,34 @@ public extension Authentication {
                     libSession.authData(groupSessionId: SessionId(.group, hex: swarmPublicKey))
                 }
                 
-                switch (authData.groupIdentityPrivateKey, authData.authData) {
-                    case (.some(let privateKey), _) where !privateKey.isEmpty:
-                        return Authentication.groupAdmin(
-                            groupSessionId: sessionId,
-                            ed25519SecretKey: Array(privateKey)
-                        )
-                        
-                    case (_, .some(let authData)) where !authData.isEmpty:
-                        return Authentication.groupMember(
-                            groupSessionId: sessionId,
-                            authData: authData
-                        )
-                        
-                    default: throw CryptoError.invalidAuthentication
-                }
-                
+                return try Authentication.with(
+                    groupSessionId: sessionId,
+                    groupIdentityPrivateKey: authData.groupIdentityPrivateKey,
+                    authData: authData.authData
+                )
+            
+            default: throw CryptoError.invalidAuthentication
+        }
+    }
+    
+    static func with(
+        groupSessionId: SessionId,
+        groupIdentityPrivateKey: Data?,
+        authData: Data?
+    ) throws -> AuthenticationMethod {
+        switch (groupIdentityPrivateKey, authData) {
+            case (.some(let privateKey), _) where !privateKey.isEmpty:
+                return Authentication.groupAdmin(
+                    groupSessionId: groupSessionId,
+                    ed25519SecretKey: Array(privateKey)
+                )
+            
+            case (_, .some(let authData)) where !authData.isEmpty:
+                return Authentication.groupMember(
+                    groupSessionId: groupSessionId,
+                    authData: authData
+                )
+            
             default: throw CryptoError.invalidAuthentication
         }
     }
