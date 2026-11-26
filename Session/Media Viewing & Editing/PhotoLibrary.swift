@@ -152,7 +152,11 @@ class PhotoCollectionContents {
         pixelDimension: CGFloat,
         using dependencies: Dependencies
     ) async -> ImageDataManager.DataSource? {
-        var hasResumed: Bool = false
+        /// PhotoKit can call a request's result handler more than once, and on different threads (eg. synchronously on the
+        /// requesting thread while another result is being delivered elsewhere), so the check and the set must be one atomic
+        /// step or two calls can both resume the continuation, which crashes
+        let hasResumed: ThreadSafe<Bool> = ThreadSafe(false)
+        let claimResume: () -> Bool = { hasResumed.performUpdateAndMap { (true, !$0) } }
         
         /// The `requestImage` function will always return a static thumbnail so if it's an animated image then we need custom
         /// handling (the default PhotoKit resizing can't resize animated images so we need to do it ourselves)
@@ -170,17 +174,14 @@ class PhotoCollectionContents {
                     }
 
                     imageManager.requestImageDataAndOrientation(for: asset, options: options) { data, uti, orientation, info in
-                        guard !hasResumed else { return }
+                        guard claimResume() else { return }
                         
                         guard let data = data, info?[PHImageErrorKey] == nil else {
                             Log.error("[PhotoLibrary] Failed to retrieve animated image due to error: \(info?[PHImageErrorKey] ?? "Unknown error")")
-                            hasResumed = true
                             continuation.resume(returning: nil)
                             return
                         }
                         
-                        // Successfully fetched the data
-                        hasResumed = true
                         continuation.resume(returning: data)
                     }
                 }
@@ -222,13 +223,13 @@ class PhotoCollectionContents {
                         contentMode: .aspectFill,
                         options: options
                     ) { image, info in
-                        guard !hasResumed else { return }
                         guard
                             info?[PHImageErrorKey] == nil,
                             (info?[PHImageCancelledKey] as? Bool) != true
                         else {
+                            guard claimResume() else { return }
+                            
                             Log.error("[PhotoLibrary] Failed to retrieve image thumbnail due to error: \(info?[PHImageErrorKey] ?? "Unknown error")")
-                            hasResumed = true
                             return continuation.resume(returning: nil)
                         }
                         
@@ -241,8 +242,9 @@ class PhotoCollectionContents {
                                 
                         }
                         
+                        guard claimResume() else { return }
+                        
                         continuation.resume(returning: .image("\(asset.localIdentifier)-\(size)", image))
-                        hasResumed = true
                     }
                 }
         }
