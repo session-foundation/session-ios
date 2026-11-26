@@ -771,6 +771,7 @@
 		FD5D201E27B0D87C00FEA984 /* SessionId.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5D201D27B0D87C00FEA984 /* SessionId.swift */; };
 		FD5E93D22C12B0580038C25A /* AppVersionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4383727B3863200C60D73 /* AppVersionResponse.swift */; };
 		FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */; };
+		90F2C71316196EE1F81F5339 /* InteractionSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5541CD84F4A10CD23F15D255 /* InteractionSpec.swift */; };
 		FD636C672E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C662E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift */; };
 		FD65318A2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318D2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
@@ -2540,6 +2541,7 @@
 		FD5CE3442A3C5D96001A6DE3 /* DecryptExportedKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecryptExportedKey.swift; sourceTree = "<group>"; };
 		FD5D201D27B0D87C00FEA984 /* SessionId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionId.swift; sourceTree = "<group>"; };
 		FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMemberSpec.swift; sourceTree = "<group>"; };
+		5541CD84F4A10CD23F15D255 /* InteractionSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionSpec.swift; sourceTree = "<group>"; };
 		FD61FCFA2D34A5DE005752DE /* _023_SplitSnodeReceivedMessageInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _023_SplitSnodeReceivedMessageInfo.swift; sourceTree = "<group>"; };
 		FD636C662E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPFragmentParam+FileServer.swift"; sourceTree = "<group>"; };
 		FD6531892AA025C500DFEEAA /* TestDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDependencies.swift; sourceTree = "<group>"; };
@@ -5101,6 +5103,7 @@
 			isa = PBXGroup;
 			children = (
 				FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */,
+				5541CD84F4A10CD23F15D255 /* InteractionSpec.swift */,
 				FD981BCA2DC4A21800564172 /* MessageDeduplicationSpec.swift */,
 			);
 			path = Models;
@@ -8573,6 +8576,7 @@
 				FD83B9C527CF3E2A005E1583 /* OpenGroupSpec.swift in Sources */,
 				FD23CE342A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */,
+				90F2C71316196EE1F81F5339 /* InteractionSpec.swift in Sources */,
 				FDC2908B27D707F3005DAE71 /* SendSOGSMessageRequestSpec.swift in Sources */,
 				FDEF308E2F2971B30004C5BD /* MockGeneralCache.swift in Sources */,
 				FDEF30A22F2974370004C5BD /* MockUserDefaults.swift in Sources */,
