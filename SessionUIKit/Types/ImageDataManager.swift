@@ -231,6 +231,10 @@ public actor ImageDataManager: ImageDataManagerType {
                 Task.detached(priority: .background) {
                     let allFrames: [UIImage] = await result.allFramesOnceLoaded()
                     
+                    /// Frames can be missing if decoding stopped due to low memory, and saving them would replace the animated
+                    /// thumbnail with a partial one
+                    guard allFrames.count == result.frameCount else { return }
+                    
                     saveThumbnailToDisk(
                         name: url.lastPathComponent,
                         frames: allFrames,
@@ -298,13 +302,14 @@ public actor ImageDataManager: ImageDataManagerType {
         return .up
     }
     
-    private static func createBuffer(
+    internal static func createBuffer(
         _ source: CGImageSource,
         orientation: UIImage.Orientation,
         sourceWidth: Int,
         sourceHeight: Int,
         maxDimensionInPixels: CGFloat? = nil,
-        customLoaderGenerator: (() async -> AsyncLoadStream.Loader?)? = nil
+        customLoaderGenerator: (() async -> AsyncLoadStream.Loader?)? = nil,
+        availableMemory: @escaping @Sendable () -> Int? = { ImageDataManager.availableMemory() }
     ) async -> FrameBuffer? {
         /// Get the number of frames in the image
         let count: Int = CGImageSourceGetCount(source)
@@ -325,20 +330,11 @@ public actor ImageDataManager: ImageDataManagerType {
         /// the RAM usage of the standard lazy loading (as buffers need to be allocated and image data copied during the pre-decode),
         /// in order to avoid this we check if the estimated pre-decoded image RAM usage is smaller than `80%` of the currently
         /// available RAM and if not we just rely on lazy `UIImage` loading and the OS
-        let hasEnoughMemoryToPreDecode: Bool = {
-            #if targetEnvironment(simulator)
-            /// On the simulator `os_proc_available_memory` seems to always return `0` so just assume we have enough memort
-            return true
-            #else
-            let estimatedMemorySize: Int = (sourceWidth * sourceHeight * 4)
-            let estimatedMemorySizeToLoad: Int = (estimatedMemorySize * 3)
-            let currentAvailableMemory: Int = os_proc_available_memory()
-            
-            return (estimatedMemorySizeToLoad < Int(floor(CGFloat(currentAvailableMemory) * 0.8)))
-            #endif
-        }()
+        let hasEnoughMemoryToDecode: @Sendable () -> Bool = {
+            hasMemoryToDecode(sourceWidth: sourceWidth, sourceHeight: sourceHeight, availableMemory: availableMemory())
+        }
         
-        guard hasEnoughMemoryToPreDecode else {
+        guard hasEnoughMemoryToDecode() else {
             return FrameBuffer(
                 image: UIImage(cgImage: firstFrameCgImage, scale: 1, orientation: orientation)
             )
@@ -377,7 +373,8 @@ public actor ImageDataManager: ImageDataManagerType {
                 source: source,
                 durations: durations,
                 maxDimensionInPixels: maxDimensionInPixels,
-                using: decodingContext
+                using: decodingContext,
+                hasEnoughMemoryToDecode: hasEnoughMemoryToDecode
             )
             let lastBufferedFrameIndex: Int = (
                 frameIndexesToBuffer.max() ??
@@ -398,10 +395,18 @@ public actor ImageDataManager: ImageDataManagerType {
             probeFrames.removeAll(keepingCapacity: false)
             
             /// Load in any additional buffer frames needed
+            ///
+            /// If memory runs low we stop decoding and keep the frames we have (the image stops animating) rather than crash
+            var stoppedForLowMemory: Bool = false
+            
             for i in frameIndexesToBuffer {
                 guard !Task.isCancelled else {
                     await stream.cancel()
                     return
+                }
+                guard hasEnoughMemoryToDecode() else {
+                    stoppedForLowMemory = true
+                    break
                 }
                 
                 var decodedFrame: UIImage?
@@ -423,14 +428,15 @@ public actor ImageDataManager: ImageDataManagerType {
             }
             
             /// Now that we have buffered enough frames we can start the animation
-            if !Task.isCancelled {
+            if !Task.isCancelled && !stoppedForLowMemory {
                 await stream.send(.readyToAnimate)
             }
             
             /// Start loading the remaining frames (`+ 1` as we want to start from the index after the last buffered index)
-            if lastBufferedFrameIndex < count {
+            if lastBufferedFrameIndex < count && !stoppedForLowMemory {
                 for i in (lastBufferedFrameIndex + 1)..<count {
                     if Task.isCancelled { break }
+                    guard hasEnoughMemoryToDecode() else { break }
                     
                     var decodedFrame: UIImage?
                     autoreleasepool {
@@ -464,6 +470,27 @@ public actor ImageDataManager: ImageDataManagerType {
             shouldAutoPurgeIfEstimatedCostExceedsLimit: ImageDataManager.maxCachableSize,
             generateLoadClosure: { await customLoaderGenerator?() ?? standardLoaderGenerator }
         )
+    }
+    
+    /// ImageIO allocates a buffer the size of the whole canvas for every frame it decodes and doesn't check whether that allocation
+    /// succeeded, so decoding while memory is low crashes inside ImageIO instead of failing
+    internal static func hasMemoryToDecode(sourceWidth: Int, sourceHeight: Int, availableMemory: Int?) -> Bool {
+        /// If we can't tell how much memory is available then assume there is enough
+        guard let availableMemory: Int = availableMemory else { return true }
+        
+        let estimatedMemorySize: Int = (sourceWidth * sourceHeight * 4)
+        let estimatedMemorySizeToLoad: Int = (estimatedMemorySize * 3)
+        
+        return (estimatedMemorySizeToLoad < Int(floor(CGFloat(availableMemory) * 0.8)))
+    }
+    
+    internal static func availableMemory() -> Int? {
+        #if targetEnvironment(simulator)
+        /// On the simulator `os_proc_available_memory` seems to always return `0` so we can't use it
+        return nil
+        #else
+        return os_proc_available_memory()
+        #endif
     }
     
     private static func createCGImage(
@@ -562,7 +589,8 @@ public actor ImageDataManager: ImageDataManagerType {
         source: CGImageSource,
         durations: [TimeInterval],
         maxDimensionInPixels: CGFloat?,
-        using context: CGContext
+        using context: CGContext,
+        hasEnoughMemoryToDecode: () -> Bool
     ) async -> (frameIndexesToBuffer: [Int], probeFrames: [UIImage]) {
         let probeFrameCount: Int = 8    /// Number of frames to decode in order to calculate the approx. time to load each frame
         let safetyMargin: Double = 4    /// Number of extra frames to be buffered just in case
@@ -576,6 +604,8 @@ public actor ImageDataManager: ImageDataManagerType {
         
         /// Need to skip the first image as it has already been decoded (so using it would throw off the heuristic)
         for i in startIndex..<(startIndex + probeFrameCount) {
+            guard hasEnoughMemoryToDecode() else { return ([], probeFrames) }
+            
             autoreleasepool {
                 guard
                     let cgImage = createCGImage(source, index: i, maxDimensionInPixels: maxDimensionInPixels),
