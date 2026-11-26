@@ -270,6 +270,7 @@
 		A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */; };
 		A7D0C1A50000000000000003 /* ConversationViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D0C1A50000000000000004 /* ConversationViewModelSpec.swift */; };
 		A7D0C1A50000000000000005 /* VoiceMessageViewSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D0C1A50000000000000006 /* VoiceMessageViewSpec.swift */; };
+		A7D0C1A60000000000000001 /* DisappearingMessageTimerViewSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D0C1A60000000000000002 /* DisappearingMessageTimerViewSpec.swift */; };
 		A7D0C1A50000000000000007 /* DocumentViewSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D0C1A50000000000000008 /* DocumentViewSpec.swift */; };
 		A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4F17A06537000A904E /* AddressBookUI.framework */; };
 		A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C32D4D17A0652C000A904E /* AddressBook.framework */; };
@@ -2072,6 +2073,7 @@
 		A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageInfoTruncationSpec.swift; sourceTree = "<group>"; };
 		A7D0C1A50000000000000004 /* ConversationViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModelSpec.swift; sourceTree = "<group>"; };
 		A7D0C1A50000000000000006 /* VoiceMessageViewSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceMessageViewSpec.swift; sourceTree = "<group>"; };
+		A7D0C1A60000000000000002 /* DisappearingMessageTimerViewSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisappearingMessageTimerViewSpec.swift; sourceTree = "<group>"; };
 		A7D0C1A50000000000000008 /* DocumentViewSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewSpec.swift; sourceTree = "<group>"; };
 		A1C32D4D17A0652C000A904E /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
 		A1C32D4F17A06537000A904E /* AddressBookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBookUI.framework; path = System/Library/Frameworks/AddressBookUI.framework; sourceTree = SDKROOT; };
@@ -5363,6 +5365,7 @@
 				A1B2C3D40003E5F600A00003 /* MessageInfoTruncationSpec.swift */,
 				A7D0C1A50000000000000004 /* ConversationViewModelSpec.swift */,
 				A7D0C1A50000000000000006 /* VoiceMessageViewSpec.swift */,
+				A7D0C1A60000000000000002 /* DisappearingMessageTimerViewSpec.swift */,
 				A7D0C1A50000000000000008 /* DocumentViewSpec.swift */,
 			);
 			path = Conversations;
@@ -8387,6 +8390,7 @@
 				A1B2C3D40004E5F600A00004 /* MessageInfoTruncationSpec.swift in Sources */,
 				A7D0C1A50000000000000003 /* ConversationViewModelSpec.swift in Sources */,
 				A7D0C1A50000000000000005 /* VoiceMessageViewSpec.swift in Sources */,
+				A7D0C1A60000000000000001 /* DisappearingMessageTimerViewSpec.swift in Sources */,
 				A7D0C1A50000000000000007 /* DocumentViewSpec.swift in Sources */,
 				FDEF307B2F29712B0004C5BD /* Mocked+SUK.swift in Sources */,
 				FDF0DF7A2F4D6DC6000D6041 /* TestFileHandle.swift in Sources */,

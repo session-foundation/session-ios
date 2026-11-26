@@ -11,6 +11,7 @@ class DisappearingMessageTimerView: UIView {
     // MARK: - Animation
     private var animationTimer: Timer?
     private var progress: Int = 12 // 0 == about to expire, 12 == just started countdown.
+    private var displayedProgress: Int?
     
     // MARK: - UI
     private var iconImageView: UIImageView = {
@@ -41,8 +42,8 @@ class DisappearingMessageTimerView: UIView {
         self.expirationTimestampMs = expirationTimestampMs
         self.initialDurationSeconds = initialDurationSeconds
         
-        self.updateProgress(using: dependencies)
         self.startAnimation(using: dependencies)
+        self.updateProgress(using: dependencies)
     }
     
     private func updateProgress(using dependencies: Dependencies) {
@@ -56,13 +57,23 @@ class DisappearingMessageTimerView: UIView {
         let progressRatio: Double = self.initialDurationSeconds > 0 ? secondsLeft / self.initialDurationSeconds : 0
         
         self.progress = Int(round(min(progressRatio, 1) * 12))
-        self.updateIcon()
+        
+        /// The timer ticks every 0.1s but the icon only has 13 states, so only redraw when the state changes
+        if self.progress != self.displayedProgress {
+            self.updateIcon()
+        }
+        
+        /// Once expired the icon can't change again, so there is no need to keep ticking
+        if secondsLeft <= 0 {
+            self.clearAnimation()
+        }
     }
     
     // stringlint:ignore_contents
     private func updateIcon() {
         let imageName: String = "disappearing_message_\(String(format: "%02d", 5 * self.progress))"
         self.iconImageView.image = UIImage(named: imageName)?.withRenderingMode(.alwaysTemplate)
+        self.displayedProgress = self.progress
     }
     
     private func startAnimation(using dependencies: Dependencies) {
