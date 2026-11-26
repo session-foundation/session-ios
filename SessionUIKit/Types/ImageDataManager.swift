@@ -839,7 +839,7 @@ public extension ImageDataManager {
             self.otherFrames = []
         }
         
-        fileprivate init(
+        internal init(
             firstFrame: UIImage,
             durations: [TimeInterval],
             shouldAutoPurgeIfEstimatedCostExceedsLimit cacheLimit: Int,
@@ -915,25 +915,22 @@ public extension ImageDataManager {
         }
         
         private func loadIfNeeded() {
-            let needsLoad: Bool = {
+            guard let generateLoadClosure = generateLoadClosure else { return }
+            
+            /// This gets called for every frame shown, so callers (eg. two views showing the same image) can race; the check and the
+            /// claim need to happen under the same lock, otherwise both can start a loader and the cancelled one ends the other's stream
+            let shouldLoad: Bool = {
                 lock.lock()
                 defer { lock.unlock() }
                 
-                return (
-                    !_isLoading && (
-                        _framesPurged ||
-                        !_isComplete
-                    )
-                )
+                guard !_isLoading && (_framesPurged || !_isComplete) else { return false }
+                
+                _isLoading = true
+                _framesPurged = false
+                return true
             }()
             
-            guard needsLoad, let generateLoadClosure = generateLoadClosure else { return }
-            
-            /// Update the loading and purged states
-            lock.lock()
-            _isLoading = true
-            _framesPurged = false
-            lock.unlock()
+            guard shouldLoad else { return }
             
             Task.detached { [weak self] in
                 guard let self else { return }
